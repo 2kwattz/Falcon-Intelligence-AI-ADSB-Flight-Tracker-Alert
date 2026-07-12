@@ -7,6 +7,7 @@ const helmet = require("helmet"); // Basic Security
 const xss = require("xss"); // Cross Site Scripting Prevention
 const hpp = require("hpp"); // HTTP Parameter Pollution Protection
 const http = require("http"); // Inbuilt Http Server
+const fs = require("fs");
 const { Server } = require("socket.io"); // Socket.io Web Socket Server
 const multer = require("multer"); // File Handling Library
 const { expressMiddleware } = require('@as-integrations/express5'); // Apollo Express Bridge
@@ -15,7 +16,9 @@ const morgan = require("morgan"); // Requests Logger
 const winston = require("winston"); // Overall Logger
 // const swaggerUi = require("swagger-ui-express"); // Swagger UI
 // const swaggerSpec = require("../config/swagger"); // Swagger Configuration
-const authMiddleware = require("../middlewares/authMiddleware")
+const authMiddleware = require("../middlewares/authMiddleware");
+
+const { ADSB_FLIGHT_JSON_URL } = require("../utils/globals.js");
 
 
 // Custom Middlewares
@@ -74,7 +77,7 @@ async function startServer() {
         app.use(sqlInjectionGuard); // Additional Layer of SQL Injection Defence Mechanism & IP Logger
         app.use(fakeServerHeaders); // Spoof headers. Confuses Attacker
         app.use(hpp()); // Prevents HTTP Parameter Pollution
- 
+
 
         // Multer File Storage Configuration
 
@@ -189,6 +192,30 @@ async function startServer() {
 
             // Yet to add listeners
         })
+
+        // Checking for ADSB JSON Every second fr web socket connection until the file is found
+        const interval = setInterval(() => {
+
+            console.log("[*] Searching for ADSB JSON File for Web Socket connection")
+    if (fs.existsSync(ADSB_FLIGHT_JSON_URL)) {
+
+        console.log("aircraft.json found.");
+
+        fs.watchFile(ADSB_FLIGHT_JSON_URL, () => {
+
+            const latestData = JSON.parse(
+                fs.readFileSync(ADSB_FLIGHT_JSON_URL, "utf8")
+            );
+
+            io.emit("aircraft-data", latestData);
+
+        });
+
+        clearInterval(interval);
+
+    }
+
+}, 5000);
 
         // Redis Check 
 

@@ -11,8 +11,10 @@ const fetchAircrafts = async () =>{
 
     // Fetching ADSB Aircraft Data from RTL SDR 
       console.log(response.data.aircraft);
+      return response.data.aircraft;
 } 
 
+// Aircraft ADSB Data for HTTP Polling
 router.get("/aircrafts", authMiddleware, async function (req,res) {
     try{
         console.log("[*] ADSB Aircrafts JSON Route Hit");
@@ -43,7 +45,9 @@ router.get("/aircrafts", authMiddleware, async function (req,res) {
     })
 }
     
-})
+});
+
+// Web Socket ADSB Data
 
 
 module.exports = router;
