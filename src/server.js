@@ -193,29 +193,19 @@ async function startServer() {
             // Yet to add listeners
         })
 
-        // Checking for ADSB JSON Every second fr web socket connection until the file is found
-        const interval = setInterval(() => {
+      const axios = require("axios");
 
-            console.log("[*] Searching for ADSB JSON File for Web Socket connection")
-    if (fs.existsSync(ADSB_FLIGHT_JSON_URL)) {
+setInterval(async () => {
+    try {
+        const { data } = await axios.get(
+            "http://localhost/VirtualRadar/AircraftList.json"
+        );
 
-        console.log("aircraft.json found.");
-
-        fs.watchFile(ADSB_FLIGHT_JSON_URL, () => {
-
-            const latestData = JSON.parse(
-                fs.readFileSync(ADSB_FLIGHT_JSON_URL, "utf8")
-            );
-
-            io.emit("aircraft-data", latestData);
-
-        });
-
-        clearInterval(interval);
-
+        io.emit("aircraft-data", data);
+    } catch (err) {
+        console.error(err.message);
     }
-
-}, 5000);
+}, 1000);
 
         // Redis Check 
 

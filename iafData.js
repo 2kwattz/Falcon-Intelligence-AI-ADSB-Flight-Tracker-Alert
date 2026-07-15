@@ -1,14 +1,14 @@
 const iafData = {
     "allAircraft": {
-        "Airbus C-295W": [
-            {
-                "Registration": "CA-7106",
-                "AircraftType": "Airbus C-295W",
-                "TypeCode": "C295",
-                "AircraftOperator": "IndianAirForce",
-                "HexCode": "8016E5"
-            }
-        ],
+        // "Airbus C-295W": [
+        //     {
+        //         "Registration": "CA-7106",
+        //         "AircraftType": "Airbus C-295W",
+        //         "TypeCode": "C295",
+        //         "AircraftOperator": "IndianAirForce",
+        //         "HexCode": "8016E5"
+        //     }
+        // ],
         "C-130J Hercules": [
             {
                 "Registration": "VUAIL",
@@ -484,22 +484,22 @@ const iafData = {
                 "HexCode": "800440"
             }
         ],
-        "An32": [
-            {
-                "Registration": "VUMPG",
-                "AircraftType": "An32",
-                "TypeCode": "AN32",
-                "AircraftOperator": "IndianAirForce",
-                "HexCode": "385aaf10"
-            },
-            {
-                "Registration": "VUDXD",
-                "AircraftType": "An32",
-                "TypeCode": "AN32",
-                "AircraftOperator": "IndianAirForce",
-                "HexCode": "385b3e9e"
-            }
-        ]
+        // "An32": [
+        //     {
+        //         "Registration": "VUMPG",
+        //         "AircraftType": "An32",
+        //         "TypeCode": "AN32",
+        //         "AircraftOperator": "IndianAirForce",
+        //         "HexCode": "385aaf10"
+        //     },
+        //     {
+        //         "Registration": "VUDXD",
+        //         "AircraftType": "An32",
+        //         "TypeCode": "AN32",
+        //         "AircraftOperator": "IndianAirForce",
+        //         "HexCode": "385b3e9e"
+        //     }
+        // ]
     }
 };
 
