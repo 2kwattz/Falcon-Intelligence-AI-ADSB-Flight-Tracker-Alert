@@ -33,6 +33,7 @@
     "resend": "^6.17.2",
     "socket.io": "^4.8.3",
     "swagger-ui-express": "^5.0.1",
+    "twilio": "^6.0.2",
     "ua-parser-js": "^2.0.10",
     "winston": "^3.19.0",
     "ws": "^8.21.0",
