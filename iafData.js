@@ -481,7 +481,7 @@ const iafData = {
                 "AircraftType": "Airbus A321-211",
                 "TypeCode": "A321",
                 "AircraftOperator": "IndianAirForce",
-                "HexCode": "800440"
+                "HexCode": "800CE4"
             }
         ],
         // "An32": [

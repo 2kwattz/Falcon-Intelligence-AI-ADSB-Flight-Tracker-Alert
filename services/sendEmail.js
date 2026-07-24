@@ -22,7 +22,7 @@ async function sendEmail(toEmail, subject, html) {
             html
         });
 
-        console.log(`[*] sendEmail Triggered. ${response}`);
+        console.log(`[*] sendEmail Triggered. ${JSON.stringify(response)}`);
         return response;
 
     } catch (error) {

@@ -5,7 +5,7 @@ const authMiddleware = require("../middlewares/authMiddleware"); // Auth Middlew
 const axios = require("axios"); // HTTP Request Maker
 const { ADSB_FLIGHT_JSON_URL } = require("../utils/globals")
 const iafData = require("../iafData");
-
+const flightAlertTemplate = require("../templates/flightAlertTemplate")
 const sendEmail = require("../services/sendEmail"); // Email Service
 
 const twilio = require("twilio");
@@ -21,6 +21,60 @@ const numbersToCall = [
     process.env.ANMOL_BHAI_PHONE,
     // process.env.ISHAN_BHAI_PHONE,
 ];
+
+const ALERT_EXPIRY_SECONDS = 20 * 60;
+
+async function shouldTriggerCall(hexCode, phoneNumber) {
+    const key = `flight-alert:call:${hexCode}:${phoneNumber}`;
+
+    const result = await redisClient.set(
+        key,
+        Date.now(),
+        "EX",
+        ALERT_EXPIRY_SECONDS,
+        "NX"
+    );
+
+    return result === "OK";
+}
+
+async function shouldTriggerEmail(hexCode, email) {
+    const key = `flight-alert:email:${hexCode}:${email}`;
+
+    const result = await redisClient.set(
+        key,
+        Date.now(),
+        "EX",
+        ALERT_EXPIRY_SECONDS,
+        "NX"
+    );
+
+    return result === "OK";
+}
+
+
+async function cacheAircraft(redis, aircraft) {
+    const icao = normalizeHexCode(aircraft?.Icao);
+
+    if (!icao) return;
+
+    const result = await redis.set(
+        `aircraft:${icao}`,
+        JSON.stringify({
+            ...aircraft,
+            updatedAt: new Date().toISOString()
+        }),
+        "EX",
+        30 * 60, // 30 minutes
+        "NX"
+    );
+
+    if (result === "OK") {
+        console.log(`[REDIS] STORED ${icao} (${aircraft.Reg || "Unknown"})`);
+    } else {
+        console.log(`[REDIS] SKIPPED ${icao} (${aircraft.Reg || "Unknown"}) - already cached`);
+    }
+}
 
 const VoiceResponse = twilio.twiml.VoiceResponse;
 
@@ -51,24 +105,29 @@ const buildIafAircraftHexLookup = () => {
 }
 
 const iafAircraftByHexCode = buildIafAircraftHexLookup();
-
-const logIafAircraftMatches = (adsbAircrafts = []) => {
+const logIafAircraftMatches = async (adsbAircrafts = []) => {
     if (!Array.isArray(adsbAircrafts)) {
         return [];
     }
 
     const matches = [];
 
-    adsbAircrafts.forEach((adsbAircraft) => {
+    for (const adsbAircraft of adsbAircrafts) {
+        await cacheAircraft(redisClient, adsbAircraft);
+
+        console.log("Cached Aircrafts ",cacheAircraft)
+
         const icao = normalizeHexCode(adsbAircraft?.Icao);
 
         if (!icao || !iafAircraftByHexCode.has(icao)) {
-            return;
+            continue;
         }
+
 
         const matchedAircrafts = iafAircraftByHexCode.get(icao);
 
-        matchedAircrafts.forEach((iafAircraft) => {
+        for (const iafAircraft of matchedAircrafts) {
+
             const match = {
                 hexCode: icao,
                 registration: iafAircraft.Registration,
@@ -81,54 +140,95 @@ const logIafAircraftMatches = (adsbAircrafts = []) => {
             };
 
             matches.push(match);
-            console.log("[*] Tracked aircraft from iafData detected in ADS-B feed:", match);
 
-              response = VoiceResponse()
-                    response.say(
-                        `Hello, this is a call from 2kwattz Falcon Intelligence.  ${match.aircraftType} ${match.registration} of ${match.operator}
-                        is within 100 miles of Vadodara at ${match.altitude}. Grab your camera and start shooting `,
-                        voice="alice"
-                    )
+            console.log("[*] Tracked aircraft from iafData detected:", match);
 
-            for (const number of numbersToCall) {
+            const response = new VoiceResponse();
 
-                await client.calls.create({
-                    to: number,
-                    from: "+12792392187",
-                    twiml: response.toString()
-                });
+            response.say(
+                `Hello, this is a call from 2kwattz Falcon Intelligence. ${match.aircraftType} ${match.registration} of ${match.operator} is within 100 miles of Vadodara at ${match.altitude}. Grab your camera and start shooting.`,
+                {
+                    voice: "alice"
+                }
+            );
 
-                await sleep(2000);
-            }
+            // Calls
+            // for (const number of numbersToCall) {
 
-            await sleep(2000);
+            // try {
 
+            // const shouldCall = await shouldTriggerCall(match.hexCode, number);
 
+            //         if (!shouldCall) {
+            //             console.log(`[CALL] Skipping ${number}`);
+            //             continue;
+            //         }
 
-            const emailsToSend = ["prakashbhatia1970@gmail.com"]
+            //         console.log(`[CALL] Calling ${number}`);
 
-            // Email Subject
-            const subject = `🚨 Flight Alert | ${match.registration} (${match.aircraftType}) detected within 100 km of Vadodara`;
+            //         await client.calls.create({
+            //             to: number,
+            //             from: "+12792392187",
+            //             twiml: response.toString()
+            //         });
+
+            //     }
+            //     catch (err) {
+            //         console.error("[CALL ERROR]", err.message);
+            //     }
+
+            // }
+
+            // Emails
+
+            const transporter = nodemailer.createTransport({
+                service: "gmail",
+                auth: {
+                    user: process.env.GMAIL_SMTP,
+                    pass: process.env.GMAIL_PASS
+                }
+            });
+
+            const emailsToSend = [
+                "roshan.bhatia.blueera@gmail.com"
+            ];
 
             for (const email of emailsToSend) {
 
-                await sendEmail(
-                    email,
-                    `Falcon Intelligence Flight Alert | ${match.registration} (${match.aircraftType}) within 100 km of Vadodara`,
-                    flightAlertTemplate(match)
-                );
+                try {
+
+                    const shouldEmail = await shouldTriggerEmail(match.hexCode, email);
+
+                    if (!shouldEmail) {
+                        console.log(`[EMAIL] Skipping ${email}`);
+                        continue;
+                    }
+
+                    await sendEmail(
+                        email,
+                        `Falcon Intelligence Flight Alert | ${match.registration} (${match.aircraftType}) within 100 km of Vadodara`,
+                        flightAlertTemplate(match)
+                    );
+
+                    console.log(`[EMAIL] Sent to ${email}`);
+
+                }
+                catch (err) {
+                    console.error("[EMAIL ERROR]", err.message);
+                }
+
             }
 
+        }
 
-        });
-    });
+    }
 
     if (matches.length === 0) {
-        console.log("[*] No preselected aircraft in Vadodara airspace");
+        // console.log("[*] No preselected aircraft in Vadodara airspace");
     }
 
     return matches;
-}
+};
 
 const fetchAircrafts = async () => {
 
@@ -137,10 +237,15 @@ const fetchAircrafts = async () => {
     // Fetching ADSB Aircraft Data from RTL SDR 
     const aircrafts = response.data?.acList;
 
-    if (Array.isArray(aircrafts)) {
-        logIafAircraftMatches(aircrafts);
-    }
+    console.log("Aircraft received:", aircrafts.length);
 
+for (const a of aircrafts) {
+    console.log(a.Icao, a.Reg);
+}
+
+    if (Array.isArray(aircrafts)) {
+        await logIafAircraftMatches(aircrafts);
+    }
     return aircrafts;
 }
 
@@ -169,7 +274,7 @@ const startAdsbTracking = () => {
 startAdsbTracking();
 
 // Aircraft ADSB Data for HTTP Polling
-router.get("/aircrafts", authMiddleware, async function (req, res) {
+router.get("/aircrafts", async function (req, res) {
     try {
         console.log("[*] ADSB Aircrafts JSON Route Hit");
         const adsbAircraftsJson = await fetchAircrafts();
