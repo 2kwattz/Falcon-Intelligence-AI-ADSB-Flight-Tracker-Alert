@@ -54,7 +54,7 @@ async function shouldTriggerEmail(hexCode, email) {
 
 
 async function cacheAircraft(redis, aircraft) {
-    const icao = normalizeHexCode(aircraft?.Icao);
+    const icao = normalizeHexCode(aircraft?.hex);
 
     if (!icao) return;
 
@@ -70,9 +70,9 @@ async function cacheAircraft(redis, aircraft) {
     );
 
     if (result === "OK") {
-        console.log(`[REDIS] STORED ${icao} (${aircraft.Reg || "Unknown"})`);
+        console.log(`[REDIS] STORED ${icao} (${aircraft.flight || "Unknown"})`);
     } else {
-        console.log(`[REDIS] SKIPPED ${icao} (${aircraft.Reg || "Unknown"}) - already cached`);
+        console.log(`[REDIS] SKIPPED ${icao} (${aircraft.flight || "Unknown"}) - already cached`);
     }
 }
 
@@ -115,9 +115,9 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
     for (const adsbAircraft of adsbAircrafts) {
         await cacheAircraft(redisClient, adsbAircraft);
 
-        console.log("Cached Aircrafts ",cacheAircraft)
-
-        const icao = normalizeHexCode(adsbAircraft?.Icao);
+     console.log("Cached Aircraft:", adsbAircraft);
+        // const icao = normalizeHexCode(adsbAircraft?.Icao); VRS
+        const icao = normalizeHexCode(adsbAircraft?.hex); // READASB
 
         if (!icao || !iafAircraftByHexCode.has(icao)) {
             continue;
@@ -133,10 +133,10 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
                 registration: iafAircraft.Registration,
                 aircraftType: iafAircraft.AircraftType,
                 operator: iafAircraft.AircraftOperator,
-                altitude: adsbAircraft.Alt,
-                speed: adsbAircraft.Spd,
-                track: adsbAircraft.Trak,
-                squawk: adsbAircraft.Sqk
+               altitude: adsbAircraft.Alt,
+speed: adsbAircraft.Spd,
+track: adsbAircraft.Trak,
+squawk: adsbAircraft.Sqk
             };
 
             matches.push(match);
@@ -153,31 +153,31 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
             );
 
             // Calls
-            // for (const number of numbersToCall) {
+            for (const number of numbersToCall) {
 
-            // try {
+            try {
 
-            // const shouldCall = await shouldTriggerCall(match.hexCode, number);
+            const shouldCall = await shouldTriggerCall(match.hexCode, number);
 
-            //         if (!shouldCall) {
-            //             console.log(`[CALL] Skipping ${number}`);
-            //             continue;
-            //         }
+                    if (!shouldCall) {
+                        console.log(`[CALL] Skipping ${number}`);
+                        continue;
+                    }
 
-            //         console.log(`[CALL] Calling ${number}`);
+                    console.log(`[CALL] Calling ${number}`);
 
-            //         await client.calls.create({
-            //             to: number,
-            //             from: "+12792392187",
-            //             twiml: response.toString()
-            //         });
+                    await client.calls.create({
+                        to: number,
+                        from: "+12792392187",
+                        twiml: response.toString()
+                    });
 
-            //     }
-            //     catch (err) {
-            //         console.error("[CALL ERROR]", err.message);
-            //     }
+                }
+                catch (err) {
+                    console.error("[CALL ERROR]", err.message);
+                }
 
-            // }
+            }
 
             // Emails
 
@@ -235,12 +235,17 @@ const fetchAircrafts = async () => {
     const response = await axios.get(ADSB_FLIGHT_JSON_URL);
 
     // Fetching ADSB Aircraft Data from RTL SDR 
-    const aircrafts = response.data?.acList;
+    // const aircrafts = response.data?.acList; Virtual Radar Config
+    const aircrafts = response.data?.aircraft || []; // Readsb Config
 
     console.log("Aircraft received:", aircrafts.length);
 
+// for (const a of aircrafts) {
+//     console.log(a.Icao, a.Reg);
+// }
+
 for (const a of aircrafts) {
-    console.log(a.Icao, a.Reg);
+    console.log(a.hex, a.flight?.trim());
 }
 
     if (Array.isArray(aircrafts)) {
