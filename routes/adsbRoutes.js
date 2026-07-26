@@ -190,7 +190,8 @@ squawk: adsbAircraft.Sqk
             });
 
             const emailsToSend = [
-                "roshan.bhatia.blueera@gmail.com"
+                "prakashbhatia1970@gmail.com",
+                
             ];
 
             for (const email of emailsToSend) {
