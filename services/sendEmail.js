@@ -1,5 +1,6 @@
 const { Resend } = require("resend");
 
+
 // DOTENV Configuration
 const dotenv = require("dotenv");
 dotenv.config();

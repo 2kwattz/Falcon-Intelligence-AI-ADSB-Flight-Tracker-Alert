@@ -7,6 +7,7 @@ const { ADSB_FLIGHT_JSON_URL } = require("../utils/globals")
 const iafData = require("../iafData");
 const flightAlertTemplate = require("../templates/flightAlertTemplate")
 const sendEmail = require("../services/sendEmail"); // Email Service
+const nodemailer = require("nodemailer")
 
 const twilio = require("twilio");
 
@@ -17,12 +18,64 @@ const client = twilio(
 
 const numbersToCall = [
     process.env.ROSHAN_BHAI_PHONE,
-    process.env.RISHI_BHAI_PHONE,
-    process.env.ANMOL_BHAI_PHONE,
-    // process.env.ISHAN_BHAI_PHONE,
+    // process.env.RISHI_BHAI_PHONE,
+    // process.env.ANMOL_BHAI_PHONE,
+    process.env.ISHAN_BHAI_PHONE,
 ];
 
 const ALERT_EXPIRY_SECONDS = 20 * 60;
+
+const AIRCRAFT_METADATA_WAIT_SECONDS = 10;
+
+async function shouldWaitForAircraftMetadata(aircraft) {
+    const icao = normalizeHexCode(aircraft?.hex);
+
+
+    if (!icao) return false;
+
+    // Already has all important fields
+    if (aircraft.flight) {
+        return false;
+    }
+
+    const key = `aircraft:firstseen:${icao}`;
+
+    const firstSeen = await redisClient.get(key);
+
+    // First time seeing this aircraft
+    if (!firstSeen) {
+        await redisClient.set(
+            key,
+            Date.now(),
+            "EX",
+            AIRCRAFT_METADATA_WAIT_SECONDS + 5
+        );
+
+        return true;
+    }
+
+    const elapsedSeconds =
+        (Date.now() - Number(firstSeen)) / 1000;
+
+    if (elapsedSeconds < AIRCRAFT_METADATA_WAIT_SECONDS) {
+        return true;
+    }
+
+    // Wait time exceeded.
+    // Send email even if metadata is incomplete.
+    return false;
+}
+
+
+// Nodemailer Transporter
+
+const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+        user: process.env.GMAIL_SMTP,
+        pass: process.env.GMAIL_SMTP_PASSWORD
+    }
+})
 
 async function shouldTriggerCall(hexCode, phoneNumber) {
     const key = `flight-alert:call:${hexCode}:${phoneNumber}`;
@@ -113,32 +166,147 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
     const matches = [];
 
     for (const adsbAircraft of adsbAircrafts) {
+        const icao = normalizeHexCode(adsbAircraft?.hex);
+
+        // ---
+
+        // const waitForMetadata = await shouldWaitForAircraftMetadata(adsbAircraft);
+
+        // if (waitForMetadata) {
+        //     console.log(`[WAIT] ${icao} waiting for registration/type...`);
+        //     continue;
+        // }
+
+
+
+        // const exists = await redisClient.exists(`aircraft:${icao}`);
+
+        // if (!exists) {
+
+
+        //     const match = {
+        //         hexCode: adsbAircraft.Id,
+        //         registration: adsbAircraft?.Reg,
+        //         aircraftType: adsbAircraft?.Type,
+        //         operator: adsbAircraft?.Op,
+        //         callsign: adsbAircraft?.Call,
+        //         altitude: adsbAircraft?.Alt,
+        //         groundAltitude: adsbAircraft?.GAlt,
+        //         speed: adsbAircraft?.Spd,
+        //         track: adsbAircraft?.Trak,
+        //         squawk: adsbAircraft?.Sqk,
+        //         country: adsbAircraft?.Cou,
+        //         type: adsbAircraft?.Type,
+        //         manufacturer: adsbAircraft?.Man,
+        //         latitude: adsbAircraft?.Lat,
+        //         longitude: adsbAircraft?.Long,
+        //         year: adsbAircraft?.Year,
+        //         cMessages: adsbAircraft?.CMsgs,
+
+
+
+        //     };
+
+        //     const emailsToSend = [
+        //         "roshan.bhatia.blueera@gmail.com",
+        //         // "anmolv2472000@gmail.com",
+        //         // "thehighroller46@gmail.com"
+        //     ];
+
+
+
+
+        //     for (const email of emailsToSend) {
+
+        //         try {
+
+        //             const key = `flight-alert:email:${icao}:${email}`;
+        //             const shouldEmail = await shouldTriggerEmail(match.hexCode, email);
+
+        //             if (shouldEmail) {
+
+        //                 await transporter.sendMail({
+        //                     from: `Falcon Intelligence`,
+        //                     to: email,
+        //                     subject: `Falcon Intelligence Flight Alert | ${match.registration} (${match.aircraftType}) within 100 km of Vadodara`,
+        //                     html: flightAlertTemplate(match)
+        //                 });
+        //             }
+
+
+
+        //         }
+        //         catch (error) {
+        //             console.log("Error in sending temp mail ", error)
+        //         }
+
+        //     }
+        // }
+        // ---
+
         await cacheAircraft(redisClient, adsbAircraft);
 
-     console.log("Cached Aircraft:", adsbAircraft);
+        console.log("Cached Aircraft:", adsbAircraft);
         // const icao = normalizeHexCode(adsbAircraft?.Icao); VRS
-        const icao = normalizeHexCode(adsbAircraft?.hex); // READASB
 
         if (!icao || !iafAircraftByHexCode.has(icao)) {
             continue;
         }
 
 
+
+
         const matchedAircrafts = iafAircraftByHexCode.get(icao);
 
         for (const iafAircraft of matchedAircrafts) {
 
+
+
             const match = {
                 hexCode: icao,
-                registration: iafAircraft.Registration,
-                aircraftType: iafAircraft.AircraftType,
-                operator: iafAircraft.AircraftOperator,
-               altitude: adsbAircraft.Alt,
-speed: adsbAircraft.Spd,
-track: adsbAircraft.Trak,
-squawk: adsbAircraft.Sqk
-            };
 
+                registration: iafAircraft.Registration,
+
+                aircraftType: iafAircraft.AircraftType,
+
+                operator: iafAircraft.AircraftOperator,
+
+                callsign: adsbAircraft.flight?.trim(),
+
+                altitude: adsbAircraft.alt_baro,
+
+                gpsAltitude: adsbAircraft.alt_geom,
+
+                speed: adsbAircraft.gs,
+
+                ias: adsbAircraft.ias,
+
+                tas: adsbAircraft.tas,
+
+                mach: adsbAircraft.mach,
+
+                heading: adsbAircraft.track,
+
+                trueHeading: adsbAircraft.true_heading,
+
+                magneticHeading: adsbAircraft.mag_heading,
+
+                verticalSpeed: adsbAircraft.baro_rate,
+
+                squawk: adsbAircraft.squawk,
+
+                latitude: adsbAircraft.lat,
+
+                longitude: adsbAircraft.lon,
+
+                emergency: adsbAircraft.emergency,
+
+                category: adsbAircraft.category,
+
+                rssi: adsbAircraft.rssi,
+
+                messages: adsbAircraft.messages
+            };
             matches.push(match);
 
             console.log("[*] Tracked aircraft from iafData detected:", match);
@@ -155,9 +323,9 @@ squawk: adsbAircraft.Sqk
             // Calls
             for (const number of numbersToCall) {
 
-            try {
+                try {
 
-            const shouldCall = await shouldTriggerCall(match.hexCode, number);
+                    const shouldCall = await shouldTriggerCall(match.hexCode, number);
 
                     if (!shouldCall) {
                         console.log(`[CALL] Skipping ${number}`);
@@ -179,19 +347,14 @@ squawk: adsbAircraft.Sqk
 
             }
 
-            // Emails
-
-            const transporter = nodemailer.createTransport({
-                service: "gmail",
-                auth: {
-                    user: process.env.GMAIL_SMTP,
-                    pass: process.env.GMAIL_PASS
-                }
-            });
 
             const emailsToSend = [
                 "prakashbhatia1970@gmail.com",
-                
+
+                "roshan.bhatia.blueera@gmail.com",
+                "anmolv2472000@gmail.com",
+                "thehighroller46@gmail.com",
+                "ishaangangulydpsv@gmail.com"
             ];
 
             for (const email of emailsToSend) {
@@ -210,6 +373,13 @@ squawk: adsbAircraft.Sqk
                         `Falcon Intelligence Flight Alert | ${match.registration} (${match.aircraftType}) within 100 km of Vadodara`,
                         flightAlertTemplate(match)
                     );
+
+                    await transporter.sendMail({
+                        from: `Falcon Intelligence`,
+                        to: email,
+                        subject: `Falcon Intelligence Flight Alert | ${match.registration} (${match.aircraftType}) within 100 km of Vadodara`,
+                        html: flightAlertTemplate(match)
+                    });
 
                     console.log(`[EMAIL] Sent to ${email}`);
 
@@ -241,13 +411,13 @@ const fetchAircrafts = async () => {
 
     console.log("Aircraft received:", aircrafts.length);
 
-// for (const a of aircrafts) {
-//     console.log(a.Icao, a.Reg);
-// }
+    // for (const a of aircrafts) {
+    //     console.log(a.Icao, a.Reg);
+    // }
 
-for (const a of aircrafts) {
-    console.log(a.hex, a.flight?.trim());
-}
+    for (const a of aircrafts) {
+        console.log(a.hex, a.flight?.trim());
+    }
 
     if (Array.isArray(aircrafts)) {
         await logIafAircraftMatches(aircrafts);

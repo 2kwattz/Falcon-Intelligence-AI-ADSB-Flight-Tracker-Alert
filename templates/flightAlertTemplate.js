@@ -14,9 +14,14 @@ function flightAlertTemplate(match) {
         aircraftType: escapeHtml(match.aircraftType || "Unknown"),
         operator: escapeHtml(match.operator || "Unknown"),
         altitude: escapeHtml(match.altitude ?? "Unknown"),
+        groundAltitude: escapeHtml(match.groundAltitude || "Unknown"),
         speed: escapeHtml(match.speed ?? "Unknown"),
         track: escapeHtml(match.track ?? "Unknown"),
         squawk: escapeHtml(match.squawk ?? "Unknown"),
+        latitude: escapeHtml(match.latitude ?? "Error fetching latitude"),
+        longitude: escapeHtml(match.latitude ?? "Error fetching longitude"),
+        country: escapeHtml(match.country ?? "Error fetching country"),
+        cMessages: escapeHtml(match.cMessages ?? "Error fetching cMessages"),
         time: escapeHtml(
             new Date().toISOString().replace("T", " ").replace("Z", " UTC")
         )
