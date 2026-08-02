@@ -492,7 +492,17 @@ const iafData = {
                 "AircraftOperator": "IndianAirForce",
                 "HexCode": "800585"
             },
-        ]
+        ],
+//    "TestAircraft": [
+//             {
+//                 "Registration": "TEST",
+//                 "AircraftType": "TEST",
+//                 "TypeCode": "TEST",
+//                 "AircraftOperator": "TEST",
+//                 "HexCode": "801878"
+//             },
+//         ],
+
         // "An32": [
         //     {
         //         "Registration": "VUMPG",

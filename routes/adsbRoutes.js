@@ -1,6 +1,7 @@
 const express = require("express"); // NodeJs Framework
 const router = express.Router(); // Express Router
 const redisClient = require("../redis/redisClient"); // Caching
+const { cacheTrackedAircraft } = require("../redis/trackedAircraftCache");
 const authMiddleware = require("../middlewares/authMiddleware"); // Auth Middleware
 const axios = require("axios"); // HTTP Request Maker
 const { ADSB_FLIGHT_JSON_URL } = require("../utils/globals")
@@ -18,8 +19,8 @@ const client = twilio(
 
 const numbersToCall = [
     process.env.ROSHAN_BHAI_PHONE,
-    // process.env.RISHI_BHAI_PHONE,
-    // process.env.ANMOL_BHAI_PHONE,
+    process.env.RISHI_BHAI_PHONE,
+    process.env.ANMOL_BHAI_PHONE,
     process.env.ISHAN_BHAI_PHONE,
 ];
 
@@ -244,6 +245,13 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
         // }
         // ---
 
+        try {
+            await cacheTrackedAircraft(adsbAircraft);
+        } catch (error) {
+            // Do not interrupt flight alerts if the dedicated tracking cache is unavailable.
+            console.error("[*] Failed to cache tracked aircraft:", error.message);
+        }
+
         await cacheAircraft(redisClient, adsbAircraft);
 
         console.log("Cached Aircraft:", adsbAircraft);
@@ -261,53 +269,94 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
         for (const iafAircraft of matchedAircrafts) {
 
 
+console.log(JSON.stringify(adsbAircraft, null, 2));
+        const match = {
+    hexCode: adsbAircraft.hex ?? iafAircraft.HexCode,
 
-            const match = {
-                hexCode: icao,
+    registration:
+        adsbAircraft.r ??
+        iafAircraft.Registration,
 
-                registration: iafAircraft.Registration,
+    aircraftType:
+        adsbAircraft.t ??
+        iafAircraft.TypeCode,
 
-                aircraftType: iafAircraft.AircraftType,
+    description:
+        adsbAircraft.desc ??
+        iafAircraft.AircraftType,
 
-                operator: iafAircraft.AircraftOperator,
+    operator:
+        adsbAircraft.ownOp ??
+        iafAircraft.AircraftOperator,
 
-                callsign: adsbAircraft.flight?.trim(),
+    callsign:
+        adsbAircraft.flight?.trim(),
 
-                altitude: adsbAircraft.alt_baro,
+    altitude: adsbAircraft.alt_baro,
+    gpsAltitude: adsbAircraft.alt_geom,
 
-                gpsAltitude: adsbAircraft.alt_geom,
+    groundSpeed: adsbAircraft.gs,
+    ias: adsbAircraft.ias,
+    tas: adsbAircraft.tas,
+    mach: adsbAircraft.mach,
 
-                speed: adsbAircraft.gs,
+    windDirection: adsbAircraft.wd,
+    windSpeed: adsbAircraft.ws,
+    outsideAirTemp: adsbAircraft.oat,
+    totalAirTemp: adsbAircraft.tat,
 
-                ias: adsbAircraft.ias,
+    track: adsbAircraft.track,
+    trackRate: adsbAircraft.track_rate,
+    roll: adsbAircraft.roll,
 
-                tas: adsbAircraft.tas,
+    magneticHeading: adsbAircraft.mag_heading,
+    trueHeading: adsbAircraft.true_heading,
 
-                mach: adsbAircraft.mach,
+    verticalSpeed: adsbAircraft.baro_rate,
+    geometricVerticalSpeed: adsbAircraft.geom_rate,
 
-                heading: adsbAircraft.track,
+    squawk: adsbAircraft.squawk,
 
-                trueHeading: adsbAircraft.true_heading,
+    qnh: adsbAircraft.nav_qnh,
+    selectedAltitude: adsbAircraft.nav_altitude_mcp,
+    selectedHeading: adsbAircraft.nav_heading,
+    navigationModes: adsbAircraft.nav_modes,
 
-                magneticHeading: adsbAircraft.mag_heading,
+    latitude: adsbAircraft.lat,
+    longitude: adsbAircraft.lon,
 
-                verticalSpeed: adsbAircraft.baro_rate,
+    nic: adsbAircraft.nic,
+    rc: adsbAircraft.rc,
+    nicBaro: adsbAircraft.nic_baro,
+    nacP: adsbAircraft.nac_p,
+    nacV: adsbAircraft.nac_v,
 
-                squawk: adsbAircraft.squawk,
+    sil: adsbAircraft.sil,
+    silType: adsbAircraft.sil_type,
 
-                latitude: adsbAircraft.lat,
+    alert: adsbAircraft.alert,
+    spi: adsbAircraft.spi,
 
-                longitude: adsbAircraft.lon,
+    mlat: adsbAircraft.mlat,
+    tisb: adsbAircraft.tisb,
 
-                emergency: adsbAircraft.emergency,
+    version: adsbAircraft.version,
 
-                category: adsbAircraft.category,
+    seen: adsbAircraft.seen,
+    seenPosition: adsbAircraft.seen_pos,
 
-                rssi: adsbAircraft.rssi,
-
-                messages: adsbAircraft.messages
-            };
+    messages: adsbAircraft.messages,
+    rssi: adsbAircraft.rssi
+};
             matches.push(match);
+
+            try {
+                // Include the matched IAF metadata as well as the complete raw
+                // ADS-B/Mode-S payload in the dedicated five-day record.
+                await cacheTrackedAircraft({ ...adsbAircraft, ...match });
+            } catch (error) {
+                console.error("[*] Failed to enrich tracked aircraft cache:", error.message);
+            }
 
             console.log("[*] Tracked aircraft from iafData detected:", match);
 
@@ -350,11 +399,11 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
 
             const emailsToSend = [
                 "prakashbhatia1970@gmail.com",
-
                 "roshan.bhatia.blueera@gmail.com",
                 "anmolv2472000@gmail.com",
                 "thehighroller46@gmail.com",
-                "ishaangangulydpsv@gmail.com"
+                "ishaangangulydpsv@gmail.com",
+                "anmol.saevit@gmail.com"
             ];
 
             for (const email of emailsToSend) {

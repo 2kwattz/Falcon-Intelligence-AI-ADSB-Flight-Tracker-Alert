@@ -1,3 +1,5 @@
+require("dotenv").config(); // DOT ENV Declaration
+
 const express = require("express"); // Node Framework
 const cluster = require("cluster"); // Horizontal Scaling
 const os = require("os"); // CPU/Os Info
@@ -43,9 +45,7 @@ const communityRoutes = require("../routes/communityRouter") // Communities Rout
 const aiRoutes = require("../routes/aiRoutes.js") // AI LLM Routes
 const adminRoutes = require("../routes/adminRoutes.js") // Admin Routes
 const adsbRoutes = require("../routes/adsbRoutes.js");
-
-// Enviornment Variables
-require("dotenv").config(); // DOT ENV Declaration
+const trackedAircraftRoutes = require("../routes/trackedAircraftRoutes.js");
 
 require("../db/conn"); // MySQL Connection
 
@@ -163,6 +163,7 @@ async function startServer() {
         app.use("/ai", aiRoutes); // AI Models Router
         app.use("/admin", adminRoutes) // Admin Router
         app.use("/adsb", adsbRoutes) // Adsb Router
+        app.use("/", trackedAircraftRoutes) // Tracked aircraft cache endpoint
         app.set("trust proxy", false);
 
         // XSS Sanitization Eg

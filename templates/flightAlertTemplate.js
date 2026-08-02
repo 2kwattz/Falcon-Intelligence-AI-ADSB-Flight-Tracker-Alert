@@ -7,24 +7,136 @@ function escapeHtml(value) {
         .replace(/'/g, "&#039;");
 }
 
+function formatIndianStandardTime(date = new Date()) {
+    const formattedTime = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true
+    }).format(date);
+
+    return `${formattedTime} IST`;
+}
+
 function flightAlertTemplate(match) {
+    const hasValue = (value) => {
+        if (Array.isArray(value)) {
+            return value.length > 0;
+        }
+
+        return value !== null && value !== undefined && value !== "";
+    };
+
+    const formatValue = (value, unit = "") => {
+        if (!hasValue(value)) {
+            return "Unknown";
+        }
+
+        const formattedValue = Array.isArray(value) ? value.join(", ") : value;
+        return escapeHtml(`${formattedValue}${unit ? ` ${unit}` : ""}`);
+    };
+
+    const row = (label, value, unit) => `
+<tr>
+<td style="padding:12px 18px;color:#7ea4b3;border-bottom:1px solid #17313c;width:42%;">
+${escapeHtml(label)}
+</td>
+<td style="padding:12px 18px;color:#ffffff;border-bottom:1px solid #17313c;">
+${formatValue(value, unit)}
+</td>
+</tr>`;
+
+    const telemetrySection = (title, fields, includeEmptyFields = false) => {
+        const availableFields = includeEmptyFields
+            ? fields
+            : fields.filter(([, value]) => hasValue(value));
+
+        if (availableFields.length === 0) {
+            return "";
+        }
+
+        return `
+<tr style="background:#0f2430;">
+<td colspan="2" style="padding:14px 18px;color:#67e8f9;font-size:13px;letter-spacing:2px;font-weight:bold;">
+${escapeHtml(title)}
+</td>
+</tr>
+${availableFields.map(([label, value, unit]) => row(label, value, unit)).join("")}`;
+    };
+
+    const telemetrySections = [
+        // These fields have IAF-data fallbacks in adsbRoutes and remain visible
+        // even when the live ADS-B feed has not supplied the corresponding value.
+        telemetrySection("AIRCRAFT IDENTITY", [
+            ["Registration", match.registration],
+            ["ICAO Type Designator", match.aircraftType],
+            ["Aircraft Description", match.description],
+            ["Operator", match.operator],
+            ["Mode-S / Hex", match.hexCode]
+        ], true),
+        telemetrySection("LIVE ADS-B IDENTITY", [
+            ["Callsign / Flight ID", match.callsign]
+        ]),
+        telemetrySection("FLIGHT TELEMETRY", [
+            ["Barometric Altitude", match.altitude, "ft"],
+            ["Geometric Altitude", match.gpsAltitude, "ft"],
+            ["Ground Speed", match.groundSpeed, "kt"],
+            ["Indicated Airspeed (IAS)", match.ias, "kt"],
+            ["True Airspeed (TAS)", match.tas, "kt"],
+            ["Mach", match.mach],
+            ["Ground Track", match.track, "°"],
+            ["Track Rate", match.trackRate, "°/s"],
+            ["True Heading", match.trueHeading, "°"],
+            ["Magnetic Heading", match.magneticHeading, "°"],
+            ["Roll", match.roll, "°"],
+            ["Barometric Vertical Speed", match.verticalSpeed, "ft/min"],
+            ["Geometric Vertical Speed", match.geometricVerticalSpeed, "ft/min"],
+            ["Squawk", match.squawk]
+        ]),
+        telemetrySection("ATMOSPHERIC CONDITIONS", [
+            ["Wind Direction", match.windDirection, "°"],
+            ["Wind Speed", match.windSpeed, "kt"],
+            ["Outside Air Temperature", match.outsideAirTemp, "°C"],
+            ["Total Air Temperature", match.totalAirTemp, "°C"],
+            ["Pressure Setting (QNH)", match.qnh, "hPa"]
+        ]),
+        telemetrySection("NAVIGATION & POSITION", [
+            ["Latitude", match.latitude],
+            ["Longitude", match.longitude],
+            ["MCP Selected Altitude", match.selectedAltitude, "ft"],
+            ["Selected Heading", match.selectedHeading, "°"],
+            ["Navigation Modes", match.navigationModes]
+        ]),
+        telemetrySection("SURVEILLANCE QUALITY", [
+            ["Navigation Integrity Category (NIC)", match.nic],
+            ["Radius of Containment (RC)", match.rc, "m"],
+            ["Barometric NIC", match.nicBaro],
+            ["Navigation Accuracy Category — Position", match.nacP],
+            ["Navigation Accuracy Category — Velocity", match.nacV],
+            ["Surveillance Integrity Level (SIL)", match.sil],
+            ["SIL Supplement", match.silType],
+            ["ADS-B Version", match.version]
+        ]),
+        telemetrySection("RECEIVER STATUS", [
+            ["ADS-B Alert Flag", match.alert],
+            ["Special Position Identification (SPI)", match.spi],
+            ["MLAT Contribution", match.mlat],
+            ["TIS-B Contribution", match.tisb],
+            ["Age of Last Message", match.seen, "s"],
+            ["Age of Last Position", match.seenPosition, "s"],
+            ["Messages Received", match.messages],
+            ["Received Signal Strength", match.rssi, "dBFS"]
+        ])
+    ].join("");
+
     const data = {
-        hexCode: escapeHtml(match.hexCode || "Unknown"),
-        registration: escapeHtml(match.registration || "Unknown"),
-        aircraftType: escapeHtml(match.aircraftType || "Unknown"),
-        operator: escapeHtml(match.operator || "Unknown"),
-        altitude: escapeHtml(match.altitude ?? "Unknown"),
-        groundAltitude: escapeHtml(match.groundAltitude || "Unknown"),
-        speed: escapeHtml(match.speed ?? "Unknown"),
-        track: escapeHtml(match.track ?? "Unknown"),
-        squawk: escapeHtml(match.squawk ?? "Unknown"),
-        latitude: escapeHtml(match.latitude ?? "Error fetching latitude"),
-        longitude: escapeHtml(match.latitude ?? "Error fetching longitude"),
-        country: escapeHtml(match.country ?? "Error fetching country"),
-        cMessages: escapeHtml(match.cMessages ?? "Error fetching cMessages"),
-        time: escapeHtml(
-            new Date().toISOString().replace("T", " ").replace("Z", " UTC")
-        )
+        aircraftType: formatValue(match.aircraftType),
+        registration: formatValue(match.registration),
+        time: escapeHtml(formatIndianStandardTime())
     };
 
     return `
@@ -122,7 +234,7 @@ color:#5eead4;
 font-size:24px;
 letter-spacing:1px;
 ">
-Aircraft Detected Within Surveillance Radius
+${data.aircraftType} ${data.registration}
 </h2>
 
 <p
@@ -183,7 +295,7 @@ RADIUS&nbsp;&nbsp;&nbsp;&nbsp;:
 SOURCE&nbsp;&nbsp;&nbsp;&nbsp;:
 ADS-B<br>
 
-TIME (UTC)&nbsp;:
+TIME (IST)&nbsp;:
 ${data.time}
 
 </td>
@@ -206,90 +318,7 @@ border:1px solid #214654;
 font-family:Consolas,'Courier New',monospace;
 ">
 
-<tr style="background:#0f2430;">
-<td colspan="2"
-style="
-padding:14px 18px;
-color:#67e8f9;
-font-size:13px;
-letter-spacing:2px;
-font-weight:bold;
-">
-AIRCRAFT TELEMETRY
-</td>
-</tr>
-
-<tr>
-<td style="padding:12px 18px;color:#7ea4b3;border-bottom:1px solid #17313c;width:42%;">
-Registration
-</td>
-<td style="padding:12px 18px;color:#ffffff;border-bottom:1px solid #17313c;font-weight:bold;">
-${data.registration}
-</td>
-</tr>
-
-<tr>
-<td style="padding:12px 18px;color:#7ea4b3;border-bottom:1px solid #17313c;">
-Aircraft Type
-</td>
-<td style="padding:12px 18px;color:#ffffff;border-bottom:1px solid #17313c;">
-${data.aircraftType}
-</td>
-</tr>
-
-<tr>
-<td style="padding:12px 18px;color:#7ea4b3;border-bottom:1px solid #17313c;">
-Operator
-</td>
-<td style="padding:12px 18px;color:#ffffff;border-bottom:1px solid #17313c;">
-${data.operator}
-</td>
-</tr>
-
-<tr>
-<td style="padding:12px 18px;color:#7ea4b3;border-bottom:1px solid #17313c;">
-ICAO HEX
-</td>
-<td style="padding:12px 18px;color:#ffffff;border-bottom:1px solid #17313c;">
-${data.hexCode}
-</td>
-</tr>
-
-<tr>
-<td style="padding:12px 18px;color:#7ea4b3;border-bottom:1px solid #17313c;">
-Altitude
-</td>
-<td style="padding:12px 18px;color:#ffffff;border-bottom:1px solid #17313c;">
-${data.altitude} ft
-</td>
-</tr>
-
-<tr>
-<td style="padding:12px 18px;color:#7ea4b3;border-bottom:1px solid #17313c;">
-Ground Speed
-</td>
-<td style="padding:12px 18px;color:#ffffff;border-bottom:1px solid #17313c;">
-${data.speed} knots
-</td>
-</tr>
-
-<tr>
-<td style="padding:12px 18px;color:#7ea4b3;border-bottom:1px solid #17313c;">
-Track
-</td>
-<td style="padding:12px 18px;color:#ffffff;border-bottom:1px solid #17313c;">
-${data.track}&deg;
-</td>
-</tr>
-
-<tr>
-<td style="padding:12px 18px;color:#7ea4b3;">
-Squawk
-</td>
-<td style="padding:12px 18px;color:#ffffff;font-weight:bold;">
-${data.squawk}
-</td>
-</tr>
+${telemetrySections}
 
 </table>
 
