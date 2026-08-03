@@ -17,6 +17,7 @@ const winston = require("winston"); // Overall Logger
 // const swaggerUi = require("swagger-ui-express"); // Swagger UI
 // const swaggerSpec = require("../config/swagger"); // Swagger Configuration
 const authMiddleware = require("../middlewares/authMiddleware");
+const iafData = require("../iafData.js");
 
 const { ADSB_FLIGHT_JSON_URL } = require("../utils/globals.js");
 
@@ -43,6 +44,8 @@ const communityRoutes = require("../routes/communityRouter") // Communities Rout
 const aiRoutes = require("../routes/aiRoutes.js") // AI LLM Routes
 const adminRoutes = require("../routes/adminRoutes.js") // Admin Routes
 const adsbRoutes = require("../routes/adsbRoutes.js");
+const flightScrapperRoutes = require("../routes/flightScrapperRoutes.js"); // Flight Data Scrapper
+const { error } = require("console");
 
 // Enviornment Variables
 require("dotenv").config(); // DOT ENV Declaration
@@ -163,6 +166,7 @@ async function startServer() {
         app.use("/ai", aiRoutes); // AI Models Router
         app.use("/admin", adminRoutes) // Admin Router
         app.use("/adsb", adsbRoutes) // Adsb Router
+        app.use("/scrapper", flightScrapperRoutes)
         app.set("trust proxy", false);
 
         // XSS Sanitization Eg
@@ -193,19 +197,118 @@ async function startServer() {
             // Yet to add listeners
         })
 
-      const axios = require("axios");
+        const axios = require("axios");
 
-setInterval(async () => {
-    try {
-        const { data } = await axios.get(
-            "http://localhost/VirtualRadar/AircraftList.json"
-        );
+        setInterval(async () => {
+            try {
+                const { data } = await axios.get(
+                    "http://localhost/VirtualRadar/AircraftList.json"
+                );
 
-        io.emit("aircraft-data", data);
-    } catch (err) {
-        console.error(err.message);
+                io.emit("aircraft-data", data);
+            } catch (err) {
+                console.error(err.message);
+            }
+        }, 1000);
+
+        // ADSB Data Scrapper 
+
+        // Build this once when your app starts
+        const iafHexSet = new Set();
+
+        Object.values(iafData.allAircraft).forEach(aircraftList => {
+            aircraftList.forEach(aircraft => {
+                if (aircraft.HexCode) {
+                    iafHexSet.add(aircraft.HexCode.toLowerCase());
+                }
+            });
+        });
+
+        const emailsToSendBdq = [
+            "roshan.bhatia.blueera@gmail.com",
+            "anmolv2472000@gmail.com",
+            "thehighroller46@gmail.com",
+            "ishaangangulydpsv@gmail.com",
+            "anmol.saevit@gmail.com"
+        ];
+
+
+        const emailsToSendBeng = [
+            "roshan.bhatia.blueera@gmail.com",
+        ];
+
+        const fetchADSBScrapperData = async () => {
+
+
+
+               try {
+  
+            console.log("[*] Scrapper is active")
+            const ADSBUrl = `http://localhost:3001/scrapper/ac`;
+
+            const response = await axios.get(`http://localhost:3001/scrapper/ac`);
+
+            const vadodaraAirspace = response?.data?.aircraftData?.Vadodara?.ac;
+            const bangloreAirspace = response?.data?.aircraftData?.Bengaluru?.ac;
+            // const hyderabadAirspace = response?.aircraftData?.Hyderabad?.ac;
+            // const chandigarhAirspace = response?.aircraftData?.Chandigarh?.ac;
+
+            for (const aircraft of vadodaraAirspace) {
+                if (
+                    aircraft.hex &&
+                    iafHexSet.has(aircraft.hex.toLowerCase())
+                ) {
+                    console.log("ALERT");
+                    console.log(aircraft);
+
+                    // Email Alert
+
+                    
+
+
+                }
+
+                 else{
+                    console.log("No Aircraft of interest in vadodara airspace")
+                }
+            }
+
+
+            for (const aircraft of bangloreAirspace) {
+                      if (
+                    aircraft.hex &&
+                    iafHexSet.has(aircraft.hex.toLowerCase())
+                ) {
+                    console.log("ALERT");
+                    console.log(aircraft);
+
+                    // Email Alert
+
+
+                }
+
+                else{
+                    console.log("No Aircraft of interest in banglore airspace")
+                }
+            }
+
+
+             } catch (err) {
+        console.error(err);
+        return ({
+            status:false,
+            message: err?.data || "Error"
+        })
     }
-}, 1000);
+
+
+
+
+        }
+
+        fetchADSBScrapperData();
+
+        setInterval(fetchADSBScrapperData, 15 * 60 * 1000);
 
         // Redis Check 
 
