@@ -20,14 +20,87 @@ const client = twilio(
 
 // Build this once when your app starts
 const iafHexSet = new Set();
+const iafAircraftByHexCode = new Map();
 
 Object.values(iafData.allAircraft).forEach(aircraftList => {
     aircraftList.forEach(aircraft => {
         if (aircraft.HexCode) {
-            iafHexSet.add(aircraft.HexCode.toLowerCase());
+            const hexCode = String(aircraft.HexCode).trim();
+            iafHexSet.add(hexCode.toLowerCase());
+            iafAircraftByHexCode.set(hexCode.toUpperCase(), aircraft);
         }
     });
 });
+
+const SCRAPPER_SLEEP_MS = 10000;
+const SCRAPPER_STATUS_TIME_ZONE = process.env.SCRAPPER_STATUS_TIME_ZONE || "Asia/Kolkata";
+const SCRAPPER_STATUS_TIME_ZONE_LABEL = "IST";
+
+const scrapperState = {
+    mode: "idle",
+    isSleeping: false,
+    isTracking: false,
+    currentCity: null,
+    currentUrl: null,
+    lastStartedAt: null,
+    lastCompletedAt: null,
+    lastError: null,
+    nextWakeAt: null,
+    requestCount: 0,
+    updatedAt: new Date().toISOString()
+};
+
+function setScrapperState(updates) {
+    Object.assign(scrapperState, updates, {
+        updatedAt: new Date().toISOString()
+    });
+}
+
+function formatStatusTime(value) {
+    if (!value) {
+        return null;
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return new Intl.DateTimeFormat("en-IN", {
+        timeZone: SCRAPPER_STATUS_TIME_ZONE,
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true
+    }).format(date) + ` ${SCRAPPER_STATUS_TIME_ZONE_LABEL}`;
+}
+
+function getScrapperStatus() {
+    const formattedTimes = {
+        lastStartedAt: formatStatusTime(scrapperState.lastStartedAt),
+        lastCompletedAt: formatStatusTime(scrapperState.lastCompletedAt),
+        nextWakeAt: formatStatusTime(scrapperState.nextWakeAt),
+        updatedAt: formatStatusTime(scrapperState.updatedAt)
+    };
+
+    return {
+        status: true,
+        scrapper: {
+            ...scrapperState,
+            timeZone: SCRAPPER_STATUS_TIME_ZONE,
+            timeZoneLabel: SCRAPPER_STATUS_TIME_ZONE_LABEL,
+            formattedTimes,
+            lastStartedAtFormatted: formattedTimes.lastStartedAt,
+            lastCompletedAtFormatted: formattedTimes.lastCompletedAt,
+            nextWakeAtFormatted: formattedTimes.nextWakeAt,
+            updatedAtFormatted: formattedTimes.updatedAt
+        }
+    };
+}
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -81,8 +154,32 @@ async function shouldTriggerEmail(hexCode, email) {
 }
 
 
+// async function cacheAircraft(redis, aircraft) {
+//     const icao = normalizeHexCode(aircraft?.Icao);
+
+//     if (!icao) return;
+
+//     const result = await redis.set(
+//         `aircraft:${icao}`,
+//         JSON.stringify({
+//             ...aircraft,
+//             updatedAt: new Date().toISOString()
+//         }),
+//         "EX",
+//         30 * 60, // 30 minutes
+//         "NX"
+//     );
+
+//     if (result === "OK") {
+//         console.log(`[REDIS] STORED ${icao} (${aircraft.Reg || "Unknown"})`);
+//     } else {
+//         console.log(`[REDIS] SKIPPED ${icao} (${aircraft.Reg || "Unknown"}) - already cached`);
+//     }
+// }
+
+
 async function cacheAircraft(redis, aircraft) {
-    const icao = normalizeHexCode(aircraft?.Icao);
+    const icao = normalizeHexCode(aircraft?.hex);
 
     if (!icao) return;
 
@@ -93,14 +190,13 @@ async function cacheAircraft(redis, aircraft) {
             updatedAt: new Date().toISOString()
         }),
         "EX",
-        30 * 60, // 30 minutes
-        "NX"
+        30 * 60
     );
 
     if (result === "OK") {
-        console.log(`[REDIS] STORED ${icao} (${aircraft.Reg || "Unknown"})`);
+        console.log(`[REDIS] STORED ${icao} (${aircraft.r || "Unknown"})`);
     } else {
-        console.log(`[REDIS] SKIPPED ${icao} (${aircraft.Reg || "Unknown"}) - already cached`);
+        console.log(`[REDIS] UPDATED ${icao}`);
     }
 }
 
@@ -111,6 +207,39 @@ let isTrackingPollRunning = false;
 
 const normalizeHexCode = (hexCode) => {
     return typeof hexCode === "string" ? hexCode.trim().toUpperCase() : null;
+}
+
+function enrichWithIafAircraftData(aircraft) {
+    const icao = normalizeHexCode(aircraft?.hex || aircraft?.Icao || aircraft?.HexCode);
+    const iafAircraft = iafAircraftByHexCode.get(icao);
+
+    if (!icao || !iafAircraft) {
+        return aircraft;
+    }
+
+    return {
+        ...iafAircraft,
+        ...aircraft,
+        hex: aircraft?.hex || iafAircraft.HexCode,
+        HexCode: iafAircraft.HexCode || aircraft?.hex,
+        r: aircraft?.r || iafAircraft.Registration,
+        registration: aircraft?.registration || aircraft?.r || iafAircraft.Registration,
+        t: aircraft?.t || iafAircraft.TypeCode || iafAircraft.AircraftType,
+        aircraftType: aircraft?.aircraftType || aircraft?.t || iafAircraft.AircraftType,
+        type: aircraft?.type || aircraft?.t || iafAircraft.TypeCode,
+        operator: aircraft?.operator || aircraft?.Op || iafAircraft.AircraftOperator,
+    };
+}
+
+function enrichScrapperResponse(response) {
+    if (!Array.isArray(response?.ac)) {
+        return response;
+    }
+
+    return {
+        ...response,
+        ac: response.ac.map(enrichWithIafAircraftData)
+    };
 }
 
 const cityCoordinates = {
@@ -133,7 +262,7 @@ const cityCoordinates = {
 };
 
 
-const getCityAircrafts = async (latitude, longitude, radius = 250) => {
+const getCityAircrafts = async (city, latitude, longitude, radius = 250) => {
 
     try {
 
@@ -141,7 +270,25 @@ const getCityAircrafts = async (latitude, longitude, radius = 250) => {
 
         console.log("sending req")
 
-        await sleep(10000)
+        setScrapperState({
+            mode: "sleeping",
+            isSleeping: true,
+            isTracking: false,
+            currentCity: city,
+            currentUrl: ADSB_LOL_URL,
+            nextWakeAt: new Date(Date.now() + SCRAPPER_SLEEP_MS).toISOString()
+        });
+
+        await sleep(SCRAPPER_SLEEP_MS)
+
+        setScrapperState({
+            mode: "tracking",
+            isSleeping: false,
+            isTracking: true,
+            currentCity: city,
+            currentUrl: ADSB_LOL_URL,
+            nextWakeAt: null
+        });
 
         const response = await axios.get(ADSB_LOL_URL);
 
@@ -150,37 +297,77 @@ const getCityAircrafts = async (latitude, longitude, radius = 250) => {
         return response.data
     }
     catch (error) {
+        setScrapperState({
+            mode: "error",
+            isSleeping: false,
+            isTracking: false,
+            lastError: error?.message || "Error in scrapping data",
+            nextWakeAt: null
+        });
+
         console.log("Error in scrapping data ", error)
     }
 
 }
+
+router.get("/status", function (req, res) {
+    return res.status(200).json(getScrapperStatus());
+});
 
 router.get("/ac", async function (req, res) {
     try {
 
         let fullResponse = {};
 
+        setScrapperState({
+            mode: "tracking",
+            isSleeping: false,
+            isTracking: true,
+            lastStartedAt: new Date().toISOString(),
+            lastError: null,
+            requestCount: scrapperState.requestCount + 1
+        });
 
         for (const [city, coords] of Object.entries(cityCoordinates)) {
-            const response = await getCityAircrafts(coords.lat, coords.lon);
+            const response = await getCityAircrafts(city, coords.lat, coords.lon);
 
 
 
-            fullResponse[city] = response;
+            fullResponse[city] = enrichScrapperResponse(response);
 
         }
 
+        setScrapperState({
+            mode: "idle",
+            isSleeping: false,
+            isTracking: false,
+            currentCity: null,
+            currentUrl: null,
+            lastCompletedAt: new Date().toISOString(),
+            nextWakeAt: null
+        });
+
         return res.status(200).json({
             status: true,
+            scrapper: getScrapperStatus().scrapper,
             aircraftData: fullResponse
         })
 
 
     }
     catch (error) {
+        setScrapperState({
+            mode: "error",
+            isSleeping: false,
+            isTracking: false,
+            lastCompletedAt: new Date().toISOString(),
+            lastError: error?.message || "Error in extAdsbData route",
+            nextWakeAt: null
+        });
 
         res.json({
             status: false,
+            scrapper: getScrapperStatus().scrapper,
             message: error?.data || "Error in extAdsbData route"
         })
     }

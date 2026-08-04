@@ -273,7 +273,7 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
                 track: adsbAircraft?.Trak,
                 squawk: adsbAircraft?.Sqk,
                 country: adsbAircraft?.Cou,
-                type: adsbAircraft?.Type,
+                type: adsbAircraft?.Type || iafAircraft?.TypeCode,
                 manufacturer: adsbAircraft?.Man,
                 latitude: adsbAircraft?.Lat,
                 longitude: adsbAircraft?.Long,
@@ -346,14 +346,24 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
                     await sendEmail(
                         email,
                         `Falcon Intelligence Flight Alert | ${match.registration} (${match.aircraftType}) within 100 km of Vadodara`,
-                        flightAlertTemplate(match)
+                        flightAlertTemplate(match, {
+                            zoneName: "Vadodara",
+                            radius: 100,
+                            radiusUnit: "km",
+                            source: "ADS-B",
+                        })
                     );
 
                     await transporter.sendMail({
                         from: `Falcon Intelligence`,
                         to: email,
                         subject: `Falcon Intelligence Flight Alert | ${match.registration} (${match.aircraftType}) within 100 km of Vadodara`,
-                        html: flightAlertTemplate(match)
+                        html: flightAlertTemplate(match, {
+                            zoneName: "Vadodara",
+                            radius: 100,
+                            radiusUnit: "km",
+                            source: "ADS-B",
+                        })
                     });
 
                     console.log(`[EMAIL] Sent to ${email}`);
@@ -396,7 +406,7 @@ const fetchAircrafts = async () => {
 }
 
 const startAdsbTracking = () => {
-    console.log(`[*] ADS-B aircraft tracking started. Polling every ${ADSB_TRACKING_INTERVAL_MS / 1000}s`);
+    // console.log(`[*] ADS-B aircraft tracking started. Polling every ${ADSB_TRACKING_INTERVAL_MS / 1000}s`);
 
     setInterval(async () => {
         if (isTrackingPollRunning) {
@@ -409,7 +419,7 @@ const startAdsbTracking = () => {
             await fetchAircrafts();
         }
         catch (error) {
-            console.error("[*] ADS-B tracking poll failed:", error.message || error);
+            // console.error("[*] ADS-B tracking poll failed:", error.message || error);
         }
         finally {
             isTrackingPollRunning = false;

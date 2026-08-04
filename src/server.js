@@ -18,6 +18,16 @@ const winston = require("winston"); // Overall Logger
 // const swaggerSpec = require("../config/swagger"); // Swagger Configuration
 const authMiddleware = require("../middlewares/authMiddleware");
 const iafData = require("../iafData.js");
+const nodemailer = require("nodemailer");
+
+const flightAlertTemplate = require("../templates/flightAlertTemplate.js")
+
+const twilio = require("twilio");
+
+const client = twilio(
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN
+);
 
 const { ADSB_FLIGHT_JSON_URL } = require("../utils/globals.js");
 
@@ -63,7 +73,7 @@ const allowedOrigins = [
     "http://localhost:5173",
     "http://localhost:5174",
 ];
-
+const ALERT_EXPIRY_SECONDS = 20 * 60;
 // Node Server Initialization
 
 async function startServer() {
@@ -118,6 +128,103 @@ async function startServer() {
                 }
             })
         );
+
+        // Nodemailer Transporter
+
+        const transporter = nodemailer.createTransport({
+            service: "gmail",
+            auth: {
+                user: process.env.GMAIL_SMTP,
+                pass: process.env.GMAIL_SMTP_PASSWORD
+            }
+        })
+
+
+        async function shouldTriggerCall(hexCode, phoneNumber) {
+            const key = `flight-alert:call:${hexCode}:${phoneNumber}`;
+
+            const result = await redisClient.set(
+                key,
+                Date.now(),
+                "EX",
+                ALERT_EXPIRY_SECONDS,
+                "NX"
+            );
+
+            return result === "OK";
+        }
+
+        async function shouldTriggerEmail(city, hexCode, email) {
+            const key = `flight-alert:${city}:email:${hexCode}:${email}`;
+
+            const result = await redisClient.set(
+                key,
+                Date.now(),
+                "EX",
+                ALERT_EXPIRY_SECONDS,
+                "NX"
+            );
+
+            return result === "OK";
+        }
+        // Virtual Radar Server Caching values
+
+        // async function cacheAircraft(redis, aircraft) {
+        //     const icao = normalizeHexCode(aircraft?.Icao);
+
+        //     if (!icao) return;
+
+        //     const result = await redis.set(
+        //         `aircraft:${icao}`,
+        //         JSON.stringify({
+        //             ...aircraft,
+        //             updatedAt: new Date().toISOString()
+        //         }),
+        //         "EX",
+        //         30 * 60, // 30 minutes
+        //         "NX"
+        //     );
+
+        //     if (result === "OK") {
+        //         console.log(`[REDIS] STORED ${icao} (${aircraft.Reg || "Unknown"})`);
+        //     } else {
+        //         console.log(`[REDIS] SKIPPED ${icao} (${aircraft.Reg || "Unknown"}) - already cached`);
+        //     }
+        // }
+
+        async function cacheADSBAircraft(redis, city, aircraft) {
+
+            // aircraft details from sdr/api
+            const icao = normalizeHexCode(aircraft?.hex);
+
+            if (!icao) return;
+
+            await redis.set(
+                `adsb-api:${city}:${icao}`,
+                JSON.stringify({
+                    ...aircraft,
+                    source: "adsb-api",
+                    city,
+                    updatedAt: new Date().toISOString()
+                }),
+                "EX",
+                30 * 60
+            );
+
+            console.log(`[ADSB API] Cached ${city} -> ${icao}`);
+        }
+
+        const VoiceResponse = twilio.twiml.VoiceResponse;
+
+        const ADSB_TRACKING_INTERVAL_MS = 1000;
+        let isTrackingPollRunning = false;
+
+        const normalizeHexCode = (hexCode) => {
+            return typeof hexCode === "string" ? hexCode.trim().toUpperCase() : null;
+        }
+
+
+
 
         // Home & Test Routes
         app.get("/", async (req, res) => {
@@ -199,31 +306,55 @@ async function startServer() {
 
         const axios = require("axios");
 
-        setInterval(async () => {
-            try {
-                const { data } = await axios.get(
-                    "http://localhost/VirtualRadar/AircraftList.json"
-                );
 
-                io.emit("aircraft-data", data);
-            } catch (err) {
-                console.error(err.message);
-            }
-        }, 1000);
+        // Fetching Flight Data Loop
+
+        // Virtual Radar Configuration
+
+        // setInterval(async () => {
+        //     try {
+        //         const { data } = await axios.get(
+        //             "http://localhost/VirtualRadar/AircraftList.json"
+        //         );
+
+        //         io.emit("aircraft-data", data);
+        //     } catch (err) {
+        //         // console.error(err.message);
+        //     }
+        // }, 1000);
 
         // ADSB Data Scrapper 
 
-        // Build this once when your app starts
-        const iafHexSet = new Set();
+        const iafAircraftByHexCode = new Map();
 
+        // Setting Hex Set of Mode S/Hex : IAFDATA
         Object.values(iafData.allAircraft).forEach(aircraftList => {
             aircraftList.forEach(aircraft => {
-                if (aircraft.HexCode) {
-                    iafHexSet.add(aircraft.HexCode.toLowerCase());
+                if (aircraft?.HexCode) {
+                    iafAircraftByHexCode.set(
+                        normalizeHexCode(aircraft.HexCode),
+                        aircraft
+                    );
                 }
             });
         });
 
+        function enrichWithIafAircraftData(aircraft, iafAircraft) {
+            return {
+                ...iafAircraft,
+                ...aircraft,
+                hex: aircraft?.hex || iafAircraft?.HexCode,
+                HexCode: iafAircraft?.HexCode || aircraft?.hex,
+                r: aircraft?.r || iafAircraft?.Registration,
+                registration: aircraft?.registration || aircraft?.r || iafAircraft?.Registration,
+                t: aircraft?.t || iafAircraft?.TypeCode || iafAircraft?.AircraftType,
+                aircraftType: aircraft?.aircraftType || aircraft?.t || iafAircraft?.AircraftType,
+                type: aircraft?.type || aircraft?.t || iafAircraft?.TypeCode,
+                operator: aircraft?.operator || aircraft?.Op || iafAircraft?.AircraftOperator,
+            };
+        }
+
+        // People recieving emails for bdq
         const emailsToSendBdq = [
             "roshan.bhatia.blueera@gmail.com",
             "anmolv2472000@gmail.com",
@@ -232,74 +363,120 @@ async function startServer() {
             "anmol.saevit@gmail.com"
         ];
 
-
+        // People recieving emails for Banglore
         const emailsToSendBeng = [
             "roshan.bhatia.blueera@gmail.com",
         ];
 
         const fetchADSBScrapperData = async () => {
 
+            try {
 
+                console.log("[*] Scrapper is active")
+                const ADSBUrl = `http://localhost:3001/scrapper/ac`;
 
-               try {
-  
-            console.log("[*] Scrapper is active")
-            const ADSBUrl = `http://localhost:3001/scrapper/ac`;
+                const response = await axios.get(`http://localhost:3001/scrapper/ac`,
+                    { timeout: 200000 }
+                );
 
-            const response = await axios.get(`http://localhost:3001/scrapper/ac`);
+                const vadodaraAirspace =
+                    response?.data?.aircraftData?.Vadodara?.ac ?? [];
 
-            const vadodaraAirspace = response?.data?.aircraftData?.Vadodara?.ac;
-            const bangloreAirspace = response?.data?.aircraftData?.Bengaluru?.ac;
-            // const hyderabadAirspace = response?.aircraftData?.Hyderabad?.ac;
-            // const chandigarhAirspace = response?.aircraftData?.Chandigarh?.ac;
+                const bangloreAirspace = response?.data?.aircraftData?.Bengaluru?.ac ?? [];
 
-            for (const aircraft of vadodaraAirspace) {
-                if (
-                    aircraft.hex &&
-                    iafHexSet.has(aircraft.hex.toLowerCase())
-                ) {
-                    console.log("ALERT");
-                    console.log(aircraft);
+                // const hyderabadAirspace = response?.aircraftData?.Hyderabad?.ac;
+                // const chandigarhAirspace = response?.aircraftData?.Chandigarh?.ac;
 
-                    // Email Alert
+                // console.log("Bengaluru airspace data ",bangloreAirspace)
 
-                    
+                console.log("[*] Aircrafts currently in 250 nautical miles of Vadodara ", vadodaraAirspace?.length)
+                console.log("[*] Aircrafts currently in 250 nautical miles of Banglore ", bangloreAirspace?.length)
 
+                for (const aircraft of vadodaraAirspace) {
+                    const icao = normalizeHexCode(aircraft?.hex);
+                    const iafAircraft = iafAircraftByHexCode.get(icao);
 
+                    if (icao && iafAircraft) {
+                        const enrichedAircraft = enrichWithIafAircraftData(aircraft, iafAircraft);
+
+                        console.log(`[*] ${enrichedAircraft.r} ${enrichedAircraft.t} matches aircraft of interest `);
+
+                        await cacheADSBAircraft(redisClient, "Vadodara", enrichedAircraft);
+
+                        // Email Alert
+                        for (const email of emailsToSendBdq) {
+                            if (await shouldTriggerEmail("Vadodara", enrichedAircraft.hex, email)) {
+                                await transporter.sendMail({
+                                    from: "Falcon Intelligence",
+                                    to: email,
+                                    subject: `Falcon Intelligence Flight Alert | ${enrichedAircraft.r} (${enrichedAircraft.t}) within 100 km of Vadodara`,
+                                    html: flightAlertTemplate(enrichedAircraft, {
+                                        zoneName: "Vadodara",
+                                        radius: 250,
+                                        radiusUnit: "km",
+                                        source: "ADSB API",
+                                    })
+                                });
+                            }
+                        }
+                    } else {
+                        // console.log("No Aircraft of interest in Vadodara airspace");
+                    }
                 }
 
-                 else{
-                    console.log("No Aircraft of interest in vadodara airspace")
+
+                for (const aircraft of bangloreAirspace) {
+
+                    // console.log("[*] IAF Mode S Check for Bengaluru airspace")
+                    const icao = normalizeHexCode(aircraft?.hex);
+                    const iafAircraft = iafAircraftByHexCode.get(icao);
+
+                    if (icao && iafAircraft) {
+                        const enrichedAircraft = enrichWithIafAircraftData(aircraft, iafAircraft);
+
+                        console.log(`[*] ${enrichedAircraft.r} ${enrichedAircraft.t} matches aircraft of interest `);
+                        // console.log(aircraft);
+                        await cacheADSBAircraft(redisClient, "Bengaluru", enrichedAircraft);
+
+                        // Email Alert
+
+                        for (let email of emailsToSendBeng) {
+
+                            console.log("Triggering banglore email alerts")
+
+                            if (await shouldTriggerEmail("Bengaluru", enrichedAircraft.hex, email)) {
+                                await transporter.sendMail({
+                                    from: `Falcon Intelligence`,
+                                    to: email,
+                                    subject: `Falcon Intelligence Flight Alert | ${enrichedAircraft.r} (${enrichedAircraft.t}) within 250 nautical miles of Banglore`,
+                                    html: flightAlertTemplate(enrichedAircraft, {
+                                        zoneName: "Bengaluru",
+                                        radius: 250,
+                                        radiusUnit: "nautical miles",
+                                        source: "ADSB API",
+                                    })
+                                });
+
+                            }
+
+                        }
+
+
+                    }
+
+                    else {
+                        // console.log("No Aircraft of interest in banglore airspace")
+                    }
                 }
+
+
+            } catch (err) {
+                console.error(err);
+                return ({
+                    status: false,
+                    message: err?.data || "Error"
+                })
             }
-
-
-            for (const aircraft of bangloreAirspace) {
-                      if (
-                    aircraft.hex &&
-                    iafHexSet.has(aircraft.hex.toLowerCase())
-                ) {
-                    console.log("ALERT");
-                    console.log(aircraft);
-
-                    // Email Alert
-
-
-                }
-
-                else{
-                    console.log("No Aircraft of interest in banglore airspace")
-                }
-            }
-
-
-             } catch (err) {
-        console.error(err);
-        return ({
-            status:false,
-            message: err?.data || "Error"
-        })
-    }
 
 
 
@@ -308,7 +485,7 @@ async function startServer() {
 
         fetchADSBScrapperData();
 
-        setInterval(fetchADSBScrapperData, 15 * 60 * 1000);
+        setInterval(fetchADSBScrapperData, 10 * 60 * 1000);
 
         // Redis Check 
 

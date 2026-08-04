@@ -492,23 +492,34 @@ const iafData = {
                 "AircraftOperator": "IndianAirForce",
                 "HexCode": "800585"
             },
+        ],
+
+        "TEST":[
+            {
+                "Registration": "TEST",
+                "AircraftType": "TEST",
+                "TypeCode": "TEST",
+                "AircraftOperator": "TEST",
+                "HexCode": "80185f"
+            }
+
+        ],
+        "An32": [
+            {
+                "Registration": "VUMPG",
+                "AircraftType": "An32",
+                "TypeCode": "AN32",
+                "AircraftOperator": "IndianAirForce",
+                "HexCode": "385aaf10"
+            },
+            {
+                "Registration": "VUDXD",
+                "AircraftType": "An32",
+                "TypeCode": "AN32",
+                "AircraftOperator": "IndianAirForce",
+                "HexCode": "385b3e9e"
+            }
         ]
-        // "An32": [
-        //     {
-        //         "Registration": "VUMPG",
-        //         "AircraftType": "An32",
-        //         "TypeCode": "AN32",
-        //         "AircraftOperator": "IndianAirForce",
-        //         "HexCode": "385aaf10"
-        //     },
-        //     {
-        //         "Registration": "VUDXD",
-        //         "AircraftType": "An32",
-        //         "TypeCode": "AN32",
-        //         "AircraftOperator": "IndianAirForce",
-        //         "HexCode": "385b3e9e"
-        //     }
-        // ]
     }
 };
 
