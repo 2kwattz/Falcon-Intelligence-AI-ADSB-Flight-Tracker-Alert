@@ -450,6 +450,13 @@ const iafData = {
                 "TypeCode": "LCA",
                 "AircraftOperator": "IndianAirForce",
                 "HexCode": "801448"
+            },
+              {
+                "Registration": "LA5047",
+                "AircraftType": "HAL Tejas LCA",
+                "TypeCode": "LCA",
+                "AircraftOperator": "IndianAirForce",
+                "HexCode": "29CBB8"
             }
         ],
         "Boeing 707-337C": [
@@ -493,12 +500,12 @@ const iafData = {
                 "HexCode": "800585"
             },
         ],
-//    "TestAircraft": [
+//    "SukhoiSu30": [
 //             {
-//                 "Registration": "TEST",
-//                 "AircraftType": "TEST",
-//                 "TypeCode": "TEST",
-//                 "AircraftOperator": "TEST",
+//                 "Registration": "SU3203040",
+//                 "AircraftType": "SU30",
+//                 "TypeCode": "SU30",
+//                 "AircraftOperator": "IAF",
 //                 "HexCode": "801878"
 //             },
 //         ],
@@ -509,14 +516,14 @@ const iafData = {
         //         "AircraftType": "An32",
         //         "TypeCode": "AN32",
         //         "AircraftOperator": "IndianAirForce",
-        //         "HexCode": "385aaf10"
+        //         "HexCode": "801547"
         //     },
         //     {
         //         "Registration": "VUDXD",
         //         "AircraftType": "An32",
         //         "TypeCode": "AN32",
         //         "AircraftOperator": "IndianAirForce",
-        //         "HexCode": "385b3e9e"
+        //         "HexCode": "800b82"
         //     }
         // ]
     }

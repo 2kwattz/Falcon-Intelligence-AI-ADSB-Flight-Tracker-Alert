@@ -12,15 +12,29 @@ const getAircraftTypeCounts = (aircraftData) => aircraftData.reduce((typeCounts,
     return typeCounts;
 }, {});
 
+const addAircraftTypeCounts = (aircraftData, aircraftTypeCounts) => aircraftData.map((aircraft) => {
+    const typeCode = aircraft.typeCode
+        || aircraft.t?.trim()?.toUpperCase()
+        || "UNKNOWN";
+
+    return {
+        ...aircraft,
+        typeCode,
+        aircraftTypeCount: aircraftTypeCounts[typeCode]
+    };
+});
+
 router.get("/trackedaircrafts", async (req, res) => {
     try {
         const aircraftData = await getTrackedAircrafts();
+        const aircraftTypeCounts = getAircraftTypeCounts(aircraftData);
+        const classifiedAircraftData = addAircraftTypeCounts(aircraftData, aircraftTypeCounts);
 
         return res.status(200).json({
             status: true,
-            count: aircraftData.length,
-            aircraftTypeCounts: getAircraftTypeCounts(aircraftData),
-            aircraftData
+            count: classifiedAircraftData.length,
+            aircraftTypeCounts,
+            aircraftData: classifiedAircraftData
         });
     } catch (error) {
         console.error("[*] Failed to read tracked aircraft cache:", error.message);

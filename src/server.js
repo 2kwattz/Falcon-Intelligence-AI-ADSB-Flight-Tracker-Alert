@@ -77,6 +77,7 @@ async function startServer() {
         app.use(sqlInjectionGuard); // Additional Layer of SQL Injection Defence Mechanism & IP Logger
         app.use(fakeServerHeaders); // Spoof headers. Confuses Attacker
         app.use(hpp()); // Prevents HTTP Parameter Pollution
+        app.use(express.static("public")); // Serves static files from the public folder
 
 
         // Multer File Storage Configuration

@@ -11,6 +11,7 @@ const ADSB_URL = `http://${BASE_DOMAIN}:${ADSB_PORT}/`
 
 
 const ADSB_FLIGHT_JSON_URL = `http://127.0.0.1/data/aircraft.json`
+// const ADSB_FLIGHT_JSON_URL = `http://localhost:3001/dummyAircraftData.json`
 
 module.exports = {
     BASE_DOMAIN,
