@@ -20,9 +20,9 @@ const client = twilio(
 
 const numbersToCall = [
     process.env.ROSHAN_BHAI_PHONE,
-    process.env.RISHI_BHAI_PHONE,
-    process.env.ANMOL_BHAI_PHONE,
-    process.env.ISHAN_BHAI_PHONE,
+    // process.env.RISHI_BHAI_PHONE,
+    // process.env.ANMOL_BHAI_PHONE,
+    // process.env.ISHAN_BHAI_PHONE,
 ];
 
 const ALERT_EXPIRY_SECONDS = 20 * 60;
@@ -654,7 +654,9 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
                 "anmolv2472000@gmail.com",
                 "thehighroller46@gmail.com",
                 "ishaangangulydpsv@gmail.com",
-                "anmol.saevit@gmail.com"
+                "anmol.saevit@gmail.com",
+                "sutharmeet04@gmail.com"
+
             ];
 
             // for (const email of emailsToSend) {

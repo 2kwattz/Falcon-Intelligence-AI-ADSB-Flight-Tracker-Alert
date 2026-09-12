@@ -3,7 +3,7 @@
   "messages": 75453,
   "aircraft": [
     {
-      "hex": "801447",
+      "hex": "805547",
       "type": "adsb_icao",
       "flight": "AIC8HR  ",
       "r": "VT-VCV",
@@ -53,38 +53,9 @@
       "rssi": -17.7
     },
     {
-      "hex": "800579",
+      "hex": "101001",
       "type": "mode_s",
-      "flight": "AIC8WV  ",
-      "r": "VT-PPV",
-      "t": "A321",
-      "desc": "AIRBUS A-321",
-      "alt_baro": 29300,
-      "alt_geom": 31025,
-      "gs": 457.1,
-      "tas": 460,
-      "track": 19.82,
-      "track_rate": 0.00,
-      "roll": 0.53,
-      "baro_rate": 512,
-      "squawk": "0317",
-      "emergency": "none",
-      "category": "A3",
-      "version": 0,
-      "nic_baro": 1,
-      "nac_p": 8,
-      "nac_v": 1,
-      "sil": 2,
-      "sil_type": "perhour",
-      "gva": 2,
-      "sda": 3,
-      "alert": 0,
-      "spi": 0,
-      "mlat": [],
-      "tisb": [],
-      "messages": 62,
-      "seen": 1.2,
-      "rssi": -18.4
+      "messages": 62
     }
   ]
 }

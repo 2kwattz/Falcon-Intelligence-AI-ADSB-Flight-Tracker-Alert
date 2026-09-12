@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Falcon Intelligence tracked aircraft archive">
+  <title>Tracked Aircraft | Falcon Intelligence</title>
+  <link rel="stylesheet" href="/tracked-aircrafts.css">
+</head>
+<body>
+  <a class="skip-link" href="#aircraft-results">Skip to aircraft results</a>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Falcon Intelligence home">
+        <span class="brand-mark" aria-hidden="true">FI</span>
+        <span><strong>FALCON</strong><small>INTELLIGENCE</small></span>
+      </a>
+      <div class="connection-status" id="connection-status" aria-live="polite"><span></span> Loading archive</div>
+      <button class="button button-secondary" type="button" id="refresh-button">Refresh data</button>
+    </header>
+
+    <main>
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Aircraft intelligence archive</p>
+          <h1>Tracked aircraft</h1>
+          <p class="lede">Explore every aircraft retained in the Falcon Intelligence tracking cache for up to five days.</p>
+        </div>
+        <div class="updated" id="updated-at">Awaiting data</div>
+      </section>
+
+      <section class="metrics" aria-label="Archive summary">
+        <article><span>Aircraft in archive</span><strong id="metric-total">—</strong></article>
+        <article><span>Matching now</span><strong id="metric-matching">—</strong></article>
+        <article><span>Aircraft types</span><strong id="metric-types">—</strong></article>
+        <article><span>Dates represented</span><strong id="metric-dates">—</strong></article>
+      </section>
+
+      <section class="control-panel" aria-label="Aircraft filters">
+        <div class="search-row">
+          <label class="search-box" for="search-input">
+            <span aria-hidden="true">⌕</span>
+            <input id="search-input" type="search" autocomplete="off" placeholder="Search ICAO, callsign, registration, operator, aircraft type…">
+          </label>
+          <button class="button button-secondary" type="button" id="toggle-filters" aria-expanded="true" aria-controls="advanced-filters">Advanced filters <span aria-hidden="true">⌄</span></button>
+          <button class="button button-quiet" type="button" id="clear-filters">Clear filters</button>
+        </div>
+        <div class="advanced-filters" id="advanced-filters">
+          <label>Date from<input type="date" id="date-from"></label>
+          <label>Date to<input type="date" id="date-to"></label>
+          <label>Aircraft type<select id="type-filter"><option value="">All types</option></select></label>
+          <label>Registration<select id="registration-filter"><option value="">All registrations</option></select></label>
+          <label>Operator<select id="operator-filter"><option value="">All operators</option></select></label>
+          <label>Feed / transponder<select id="source-filter"><option value="">All sources</option></select></label>
+          <label>Emergency status<select id="emergency-filter"><option value="">Any status</option></select></label>
+          <label>Minimum altitude (ft)<input type="number" id="min-altitude" min="0" inputmode="numeric" placeholder="e.g. 10000"></label>
+          <label>Maximum altitude (ft)<input type="number" id="max-altitude" min="0" inputmode="numeric" placeholder="e.g. 40000"></label>
+          <label>Minimum speed (kt)<input type="number" id="min-speed" min="0" inputmode="numeric"></label>
+          <label>Maximum age (minutes)<input type="number" id="max-age" min="0" inputmode="numeric" placeholder="Since last sighting"></label>
+          <label>Any payload field<select id="field-filter"><option value="">Choose a field</option></select></label>
+          <label>Field contains<input type="search" id="field-value" autocomplete="off" placeholder="Filter selected raw field"></label>
+        </div>
+        <div class="active-filters" id="active-filters" aria-live="polite"></div>
+      </section>
+
+      <section class="results-toolbar">
+        <div><strong id="result-summary">Loading aircraft…</strong><span id="sort-hint">Grouped by observation date</span></div>
+        <label class="compact-control">Sort by
+          <select id="sort-by">
+            <option value="trackedAt-desc">Most recently observed</option>
+            <option value="trackedAt-asc">Oldest observation</option>
+            <option value="callsign-asc">Callsign A–Z</option>
+            <option value="altitude-desc">Altitude high–low</option>
+            <option value="speed-desc">Speed high–low</option>
+          </select>
+        </label>
+      </section>
+
+      <section id="aircraft-results" class="aircraft-results" aria-live="polite"></section>
+    </main>
+  </div>
+
+  <dialog id="aircraft-dialog" aria-labelledby="dialog-title">
+    <div class="dialog-heading">
+      <div><p class="eyebrow">Aircraft record</p><h2 id="dialog-title">Aircraft detail</h2></div>
+      <button class="icon-button" type="button" id="close-dialog" aria-label="Close aircraft detail">×</button>
+    </div>
+    <div id="dialog-content"></div>
+  </dialog>
+
+  <template id="empty-template">
+    <div class="empty-state"><span aria-hidden="true">⌁</span><h2>No aircraft match these filters</h2><p>Adjust or clear the filters to search the available archive.</p><button class="button button-secondary" type="button">Clear filters</button></div>
+  </template>
+  <script src="/tracked-aircrafts.js" defer></script>
+</body>
+</html>

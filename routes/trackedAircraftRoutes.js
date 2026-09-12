@@ -1,7 +1,14 @@
 const express = require("express");
+const path = require("path");
 const { getTrackedAircrafts } = require("../redis/trackedAircraftCache");
 
 const router = express.Router();
+
+// The dashboard is deliberately served from the same origin as the API so it
+// works in deployments without needing a separate frontend host or CORS setup.
+router.get("/tracked-aircrafts", (req, res) => {
+    return res.sendFile(path.join(__dirname, "../public/tracked-aircrafts.html"));
+});
 
 const getAircraftTypeCounts = (aircraftData) => aircraftData.reduce((typeCounts, aircraft) => {
     const typeCode = aircraft.typeCode
