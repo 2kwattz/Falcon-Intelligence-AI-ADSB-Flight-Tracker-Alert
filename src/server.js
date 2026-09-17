@@ -10,6 +10,7 @@ const xss = require("xss"); // Cross Site Scripting Prevention
 const hpp = require("hpp"); // HTTP Parameter Pollution Protection
 const http = require("http"); // Inbuilt Http Server
 const fs = require("fs");
+const path = require("path");
 const { Server } = require("socket.io"); // Socket.io Web Socket Server
 const multer = require("multer"); // File Handling Library
 const { expressMiddleware } = require('@as-integrations/express5'); // Apollo Express Bridge
@@ -71,13 +72,25 @@ async function startServer() {
         app.use(express.urlencoded({ extended: true, limit: "100kb" })); // Form Data Handling with 100kb limit 
         app.use(cookieParser()); // Cookie Parser
         app.use(compression()); // GZip/ Deflate compression
-        app.use(helmet({ contentSecurityPolicy: process.env.NODE_ENV === "development" ? false : true })); // Basic Security
+        app.use(helmet({
+            contentSecurityPolicy: process.env.NODE_ENV === "development" ? false : {
+                directives: {
+                    ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+                    // The landing page intentionally contains its own CSS and carousel script.
+                    "script-src": ["'self'", "'unsafe-inline'", "https://unpkg.com"],
+                    "style-src": ["'self'", "'unsafe-inline'", "https://unpkg.com"],
+                    "img-src": ["'self'", "data:", "https://unpkg.com", "https://tiles.maps.eox.at"]
+                }
+            }
+        })); // Basic security, with trusted mapping resources for the aircraft-detail map
         app.use(cors({ origin: allowedOrigins, credentials: true })); // CORS Implementation (Allowing all domains temporarily)
         app.use(generalRateLimiter); // IP Based Rate Limiting.Max 100 req /15min
         app.use(sqlInjectionGuard); // Additional Layer of SQL Injection Defence Mechanism & IP Logger
         app.use(fakeServerHeaders); // Spoof headers. Confuses Attacker
         app.use(hpp()); // Prevents HTTP Parameter Pollution
-        app.use(express.static("public")); // Serves static files from the public folder
+        // Serve CSS, JavaScript, images, and other public assets from an absolute path.
+        // This remains reliable when Node is launched by nginx, systemd, PM2, or nodemon.
+        app.use(express.static(path.join(__dirname, "../public"), { index: false }));
 
 
         // Multer File Storage Configuration
@@ -117,40 +130,8 @@ async function startServer() {
             })
         );
 
-        // Home & Test Routes
-        app.get("/", async (req, res) => {
-
-            try {
-                // Temporarily used as a testing route for utilities/functions
-
-                // GeoIP Location Testing
-
-                const userLocation = await geoLocationTracker(req.ip)
-
-                console.log(`[*] Fetched User Location `, userLocation)
-                // User Agent Testing
-
-                const userAgent = req.headers["user-agent"]; // User Device & Browser Details
-                const deviceInfo = JSON.stringify(deviceParser(userAgent), null, 2)
-
-                console.log(`[*] Test User Device Info ${deviceInfo}`);
-
-                res.status(200).json({
-                    status: true,
-                    message: "Home Route Working"
-                })
-            }
-            catch (error) {
-                console.error("[*] Error in / Node Route ", error || error.message);
-
-                res.status(500).json({
-                    status: false,
-                    message: "Internal Server Error"
-                })
-            }
-
-
-        })
+        // Main landing page for localhost, a LAN IP, and deployed domains.
+        app.get("/", (req, res) => res.sendFile(path.join(__dirname, "../public/index.html")));
 
         app.get("/errorTest", (req, res, next) => {
             const simulatedError = new Error("Manual Error Testing");
