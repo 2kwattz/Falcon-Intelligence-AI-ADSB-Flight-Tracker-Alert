@@ -1390,6 +1390,18 @@ const iafData = {
                 "PredictedAircraftOperator": "Indian Air Force"
             },
 
+              {
+                "Registration": "Unknown",
+                "AircraftType": "Unknown",
+                "TypeCode": "Unknown",
+                "AircraftOperator": "Unknown",
+                "HexCode": "555555",
+                "PredictedReg": "Unknown",
+                "PredictedAircraftType": "Mi17",
+                "PredictedType": "MI17",
+                "PredictedAircraftOperator": "Indian Air Force / Indian Army"
+            },
+
 
         ],
 
