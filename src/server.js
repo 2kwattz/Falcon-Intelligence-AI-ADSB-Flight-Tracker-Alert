@@ -47,6 +47,7 @@ const aiRoutes = require("../routes/aiRoutes.js") // AI LLM Routes
 const adminRoutes = require("../routes/adminRoutes.js") // Admin Routes
 const adsbRoutes = require("../routes/adsbRoutes.js");
 const trackedAircraftRoutes = require("../routes/trackedAircraftRoutes.js");
+const watchlistRoutes = require("../routes/watchlistRoutes.js");
 
 require("../db/conn"); // MySQL Connection
 
@@ -77,9 +78,9 @@ async function startServer() {
                 directives: {
                     ...helmet.contentSecurityPolicy.getDefaultDirectives(),
                     // The landing page intentionally contains its own CSS and carousel script.
-                    "script-src": ["'self'", "'unsafe-inline'", "https://unpkg.com"],
-                    "style-src": ["'self'", "'unsafe-inline'", "https://unpkg.com"],
-                    "img-src": ["'self'", "data:", "https://unpkg.com", "https://tiles.maps.eox.at"]
+                    "script-src": ["'self'", "'unsafe-inline'"],
+                    "style-src": ["'self'", "'unsafe-inline'"],
+                    "img-src": ["'self'", "data:", "https://tiles.maps.eox.at"]
                 }
             }
         })); // Basic security, with trusted mapping resources for the aircraft-detail map
@@ -132,6 +133,7 @@ async function startServer() {
 
         // Main landing page for localhost, a LAN IP, and deployed domains.
         app.get("/", (req, res) => res.sendFile(path.join(__dirname, "../public/index.html")));
+        app.get("/contact", (req, res) => res.sendFile(path.join(__dirname, "../public/contact.html")));
 
         app.get("/errorTest", (req, res, next) => {
             const simulatedError = new Error("Manual Error Testing");
@@ -145,6 +147,7 @@ async function startServer() {
         app.use("/ai", aiRoutes); // AI Models Router
         app.use("/admin", adminRoutes) // Admin Router
         app.use("/adsb", adsbRoutes) // Adsb Router
+        app.use("/", watchlistRoutes); // Landing-page watchlist requests
         app.use("/", trackedAircraftRoutes) // Tracked aircraft cache endpoint
         app.set("trust proxy", false);
 

@@ -209,9 +209,9 @@
         <a href="/tracked-aircrafts">Intelligence Archive</a>
         <a href="#live-track">Live Track</a>
         <a href="#services">Services</a>
-        <a href="#contact">Contact</a>
+        <a href="/contact">Contact</a>
       </div>
-      <a class="nav-cta" href="#contact">Set an alert</a>
+      <a class="nav-cta" href="#contact">Request Demo</a>
     </nav>
   </header>
 
@@ -285,12 +285,12 @@
 
     <section class="section" id="contact"><div class="shell">
       <div class="contact-box"><div><p class="eyebrow">04 / Contact</p><h2>Build your watchlist.</h2><p>Tell us what you want to track. We’ll help shape an alert configuration around your city, aircraft and spotting routine.</p><div class="contact-facts"><div><b>Response</b>Within 24 hours</div><div><b>Coverage</b>Custom aircraft &amp; city watchlists</div><div><b>Delivery</b>Phone call + email intelligence</div></div></div>
-        <form class="contact-form" id="contact-form"><label>Name<input required name="name" placeholder="Your name"></label><label>Email<input required type="email" name="email" placeholder="you@example.com"></label><label class="wide">What would you like to track?<textarea required name="message" placeholder="Aircraft, city and anything useful to know…"></textarea></label><button class="button wide" type="submit">Send watchlist request</button><p class="form-status" aria-live="polite"></p></form>
+        <form class="contact-form" id="contact-form"><label>Name<input required name="name" autocomplete="name" placeholder="Your name"></label><label>Email<input required type="email" name="email" autocomplete="email" placeholder="you@example.com"></label><label class="wide">Phone number<input required type="tel" name="phone" autocomplete="tel" placeholder="Your phone number"></label><label class="wide">What do you want to track and why?<textarea required name="message" maxlength="3000" placeholder="Aircraft, city and why you want to track it…"></textarea></label><button class="button wide" type="submit">Send watchlist request</button><p class="form-status" aria-live="polite"></p></form>
       </div>
     </div></section>
   </main>
 
-  <footer class="site-footer shell">Copyright trademark | Falcon Intelligence by @2kwattz</footer>
+  <footer class="site-footer shell">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
   <script>
     (() => {
       const dots = [...document.querySelectorAll('.dot')];
@@ -310,7 +310,30 @@
       const observer = new IntersectionObserver(entries => entries.forEach(entry => { if (entry.isIntersecting) { navItems.forEach(link => link.classList.toggle('active', link.getAttribute('href') === '#' + entry.target.id)); } }), { rootMargin: '-35% 0px -55% 0px' });
       navSections.forEach(section => observer.observe(section));
 
-      document.querySelector('#contact-form').addEventListener('submit', event => { event.preventDefault(); const form = event.currentTarget; form.querySelector('.form-status').textContent = `Watchlist request received. We’ll reply to ${form.email.value}.`; form.reset(); });
+      document.querySelector('#contact-form').addEventListener('submit', async event => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const status = form.querySelector('.form-status');
+        const button = form.querySelector('button[type="submit"]');
+        button.disabled = true;
+        status.textContent = 'Sending your watchlist request…';
+
+        try {
+          const response = await fetch('/watchlist-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(Object.fromEntries(new FormData(form)))
+          });
+          const result = await response.json();
+          if (!response.ok || !result.status) throw new Error(result.message || 'Unable to send your request.');
+          status.textContent = 'Watchlist request received. We’ll reply to you soon.';
+          form.reset();
+        } catch (error) {
+          status.textContent = error.message || 'Unable to send your request. Please try again.';
+        } finally {
+          button.disabled = false;
+        }
+      });
     })();
   </script>
 </body>

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Contact Falcon Intelligence.">
+  <title>Contact Me | Falcon Intelligence</title>
+  <style>
+    :root { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#e7f1fa; background:#07111d; }
+    * { box-sizing:border-box; }
+    body { min-width:320px; margin:0; background:linear-gradient(90deg, rgba(7,17,29,.96) 0%, rgba(7,17,29,.86) 48%, rgba(7,17,29,.7) 100%), radial-gradient(circle at 85% -10%, rgba(24,57,78,.72) 0, transparent 32rem), url('/assets/rafale-contact-background.png') 62% center / cover fixed, #07111d; }
+    a { color:inherit; text-decoration:none; }
+    .shell { width:min(100% - 34px, 960px); margin:auto; }
+    .header { min-height:82px; display:flex; align-items:center; justify-content:space-between; gap:18px; }
+    .brand { display:flex; align-items:center; gap:10px; font-size:.82rem; letter-spacing:.1em; }
+    .brand img { width:52px; height:52px; object-fit:contain; }
+    .brand small { display:block; margin-top:2px; color:#91a6b9; font-size:.55rem; letter-spacing:.2em; }
+    .back { color:#91a6b9; font-size:.77rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .back:hover { color:#58dfbc; }
+    main { display:grid; min-height:calc(100vh - 82px); place-items:center; padding:42px 0 74px; }
+    .contact-card { display:grid; grid-template-columns:.8fr 1.2fr; overflow:hidden; border:1px solid rgba(86,223,188,.3); border-radius:14px; background:linear-gradient(120deg, rgba(17,38,56,.94), rgba(11,23,37,.9)); box-shadow:0 28px 70px rgba(0,0,0,.4); backdrop-filter:blur(5px); }
+    .intro { padding:48px; border-right:1px solid #294258; }
+    .eyebrow { margin:0 0 14px; color:#58dfbc; font-size:.68rem; font-weight:800; letter-spacing:.19em; text-transform:uppercase; }
+    h1 { margin:0 0 14px; font-size:clamp(2.2rem, 5vw, 3.5rem); letter-spacing:-.06em; line-height:.98; }
+    .intro p:last-child { margin:0; color:#91a6b9; line-height:1.7; }
+    form { display:grid; gap:15px; padding:48px; }
+    label { display:grid; gap:7px; color:#91a6b9; font-size:.68rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; }
+    input, textarea { width:100%; min-height:45px; padding:11px; border:1px solid #345168; border-radius:7px; outline:none; color:#e7f1fa; background:#081522; font:inherit; letter-spacing:normal; text-transform:none; }
+    textarea { min-height:160px; resize:vertical; }
+    input:focus, textarea:focus { border-color:#58dfbc; box-shadow:0 0 0 3px rgba(86,223,188,.09); }
+    button { min-height:44px; justify-self:start; padding:0 19px; border:1px solid rgba(150,255,235,.58); border-radius:8px; color:#031b19; background:linear-gradient(135deg, #8af4d4, #55debc 48%, #37b9c5); cursor:pointer; font:800 .72rem/1 inherit; letter-spacing:.1em; text-transform:uppercase; }
+    button:disabled { cursor:wait; opacity:.7; }
+    .status { min-height:20px; margin:0; color:#58dfbc; font-size:.82rem; line-height:1.4; }
+    @media (max-width:700px) { .contact-card { grid-template-columns:1fr; } .intro { padding:34px 25px; border-right:0; border-bottom:1px solid #294258; } form { padding:30px 25px; } }
+  </style>
+</head>
+<body>
+  <header class="shell header">
+    <a class="brand" href="/" aria-label="Falcon Intelligence home"><img src="/assets/falcon-laser-logo.png" alt=""><span><strong>FALCON</strong><small>INTELLIGENCE</small></span></a>
+    <a class="back" href="/">← Back to home</a>
+  </header>
+  <main class="shell">
+    <section class="contact-card" aria-labelledby="contact-title">
+      <div class="intro"><p class="eyebrow">Contact</p><h1 id="contact-title">Contact Me</h1><p>Have a question, idea, or feedback? Send a message and I’ll get back to you.</p></div>
+      <form id="contact-message-form">
+        <label>Name<input required name="name" autocomplete="name" placeholder="Your name"></label>
+        <label>Email<input required type="email" name="email" autocomplete="email" placeholder="you@example.com"></label>
+        <label>Message<textarea required name="message" maxlength="3000" placeholder="Write your message…"></textarea></label>
+        <button type="submit">Send message</button>
+        <p class="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+  <script>
+    document.querySelector('#contact-message-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const status = form.querySelector('.status');
+      const button = form.querySelector('button[type="submit"]');
+      button.disabled = true;
+      status.textContent = 'Sending your message…';
+      try {
+        const response = await fetch('/contact-message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(form))) });
+        const result = await response.json();
+        if (!response.ok || !result.status) throw new Error(result.message || 'Unable to send your message.');
+        status.textContent = 'Thanks — your message has been sent.';
+        form.reset();
+      } catch (error) {
+        status.textContent = error.message || 'Unable to send your message. Please try again.';
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
