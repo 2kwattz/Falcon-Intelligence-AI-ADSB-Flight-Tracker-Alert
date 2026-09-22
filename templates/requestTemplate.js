@@ -7,18 +7,23 @@ function escapeHtml(value) {
         .replace(/'/g, "&#039;");
 }
 
-function requestTemplate({ name, email, phone, message }) {
-    const details = [
+function requestDetails({ name, email, phone, message }) {
+    return [
         ["Name", name],
-        ["Email", email],
-        ["Phone", phone],
-        ["What they want to track and why", message]
+        ["Email address", email],
+        ["Phone number", phone],
+        ["Watchlist request", message]
     ];
+}
 
-    const rows = details.map(([label, value]) => `
+function requestTemplate({ name, email, phone, message }) {
+    const details = requestDetails({ name, email, phone, message });
+    const blocks = details.map(([label, value]) => `
         <tr>
-            <td style="padding:12px 16px; border-bottom:1px solid #dce5eb; color:#52616b; font-size:14px; font-weight:700; vertical-align:top; width:210px;">${escapeHtml(label)}</td>
-            <td style="padding:12px 16px; border-bottom:1px solid #dce5eb; color:#17222b; font-size:14px; line-height:1.55; white-space:pre-wrap; word-break:break-word;">${escapeHtml(value)}</td>
+            <td style="padding:0 0 20px;">
+                <p style="margin:0 0 6px; color:#52616b; font-family:Arial, Helvetica, sans-serif; font-size:13px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;">${escapeHtml(label)}</p>
+                <div style="padding:14px 16px; background:#eef5f6; border:1px solid #dce5eb; border-radius:8px; color:#17222b; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.6; white-space:pre-wrap; word-break:break-word;">${escapeHtml(value)}</div>
+            </td>
         </tr>
     `).join("");
 
@@ -28,7 +33,7 @@ function requestTemplate({ name, email, phone, message }) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>You got a new registration request</title>
+    <title>Falcon Intelligence</title>
 </head>
 <body style="margin:0; padding:0; background:#f3f6f8; color:#17222b; font-family:Arial, Helvetica, sans-serif;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 16px; background:#f3f6f8;">
@@ -42,9 +47,10 @@ function requestTemplate({ name, email, phone, message }) {
                         </td>
                     </tr>
                     <tr>
-                        <td style="padding:28px 16px 16px;">
-                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #dce5eb; border-radius:8px; border-collapse:separate; border-spacing:0; overflow:hidden;">
-                                ${rows}
+                        <td style="padding:28px 32px 8px;">
+                            <p style="margin:0 0 22px; color:#52616b; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:1.55;">A visitor submitted a watchlist request with the following details.</p>
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                ${blocks}
                             </table>
                         </td>
                     </tr>
@@ -55,5 +61,9 @@ function requestTemplate({ name, email, phone, message }) {
 </body>
 </html>`;
 }
+
+requestTemplate.toText = ({ name, email, phone, message }) => requestDetails({ name, email, phone, message })
+    .map(([label, value]) => `${label}:\n${String(value ?? "")}`)
+    .join("\n\n");
 
 module.exports = requestTemplate;

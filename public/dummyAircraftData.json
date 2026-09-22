@@ -53,8 +53,9 @@
       "rssi": -17.7
     },
     {
-      "hex": "101001",
+      "hex": "8002DC",
       "type": "mode_s",
+       "alt_baro": 12000,
       "messages": 62
     }
   ]

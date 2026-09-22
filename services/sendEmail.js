@@ -6,6 +6,8 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const configuredFrom = process.env.EMAIL_FROM || "onboarding@resend.dev";
+const senderAddress = configuredFrom.match(/<\s*([^<>\s]+@[^<>\s]+)\s*>/)?.[1] || configuredFrom;
 
 async function sendEmail(toEmail, subject, html) {
 
@@ -17,7 +19,7 @@ async function sendEmail(toEmail, subject, html) {
 
         const response = await resend.emails.send({
 
-            from: process.env.EMAIL_FROM || "onboarding@resend.dev",
+            from: `Falcon Intelligence <${senderAddress}>`,
             to: toEmail,
             subject,
             html

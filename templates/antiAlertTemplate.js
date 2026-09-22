@@ -84,7 +84,7 @@ function altitudeFilteredFlightAlertTemplate(match) {
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Altitude Filtered - ${data.registration}</title>
+    <title>Falcon Intelligence</title>
 </head>
 
 <body style="

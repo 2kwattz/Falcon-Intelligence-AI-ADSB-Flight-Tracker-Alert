@@ -1,12 +1,20 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
-const sendEmail = require("../services/sendEmail");
+const nodemailer = require("nodemailer");
 const requestTemplate = require("../templates/requestTemplate");
 const contactTemplate = require("../templates/contactTemplate");
 
 const router = express.Router();
 const REQUEST_RECIPIENT = "prakashbhatia1970@gmail.com";
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+        user: process.env.GMAIL_SMTP,
+        pass: process.env.GMAIL_SMTP_PASSWORD
+    }
+});
 
 const watchlistRequestLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -39,11 +47,16 @@ router.post("/watchlist-request", watchlistRequestLimiter, async (req, res) => {
     }
 
     try {
-        await sendEmail(
-            REQUEST_RECIPIENT,
-            "You got a new registration request",
-            requestTemplate({ name, email, phone, message })
-        );
+        const request = { name, email, phone, message };
+
+        await transporter.sendMail({
+            from: `Falcon Intelligence <${process.env.GMAIL_SMTP}>`,
+            to: REQUEST_RECIPIENT,
+            replyTo: email,
+            subject: "You got a new registration request",
+            text: requestTemplate.toText(request),
+            html: requestTemplate(request)
+        });
 
         return res.status(201).json({ status: true, message: "Watchlist request received." });
     } catch (error) {
@@ -70,11 +83,13 @@ router.post("/contact-message", watchlistRequestLimiter, async (req, res) => {
     }
 
     try {
-        await sendEmail(
-            REQUEST_RECIPIENT,
-            "You got a new contact message",
-            contactTemplate({ name, email, message })
-        );
+        await transporter.sendMail({
+            from: `Falcon Intelligence <${process.env.GMAIL_SMTP}>`,
+            to: REQUEST_RECIPIENT,
+            replyTo: email,
+            subject: "You got a new contact message",
+            html: contactTemplate({ name, email, message })
+        });
 
         return res.status(201).json({ status: true, message: "Contact message received." });
     } catch (error) {

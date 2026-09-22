@@ -20,9 +20,9 @@ const client = twilio(
 
 const numbersToCall = [
     process.env.ROSHAN_BHAI_PHONE,
-    // process.env.RISHI_BHAI_PHONE,
-    // process.env.ANMOL_BHAI_PHONE,
-    // process.env.ISHAN_BHAI_PHONE,
+    process.env.RISHI_BHAI_PHONE,
+    process.env.ANMOL_BHAI_PHONE,
+    process.env.ISHAN_BHAI_PHONE,
 ];
 
 const ALERT_EXPIRY_SECONDS = 20 * 60;
@@ -487,6 +487,11 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
                 geometricVerticalSpeed: adsbAircraft.geom_rate,
 
                 squawk: adsbAircraft.squawk,
+
+                predictedAircraftType: iafAircraft.PredictedAircraftType ?? null,
+                predictedType: iafAircraft.PredictedType?? null,
+                predictedOperator: iafAircraft.PredictedAircraftOperator ?? null,
+                predictedRegistration: iafAircraft.PredictedReg ?? null,
 
                 qnh: adsbAircraft.nav_qnh,
                 selectedAltitude: adsbAircraft.nav_altitude_mcp,

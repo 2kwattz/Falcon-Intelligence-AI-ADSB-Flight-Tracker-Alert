@@ -14,7 +14,7 @@ function contactTemplate({ name, email, message }) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>You got a new contact message</title>
+    <title>Falcon Intelligence</title>
 </head>
 <body style="margin:0; padding:0; background:#f3f6f8; color:#17222b; font-family:Arial, Helvetica, sans-serif;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 16px; background:#f3f6f8;">

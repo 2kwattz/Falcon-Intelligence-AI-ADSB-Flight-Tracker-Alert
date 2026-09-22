@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Live ADSBHub aircraft positions on a satellite map">
+  <title>Live Map | Falcon Intelligence</title>
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/live-map.css">
+</head>
+<body>
+  <a class="skip-link" href="#live-map">Skip to live map</a>
+  <div class="app-shell">
+    <header class="site-header">
+      <nav class="map-nav" aria-label="Main navigation">
+        <a class="brand" href="/" aria-label="Falcon Intelligence home"><span class="brand-mark"><i class="laser-eye left" aria-hidden="true"></i><i class="laser-eye right" aria-hidden="true"></i><img src="/assets/falcon-laser-logo.png" alt=""></span><span><strong>FALCON</strong><small>INTELLIGENCE</small></span></a>
+        <button class="menu-button" type="button" id="map-menu-button" aria-label="Open menu" aria-expanded="false">☰</button>
+        <div class="nav-links" id="map-nav-links">
+          <a href="/">Home</a>
+          <a href="/tracked-aircrafts">Intelligence Archive</a>
+          <a class="active" href="/live-map">Live Map</a>
+          <a href="/#services">Services</a>
+          <a href="/#contact">Contact</a>
+        </div>
+        <a class="nav-cta" href="/#contact">Set an alert</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">ADSBHub TCP live feed</p>
+          <h1>Live map</h1>
+          <p class="lede">Aircraft positions received directly through the ADSBHub TCP connection. Satellite imagery and place labels update beneath the live feed.</p>
+        </div>
+        <div class="feed-status" id="feed-status" aria-live="polite"><span></span> Connecting to feed</div>
+      </section>
+
+      <section class="map-layout" aria-label="Live aircraft map and feed summary">
+        <div class="map-card">
+          <div class="map-toolbar">
+            <div><strong id="aircraft-count">0</strong><span> aircraft in this map view</span></div>
+            <div class="toolbar-actions"><label><input type="checkbox" id="follow-latest"> Follow latest position</label><button class="button" type="button" id="fit-aircraft">Fit aircraft</button></div>
+          </div>
+          <div id="live-map" aria-label="Satellite map displaying live aircraft positions"></div>
+          <p class="map-note" id="map-note">Waiting for a position from ADSBHub.</p>
+        </div>
+        <aside class="aircraft-panel" aria-label="Live aircraft list">
+          <div class="panel-heading"><div><p class="eyebrow">Live signals</p><h2>Aircraft feed</h2></div><span id="updated-at">—</span></div>
+          <div class="aircraft-list" id="aircraft-list" aria-live="polite"></div>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <script src="/vendor/leaflet/leaflet.js" defer></script>
+  <script src="/live-map.js" defer></script>
+</body>
+</html>

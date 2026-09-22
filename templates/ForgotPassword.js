@@ -23,7 +23,7 @@ function forgotPasswordTemplate({
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Reset Your Password</title>
+    <title>Falcon Intelligence</title>
 </head>
 
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#111827;">
