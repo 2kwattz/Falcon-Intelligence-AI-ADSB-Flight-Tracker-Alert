@@ -251,6 +251,10 @@ const cityCoordinates = {
         lat: 12.97160,
         lon: 77.59456
     },
+    Ahmedabad:{
+         lat: 23.0225,
+        lon: 72.5714
+    }
     // Chandigarh: {
     //     lat: 30.73331,
     //     lon: 76.77942
@@ -268,7 +272,7 @@ const getCityAircrafts = async (city, latitude, longitude, radius = 250) => {
 
         let ADSB_LOL_URL = `https://api.adsb.lol/v2/lat/${latitude}/lon/${longitude}/dist/${radius}`;
 
-        console.log("sending req")
+        console.log("[*] Calling ADSB API")
 
         setScrapperState({
             mode: "sleeping",
@@ -279,7 +283,11 @@ const getCityAircrafts = async (city, latitude, longitude, radius = 250) => {
             nextWakeAt: new Date(Date.now() + SCRAPPER_SLEEP_MS).toISOString()
         });
 
+         console.log("[*] Scrapper Sleeping");
+
         await sleep(SCRAPPER_SLEEP_MS)
+
+        console.log("[*] Scrapper Active");
 
         setScrapperState({
             mode: "tracking",
@@ -297,6 +305,8 @@ const getCityAircrafts = async (city, latitude, longitude, radius = 250) => {
         return response.data
     }
     catch (error) {
+
+        console.log("[*] Error in Scrapping ",error)
         setScrapperState({
             mode: "error",
             isSleeping: false,

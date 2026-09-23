@@ -92,6 +92,8 @@ async function startServer() {
         app.use(hpp()); // Prevents HTTP Parameter Pollution
 
 
+
+
         // Multer File Storage Configuration
 
         // Disk storage in Project/Uploads folder
@@ -140,8 +142,8 @@ async function startServer() {
         })
 
 
-        async function shouldTriggerCall(hexCode, phoneNumber) {
-            const key = `flight-alert:call:${hexCode}:${phoneNumber}`;
+        async function shouldTriggerCall(hexCode, city, phoneNumber) {
+            const key = `flight-alert:call:${hexCode}:${city}:${phoneNumber}`;
 
             const result = await redisClient.set(
                 key,
@@ -215,6 +217,7 @@ async function startServer() {
         }
 
         const VoiceResponse = twilio.twiml.VoiceResponse;
+
 
         const ADSB_TRACKING_INTERVAL_MS = 1000;
         let isTrackingPollRunning = false;
@@ -325,6 +328,18 @@ async function startServer() {
 
         // ADSB Data Scrapper 
 
+
+        const numbersToCallVadodara = [
+            process.env.ROSHAN_BHAI_PHONE,
+            // process.env.RISHI_BHAI_PHONE,
+            // process.env.ANMOL_BHAI_PHONE,
+            process.env.ISHAN_BHAI_PHONE,
+        ];
+
+        const numbersToCallBengaluru = [
+            process.env.AKSHAY_BHAYIA_PHONE
+        ]
+
         const iafAircraftByHexCode = new Map();
 
         // Setting Hex Set of Mode S/Hex : IAFDATA
@@ -368,6 +383,10 @@ async function startServer() {
             "roshan.bhatia.blueera@gmail.com",
         ];
 
+          const emailsToSendAmd = [
+            "roshan.bhatia.blueera@gmail.com",
+        ];
+
         const fetchADSBScrapperData = async () => {
 
             try {
@@ -384,6 +403,9 @@ async function startServer() {
 
                 const bangloreAirspace = response?.data?.aircraftData?.Bengaluru?.ac ?? [];
 
+                 const amdAirspace = response?.data?.aircraftData?.Ahmedabad?.ac ?? [];
+
+
                 // const hyderabadAirspace = response?.aircraftData?.Hyderabad?.ac;
                 // const chandigarhAirspace = response?.aircraftData?.Chandigarh?.ac;
 
@@ -391,38 +413,80 @@ async function startServer() {
 
                 console.log("[*] Aircrafts currently in 250 nautical miles of Vadodara ", vadodaraAirspace?.length)
                 console.log("[*] Aircrafts currently in 250 nautical miles of Banglore ", bangloreAirspace?.length)
+                  console.log("[*] Aircrafts currently in 250 nautical miles of Ahmedabad ", amdAirspace?.length)
 
-                for (const aircraft of vadodaraAirspace) {
-                    const icao = normalizeHexCode(aircraft?.hex);
-                    const iafAircraft = iafAircraftByHexCode.get(icao);
 
-                    if (icao && iafAircraft) {
-                        const enrichedAircraft = enrichWithIafAircraftData(aircraft, iafAircraft);
+    //             for (const aircraft of vadodaraAirspace) {
+    //                 const icao = normalizeHexCode(aircraft?.hex);
+    //                 const iafAircraft = iafAircraftByHexCode.get(icao);
 
-                        console.log(`[*] ${enrichedAircraft.r} ${enrichedAircraft.t} matches aircraft of interest `);
+    //                 if (icao && iafAircraft) {
+    //                     const enrichedAircraft = enrichWithIafAircraftData(aircraft, iafAircraft);
 
-                        await cacheADSBAircraft(redisClient, "Vadodara", enrichedAircraft);
+    //                     console.log(`[*] ${enrichedAircraft.r} ${enrichedAircraft.t} matches aircraft of interest `);
 
-                        // Email Alert
-                        for (const email of emailsToSendBdq) {
-                            if (await shouldTriggerEmail("Vadodara", enrichedAircraft.hex, email)) {
-                                await transporter.sendMail({
-                                    from: "Falcon Intelligence",
-                                    to: email,
-                                    subject: `Falcon Intelligence Flight Alert | ${enrichedAircraft.r} (${enrichedAircraft.t}) within 100 km of Vadodara`,
-                                    html: flightAlertTemplate(enrichedAircraft, {
-                                        zoneName: "Vadodara",
-                                        radius: 250,
-                                        radiusUnit: "km",
-                                        source: "ADSB API",
-                                    })
-                                });
-                            }
-                        }
-                    } else {
-                        // console.log("No Aircraft of interest in Vadodara airspace");
-                    }
-                }
+    //                     await cacheADSBAircraft(redisClient, "Vadodara", enrichedAircraft);
+
+    //                     // Email Alert
+    //                     for (const email of emailsToSendBdq) {
+    //                         if (await shouldTriggerEmail("Vadodara", enrichedAircraft.hex, email)) {
+    //                             await transporter.sendMail({
+    //                                 from: "Falcon Intelligence",
+    //                                 to: email,
+    //                                 subject: `Falcon Intelligence Flight Alert | ${enrichedAircraft.r} (${enrichedAircraft.t}) within 100 km of Vadodara`,
+    //                                 html: flightAlertTemplate(enrichedAircraft, {
+    //                                     zoneName: "Vadodara",
+    //                                     radius: 250,
+    //                                     radiusUnit: "km",
+    //                                     source: "ADSB API",
+    //                                 })
+    //                             });
+    //                         }
+    //                     }
+
+    //                     // Call Alert
+
+    //                     for (let number of numbersToCallVadodara) {
+
+    //                         try {
+
+    //                             const shouldCall = await shouldTriggerCall(enrichedAircraft.hex, "Vadodara", number);
+    //                             if (!shouldCall) {
+    //                                 console.log(`[CALL] Skipping ${number}`);
+    //                                 continue;
+
+    //                             }
+
+    //                              const response = new VoiceResponse();
+    //                             response.say(
+    //                                 {
+    //                                     voice: "alice"
+    //                                 },
+    //                                 `Attention. Falcon Intelligence detected ${enrichedAircraft.t}
+    //  registration ${enrichedAircraft.r}
+    //  within two hundred fifty nautical miles of Vadodara.`
+    //                             );
+
+
+    //                             console.log(`[CALL] Calling ${number}`);
+    //                             await client.calls.create({
+    //                                 to: number,
+    //                                 from: "+12792392187",
+    //                                 twiml: response.toString()
+    //                             });
+    //                         }
+    //                         catch (err) {
+    //                             console.error("[CALL ERROR]", err.message);
+    //                         }
+
+    //                     }
+
+
+
+    //                 } else {
+    //                     // console.log("No Aircraft of interest in Vadodara airspace");
+    //                 }
+    //             }
 
 
                 for (const aircraft of bangloreAirspace) {
@@ -461,6 +525,45 @@ async function startServer() {
 
                         }
 
+                        // Call Alert
+
+                        for (let number of numbersToCallBengaluru) {
+
+                            try {
+
+                                const shouldCall = await shouldTriggerCall(enrichedAircraft.hex, "Bengaluru", number);
+                                if (!shouldCall) {
+                                    console.log(`[CALL] Skipping ${number}`);
+                                    continue;
+
+                                }
+
+                                const response = new VoiceResponse();
+
+                                response.say(
+                                    {
+                                        voice: "alice"
+                                    },
+                                    `Attention. Falcon Intelligence detected ${enrichedAircraft.t}
+                                        registration ${enrichedAircraft.r}
+                                        within two hundred fifty nautical miles of Banglore.`
+                                );
+
+                                console.log(`[CALL] Calling ${number}`);
+                                await client.calls.create({
+                                    to: number,
+                                    from: "+12792392187",
+                                    twiml: response.toString()
+                                });
+                            }
+                            catch (err) {
+                                console.error("[CALL ERROR]", err.message);
+                            }
+
+                        }
+
+
+
 
                     }
 
@@ -468,6 +571,11 @@ async function startServer() {
                         // console.log("No Aircraft of interest in banglore airspace")
                     }
                 }
+
+
+                // Ahemadabad Airspace
+
+                
 
 
             } catch (err) {

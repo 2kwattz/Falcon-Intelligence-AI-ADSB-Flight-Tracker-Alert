@@ -76,8 +76,8 @@ const transporter = nodemailer.createTransport({
     }
 })
 
-async function shouldTriggerCall(hexCode, phoneNumber) {
-    const key = `flight-alert:call:${hexCode}:${phoneNumber}`;
+async function shouldTriggerCall(hexCode,city, phoneNumber) {
+    const key = `flight-alert:call:${hexCode}:${city}:${phoneNumber}`;
 
     const result = await redisClient.set(
         key,
@@ -302,7 +302,7 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
 
             try {
 
-            const shouldCall = await shouldTriggerCall(match.hexCode, number);
+            const shouldCall = await shouldTriggerCall(match.hexCode,"Vadodara", number);
 
                     if (!shouldCall) {
                         console.log(`[CALL] Skipping ${number}`);

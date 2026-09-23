@@ -500,7 +500,7 @@ const iafData = {
                 "AircraftType": "TEST",
                 "TypeCode": "TEST",
                 "AircraftOperator": "TEST",
-                "HexCode": "80185f"
+                "HexCode": "801600"
             }
 
         ],
