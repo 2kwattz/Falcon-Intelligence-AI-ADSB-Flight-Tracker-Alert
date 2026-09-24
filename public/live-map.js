@@ -1,11 +1,19 @@
 (() => {
   const endpoint = "/live-map/aircrafts";
+  const bookmarkEndpoint = "/api/aircraft/nearby";
   // The TCP receiver is already in memory, so a one-second UI snapshot keeps
   // positions responsive without opening additional feed connections.
   const refreshInterval = 1000;
+  const bookmarkRefreshInterval = 5000;
   const maximumAircraft = 250;
+  const bookmarkRadiusNm = 100;
   const labelZoom = 8;
   const labelLimit = 60;
+  const airspaceBookmarks = [
+    { id: "bhuj", latitude: 23.241999, longitude: 69.666932 },
+    { id: "lucknow", latitude: 26.8467, longitude: 80.9462 },
+    { id: "bengaluru", latitude: 12.9716, longitude: 77.5946 }
+  ];
   const $ = (selector) => document.querySelector(selector);
   const markers = new Map();
   let map;
@@ -13,6 +21,7 @@
   let refreshInFlight = false;
   let viewportRefreshTimer;
   let hasLoadedInitialFeed = false;
+  let bookmarkRefreshInFlight = false;
 
   const finite = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
   const text = (value, fallback = "—") => value === undefined || value === null || String(value).trim() === "" ? fallback : String(value).trim();
@@ -139,12 +148,81 @@
     }
   }
 
+  function renderBookmark(bookmark, payload, failed = false) {
+    const card = document.querySelector("[data-bookmark=\"" + bookmark.id + "\"]");
+    if (!card) return;
+
+    const count = card.querySelector("[data-bookmark-count]");
+    const detail = card.querySelector("[data-bookmark-detail]");
+    const status = card.querySelector("[data-bookmark-status]");
+    const updated = card.querySelector("[data-bookmark-updated]");
+    const nearest = payload?.aircraft?.[0];
+    card.classList.toggle("bookmark-error", failed);
+    card.classList.toggle("bookmark-ready", !failed);
+
+    if (failed) {
+      count.textContent = "—";
+      detail.textContent = "Unable to reach the live proximity API.";
+      status.innerHTML = "<i></i> Retry pending";
+      updated.textContent = "—";
+      return;
+    }
+
+    count.textContent = Number(payload.totalInRadius || 0).toLocaleString();
+    detail.textContent = nearest
+      ? "Nearest: " + callsign(nearest) + " · " + format(nearest.distanceNm, " NM")
+      : "No aircraft with a current position in range.";
+    status.innerHTML = "<i></i> Live";
+    updated.textContent = "Updated " + formatTime(payload.updatedAt);
+  }
+
+  async function refreshBookmarks() {
+    if (bookmarkRefreshInFlight) return;
+    bookmarkRefreshInFlight = true;
+
+    await Promise.all(airspaceBookmarks.map(async (bookmark) => {
+      const card = document.querySelector("[data-bookmark=\"" + bookmark.id + "\"]");
+      card?.classList.add("bookmark-loading");
+      try {
+        const query = new URLSearchParams({
+          latitude: String(bookmark.latitude),
+          longitude: String(bookmark.longitude),
+          radiusNm: String(bookmarkRadiusNm),
+          limit: "1"
+        });
+        const response = await fetch(bookmarkEndpoint + "?" + query, { headers: { Accept: "application/json" }, cache: "no-store" });
+        if (!response.ok) throw new Error("Server returned " + response.status);
+        const payload = await response.json();
+        if (!payload.status || !Array.isArray(payload.aircraft)) throw new Error("Unexpected nearby-aircraft payload");
+        renderBookmark(bookmark, payload);
+      } catch (error) {
+        renderBookmark(bookmark, null, true);
+      } finally {
+        card?.classList.remove("bookmark-loading");
+      }
+    }));
+
+    bookmarkRefreshInFlight = false;
+  }
+
+  function focusBookmark(bookmark) {
+    map.flyTo([bookmark.latitude, bookmark.longitude], 7, { animate: true, duration: 0.8 });
+  }
+
   window.addEventListener("DOMContentLoaded", () => {
     initMap();
     $("#fit-aircraft").addEventListener("click", () => fitAircraft(lastAircraft));
     const menuButton = $("#map-menu-button"); const navLinks = $("#map-nav-links");
     menuButton.addEventListener("click", () => { const open = navLinks.classList.toggle("open"); menuButton.setAttribute("aria-expanded", String(open)); menuButton.textContent = open ? "×" : "☰"; });
+    document.querySelectorAll("[data-focus-bookmark]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const bookmark = airspaceBookmarks.find((item) => item.id === button.dataset.focusBookmark);
+        if (bookmark) focusBookmark(bookmark);
+      });
+    });
     refresh();
+    refreshBookmarks();
     window.setInterval(refresh, refreshInterval);
+    window.setInterval(refreshBookmarks, bookmarkRefreshInterval);
   });
 })();
