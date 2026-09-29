@@ -187,17 +187,17 @@ async function startServer() {
 
       const axios = require("axios");
 
-setInterval(async () => {
-    try {
-        const { data } = await axios.get(
-            "http://localhost/VirtualRadar/AircraftList.json"
-        );
+// setInterval(async () => {
+//     try {
+//         const { data } = await axios.get(
+//             "http://localhost/VirtualRadar/AircraftList.json"
+//         );
 
-        io.emit("aircraft-data", data);
-    } catch (err) {
-        console.error(err.message);
-    }
-}, 1000);
+//         io.emit("aircraft-data", data);
+//     } catch (err) {
+//         console.error(err.message);
+//     }
+// }, 1000);
 
         // Redis Check 
 
