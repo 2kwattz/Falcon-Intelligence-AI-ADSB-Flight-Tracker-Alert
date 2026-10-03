@@ -50,6 +50,7 @@ const adsbRoutes = require("../routes/adsbRoutes.js");
 const trackedAircraftRoutes = require("../routes/trackedAircraftRoutes.js");
 const watchlistRoutes = require("../routes/watchlistRoutes.js");
 const liveMapRoutes = require("../routes/liveMapRoutes.js");
+const apiRoutes = require("../routes/apiRoutes.js");
 const exploreRoutes = require("../routes/exploreRoutes.js");
 
 require("../db/conn"); // MySQL Connection
@@ -151,6 +152,7 @@ async function startServer() {
         app.use("/api", apiRoutes); // General API Router
         app.use("/admin", adminRoutes) // Admin Router
         app.use("/adsb", adsbRoutes) // Adsb Router
+        app.use("/api",apiRoutes) // ADSBLOL, AIRCRAFTS.LIVE & AIRNAVRADAR REST Endpoints
         app.use("/live-map", liveMapRoutes); // Independent ADSBHub TCP map pipeline
         app.use("/", exploreRoutes); // Aircraft callsign search page
         app.use("/", watchlistRoutes); // Landing-page watchlist requests
