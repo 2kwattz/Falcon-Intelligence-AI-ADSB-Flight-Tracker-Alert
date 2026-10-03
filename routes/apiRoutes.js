@@ -7,6 +7,15 @@ const aiRateLimiting = require("../middlewares/aiRateLimiting");
 
 const cleanXSS = require("../utils/xssCleaner");
 
+// API HOSTNAMES
+
+const AIRPLANES_LIVE = "https://api.airplanes.live/";
+const ADSBLOL = "https://api.adsb.lol/"
+
+
+
+
+
 
 
 // Routes
