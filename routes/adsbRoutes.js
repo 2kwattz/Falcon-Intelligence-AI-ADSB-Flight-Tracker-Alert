@@ -1,10 +1,11 @@
 const express = require("express"); // NodeJs Framework
 const router = express.Router(); // Express Router
+const fs = require("node:fs/promises");
 const redisClient = require("../redis/redisClient"); // Caching
 const { cacheTrackedAircraft } = require("../redis/trackedAircraftCache");
 const authMiddleware = require("../middlewares/authMiddleware"); // Auth Middleware
 const axios = require("axios"); // HTTP Request Maker
-const { ADSB_FLIGHT_JSON_URL } = require("../utils/globals")
+const { ADSB_FLIGHT_JSON_URL, READSB_AIRCRAFT_JSON_PATH } = require("../utils/globals")
 const iafData = require("../iafData");
 const flightAlertTemplate = require("../templates/flightAlertTemplate")
 const antiAlertTemplate = require("../templates/antiAlertTemplate")
@@ -792,13 +793,35 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
     return matches;
 };
 
-const fetchAircrafts = async () => {
+let lastReadsbFileWarningAt = 0;
+
+async function getAircraftFeedPayload() {
+    // The tar1090 HTTP data path can be a reduced copy of aircraft.json. Read
+    // readsb's atomically-written source file first so --db-file and
+    // --db-file-lt fields reach the archive intact.
+    if (READSB_AIRCRAFT_JSON_PATH) {
+        try {
+            return JSON.parse(await fs.readFile(READSB_AIRCRAFT_JSON_PATH, "utf8"));
+        } catch (error) {
+            const now = Date.now();
+            if (now - lastReadsbFileWarningAt > 60 * 1000) {
+                lastReadsbFileWarningAt = now;
+                console.warn(`[*] Could not read ${READSB_AIRCRAFT_JSON_PATH}; falling back to HTTP feed:`, error.message);
+            }
+        }
+    }
 
     const response = await axios.get(ADSB_FLIGHT_JSON_URL);
+    return response.data;
+}
+
+const fetchAircrafts = async () => {
+
+    const payload = await getAircraftFeedPayload();
 
     // Fetching ADSB Aircraft Data from RTL SDR 
     // const aircrafts = response.data?.acList; Virtual Radar Config
-    const aircrafts = response.data?.aircraft || []; // Readsb Config
+    const aircrafts = payload?.aircraft || []; // Readsb Config
 
     const currentAircraftHexes = new Set(
         aircrafts

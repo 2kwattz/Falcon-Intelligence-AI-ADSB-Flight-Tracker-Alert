@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title">
+  <title>ADS-B Hub</title>
+  <rect width="160" height="160" rx="32" fill="#102b42"/>
+  <path d="M80 32v45m0 0-25 28m25-28 25 28M48 120h64" fill="none" stroke="#61dcb9" stroke-linecap="round" stroke-linejoin="round" stroke-width="10"/>
+  <path d="M32 88c10 11 18 15 28 17M128 88c-10 11-18 15-28 17" fill="none" stroke="#a9e9dc" stroke-linecap="round" stroke-width="8"/>
+</svg>

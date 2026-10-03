@@ -1,6 +1,8 @@
 {
     "watch": [
-        "src"
+        "src",
+        "routes",
+        "utils"
     ],
     "ignore": [
         "node_modules/**",

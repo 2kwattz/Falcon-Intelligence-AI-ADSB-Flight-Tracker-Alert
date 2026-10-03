@@ -146,6 +146,13 @@
     .about-signoff { margin-top: 31px !important; color: var(--amber) !important; font-weight: 800; letter-spacing: .06em; font-size: .81rem !important; text-transform: uppercase; }
     .service-card { min-height: 270px; position: relative; }
     .service-card .arrow { position: absolute; bottom: 22px; color: var(--teal); }
+    .data-client-section { background: linear-gradient(180deg, rgba(12,31,45,.3), transparent); }
+    .data-client-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .data-client-card { display: flex; align-items: center; gap: 14px; min-height: 92px; padding: 16px; border: 1px solid var(--line); border-radius: 11px; background: linear-gradient(145deg, rgba(20,37,56,.86), rgba(11,25,38,.86)); transition: transform .2s, border-color .2s, background .2s; }
+    .data-client-card:hover { border-color: #4f8a9b; background: linear-gradient(145deg, rgba(25,49,70,.96), rgba(12,31,45,.96)); transform: translateY(-3px); }
+    .data-client-logo { display: grid; place-items: center; flex: 0 0 50px; width: 50px; height: 50px; padding: 6px; overflow: hidden; border: 1px solid rgba(111,166,183,.36); border-radius: 10px; background: #f8fbfd; }
+    .data-client-logo img { display: block; width: 100%; height: 100%; object-fit: contain; }
+    .data-client-name { color: var(--ink); font-size: .84rem; font-weight: 800; line-height: 1.25; }
     .contact-box { display: grid; grid-template-columns: .85fr 1.15fr; gap: 60px; align-items: start; padding: 48px; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(120deg, #112638, #0b1725); }
     .contact-box h2 { margin-bottom: 13px; }
     .contact-box p { color: var(--muted); line-height: 1.65; }
@@ -167,6 +174,7 @@
       .hero::after { top: 380px; }
       .hero-visual { max-width: 550px; width: 100%; }
       .archive-layout, .service-grid { grid-template-columns: 1fr 1fr; }
+      .data-client-grid { grid-template-columns: repeat(2, 1fr); }
       .track-panel, .contact-box { grid-template-columns: 1fr; }
       .contact-box { gap: 30px; }
     }
@@ -190,6 +198,7 @@
       .email-card { transform: scale(.86); transform-origin: bottom right; }
       .radar { transform: translate(-50%,-45%) scale(.86); }
       .archive-layout, .service-grid { grid-template-columns: 1fr; }
+      .data-client-grid { grid-template-columns: 1fr; }
       .section { padding: 73px 0; }
       .track-copy, .contact-box { padding: 29px 23px; }
       .contact-form { grid-template-columns: 1fr; }
@@ -264,6 +273,19 @@
         <div class="track-copy"><p class="eyebrow">Signal status</p><h3 style="font-size:1.65rem;letter-spacing:-.04em">Active monitoring, without the screen time.</h3><p>We watch for aircraft of your choice entering the radius around your selected city. You receive an immediate call and a more complete intelligence report by email.</p><div class="live-indicator"><i></i> Monitoring configured targets</div><a class="button button-outline" href="#contact">Start a watchlist</a></div>
         <div class="flight-list"><div class="flight-list-header"><span>Tracked signal</span><span>Proximity</span></div><div class="flight"><div><strong>VIKING 21 · C-17</strong><small>Altitude 28,700 ft · heading 166°</small></div><span class="distance">82.1 MI</span></div><div class="flight"><div><strong>TALLY 04 · JAGUAR</strong><small>Altitude 16,400 ft · heading 242°</small></div><span class="distance">54.6 MI</span></div><div class="flight"><div><strong>FALCON 12 · UNKNOWN</strong><small>Altitude 31,800 ft · heading 291°</small></div><span class="distance">96.8 MI</span></div></div>
       </div>
+
+    <section class="section data-client-section" id="data-clients"><div class="shell">
+      <div class="section-heading"><p class="eyebrow">03 / Data Clients</p><h2>Our Data Clients</p></div>
+      <div class="data-client-grid" aria-label="Data clients receiving Falcon ADS-B data">
+        <a class="data-client-card" href="https://www.flightradar24.com/" target="_blank" rel="noreferrer"><span class="data-client-logo"><img src="/assets/data-clients/flightradar24.png" alt=""></span><span class="data-client-name">Flightradar24</span></a>
+        <a class="data-client-card" href="https://www.airnavradar.com/" target="_blank" rel="noreferrer"><span class="data-client-logo"><img src="/assets/data-clients/airnav-radar.png" alt=""></span><span class="data-client-name">AirNav Radar</span></a>
+        <a class="data-client-card" href="https://www.adsbexchange.com/" target="_blank" rel="noreferrer"><span class="data-client-logo"><img src="/assets/data-clients/adsbexchange.png" alt=""></span><span class="data-client-name">ADS-B Exchange</span></a>
+        <a class="data-client-card" href="https://www.flightaware.com/" target="_blank" rel="noreferrer"><span class="data-client-logo"><img src="/assets/data-clients/flightaware.png" alt=""></span><span class="data-client-name">FlightAware</span></a>
+        <a class="data-client-card" href="https://adsb.lol/" target="_blank" rel="noreferrer"><span class="data-client-logo"><img src="/assets/data-clients/adsblol.png" alt=""></span><span class="data-client-name">ADSB.lol</span></a>
+        <a class="data-client-card" href="https://airplanes.live/" target="_blank" rel="noreferrer"><span class="data-client-logo"><img src="/assets/data-clients/airplanes-live.png" alt=""></span><span class="data-client-name">Airplanes.live</span></a>
+        <a class="data-client-card" href="https://www.adsbhub.org/" target="_blank" rel="noreferrer"><span class="data-client-logo"><img src="/assets/data-clients/adsbhub.svg" alt=""></span><span class="data-client-name">ADSBHub</span></a>
+      </div>
+    </div></section>
     </div></section>
 
     <section class="section" id="about"><div class="shell about-copy">
