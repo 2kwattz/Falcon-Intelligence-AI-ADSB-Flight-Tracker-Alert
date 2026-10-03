@@ -44,12 +44,14 @@ const authRoutes = require("../routes/authRouter.js"); // Auth routes
 const chatroomRoutes = require("../routes/chatroomRoutes"); // Chatroom Routes
 const communityRoutes = require("../routes/communityRouter") // Communities Router
 const aiRoutes = require("../routes/aiRoutes.js") // AI LLM Routes
+const apiRoutes = require("../routes/apiRoutes.js") // General API Routes
 const adminRoutes = require("../routes/adminRoutes.js") // Admin Routes
 const adsbRoutes = require("../routes/adsbRoutes.js");
 const trackedAircraftRoutes = require("../routes/trackedAircraftRoutes.js");
 const watchlistRoutes = require("../routes/watchlistRoutes.js");
 const liveMapRoutes = require("../routes/liveMapRoutes.js");
 const apiRoutes = require("../routes/apiRoutes.js");
+const exploreRoutes = require("../routes/exploreRoutes.js");
 
 require("../db/conn"); // MySQL Connection
 
@@ -147,10 +149,12 @@ async function startServer() {
 
         app.use("/auth", authRoutes); // Authentication routes
         app.use("/ai", aiRoutes); // AI Models Router
+        app.use("/api", apiRoutes); // General API Router
         app.use("/admin", adminRoutes) // Admin Router
         app.use("/adsb", adsbRoutes) // Adsb Router
         app.use("/api",apiRoutes) // ADSBLOL, AIRCRAFTS.LIVE & AIRNAVRADAR REST Endpoints
         app.use("/live-map", liveMapRoutes); // Independent ADSBHub TCP map pipeline
+        app.use("/", exploreRoutes); // Aircraft callsign search page
         app.use("/", watchlistRoutes); // Landing-page watchlist requests
         app.use("/", trackedAircraftRoutes) // Tracked aircraft cache endpoint
         app.set("trust proxy", false);
@@ -185,17 +189,17 @@ async function startServer() {
 
       const axios = require("axios");
 
-setInterval(async () => {
-    try {
-        const { data } = await axios.get(
-            "http://localhost/VirtualRadar/AircraftList.json"
-        );
+// setInterval(async () => {
+//     try {
+//         const { data } = await axios.get(
+//             "http://localhost/VirtualRadar/AircraftList.json"
+//         );
 
-        io.emit("aircraft-data", data);
-    } catch (err) {
-        console.error(err.message);
-    }
-}, 1000);
+//         io.emit("aircraft-data", data);
+//     } catch (err) {
+//         console.error(err.message);
+//     }
+// }, 1000);
 
         // Redis Check 
 

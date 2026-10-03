@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Search live aircraft data by callsign across ADS-B providers">
+  <title>Explore Aircraft | Falcon Intelligence</title>
+  <link rel="stylesheet" href="/explore.css">
+</head>
+<body>
+  <a class="skip-link" href="#search-aircraft">Skip to aircraft search</a>
+  <div class="app-shell">
+    <header class="site-header">
+      <nav class="explore-nav" aria-label="Main navigation">
+        <a class="brand" href="/" aria-label="Falcon Intelligence home"><span class="brand-mark"><i class="laser-eye left" aria-hidden="true"></i><i class="laser-eye right" aria-hidden="true"></i><img src="/assets/falcon-laser-logo.png" alt=""></span><span><strong>FALCON</strong><small>INTELLIGENCE</small></span></a>
+        <button class="menu-button" type="button" id="explore-menu-button" aria-label="Open menu" aria-expanded="false">☰</button>
+        <div class="nav-links" id="explore-nav-links">
+          <a href="/">Home</a>
+          <a href="/tracked-aircrafts">Intelligence Archive</a>
+          <a href="/live-map">Live Map</a>
+          <a class="active" href="/explore">Explore</a>
+          <a href="/#services">Services</a>
+          <a href="/#contact">Contact</a>
+        </div>
+        <a class="nav-cta" href="/#contact">Set an alert</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Live multi-source intelligence</p>
+          <h1>Explore aircraft</h1>
+          <p class="lede">Search a live callsign across ADSB.lol and Airplanes.live. Matching aircraft are merged into one result per aircraft.</p>
+        </div>
+      </section>
+
+      <section class="search-card" id="search-aircraft" aria-labelledby="callsign-search-title">
+        <div class="search-card-copy">
+          <p class="eyebrow">Search Aircraft by Callsign</p>
+          <h2 id="callsign-search-title">Find a live flight signal</h2>
+          <p>Enter a callsign such as <button class="example-callsign" type="button" data-callsign="AIC101">AIC101</button>. The lookup queries both live providers simultaneously and prevents duplicate aircraft in the result.</p>
+        </div>
+        <form class="callsign-form" id="callsign-form" novalidate>
+          <label for="callsign-input">Aircraft callsign</label>
+          <div class="search-input-row">
+            <input id="callsign-input" name="callsign" type="search" inputmode="text" autocomplete="off" autocapitalize="characters" maxlength="12" pattern="[A-Za-z0-9]{2,12}" placeholder="e.g. AIC101" required>
+            <button class="search-button" type="submit"><span aria-hidden="true">⌕</span> Search</button>
+          </div>
+          <p class="form-hint">2–12 letters or numbers. Live positions may be unavailable when a transponder is not broadcasting.</p>
+        </form>
+      </section>
+
+      <section class="results-section" aria-labelledby="results-title">
+        <div class="results-heading">
+          <div><p class="eyebrow">Search results</p><h2 id="results-title">Awaiting a callsign</h2></div>
+          <span class="search-status" id="search-status" aria-live="polite"><i></i> Ready</span>
+        </div>
+        <div class="provider-status" id="provider-status" aria-live="polite"></div>
+        <div class="results-grid" id="search-results" aria-live="polite">
+          <div class="empty-state"><span aria-hidden="true">⌕</span><h3>Search the live aircraft feeds</h3><p>Enter a callsign to aggregate available ADS-B positions from both providers.</p></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/explore.js" defer></script>
+</body>
+</html>

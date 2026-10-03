@@ -19,6 +19,7 @@
           <a href="/">Home</a>
           <a href="/tracked-aircrafts">Intelligence Archive</a>
           <a class="active" href="/live-map">Live Map</a>
+          <a href="/explore">Explore</a>
           <a href="/#services">Services</a>
           <a href="/#contact">Contact</a>
         </div>
@@ -49,6 +50,38 @@
           <div class="panel-heading"><div><p class="eyebrow">Live signals</p><h2>Aircraft feed</h2></div><span id="updated-at">—</span></div>
           <div class="aircraft-list" id="aircraft-list" aria-live="polite"></div>
         </aside>
+      </section>
+      <section class="bookmark-section" aria-labelledby="bookmarks-title">
+        <div class="bookmarks-heading">
+          <div>
+            <p class="eyebrow">Bookmarks</p>
+            <h2 id="bookmarks-title">Indian Airspace</h2>
+          </div>
+          <p>Live aircraft counts refresh every 5 seconds.</p>
+        </div>
+        <div class="bookmark-grid">
+          <article class="airspace-bookmark" data-bookmark="bhuj">
+            <div class="bookmark-card-heading"><div><span class="bookmark-location">01 · Gujarat</span><h3>Bhuj Airspace</h3></div><button class="bookmark-focus" type="button" data-focus-bookmark="bhuj" aria-label="Center map on Bhuj Airspace">⌖</button></div>
+            <p class="bookmark-radius">100 NM radius · 23.2420°, 69.6669°</p>
+            <div class="bookmark-count"><strong data-bookmark-count>—</strong><span>aircraft nearby</span></div>
+            <p class="bookmark-detail" data-bookmark-detail>Connecting to live feed…</p>
+            <div class="bookmark-footer"><span class="bookmark-status" data-bookmark-status><i></i> Scanning</span><time data-bookmark-updated>—</time></div>
+          </article>
+          <article class="airspace-bookmark" data-bookmark="lucknow">
+            <div class="bookmark-card-heading"><div><span class="bookmark-location">02 · Uttar Pradesh</span><h3>Lucknow Airspace</h3></div><button class="bookmark-focus" type="button" data-focus-bookmark="lucknow" aria-label="Center map on Lucknow Airspace">⌖</button></div>
+            <p class="bookmark-radius">100 NM radius · 26.8467°, 80.9462°</p>
+            <div class="bookmark-count"><strong data-bookmark-count>—</strong><span>aircraft nearby</span></div>
+            <p class="bookmark-detail" data-bookmark-detail>Connecting to live feed…</p>
+            <div class="bookmark-footer"><span class="bookmark-status" data-bookmark-status><i></i> Scanning</span><time data-bookmark-updated>—</time></div>
+          </article>
+          <article class="airspace-bookmark" data-bookmark="bengaluru">
+            <div class="bookmark-card-heading"><div><span class="bookmark-location">03 · Karnataka</span><h3>Bengaluru Airspace</h3></div><button class="bookmark-focus" type="button" data-focus-bookmark="bengaluru" aria-label="Center map on Bengaluru Airspace">⌖</button></div>
+            <p class="bookmark-radius">100 NM radius · 12.9716°, 77.5946°</p>
+            <div class="bookmark-count"><strong data-bookmark-count>—</strong><span>aircraft nearby</span></div>
+            <p class="bookmark-detail" data-bookmark-detail>Connecting to live feed…</p>
+            <div class="bookmark-footer"><span class="bookmark-status" data-bookmark-status><i></i> Scanning</span><time data-bookmark-updated>—</time></div>
+          </article>
+        </div>
       </section>
     </main>
   </div>
