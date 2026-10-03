@@ -49,6 +49,7 @@ const adsbRoutes = require("../routes/adsbRoutes.js");
 const trackedAircraftRoutes = require("../routes/trackedAircraftRoutes.js");
 const watchlistRoutes = require("../routes/watchlistRoutes.js");
 const liveMapRoutes = require("../routes/liveMapRoutes.js");
+const apiRoutes = require("../routes/apiRoutes.js");
 
 require("../db/conn"); // MySQL Connection
 
@@ -148,6 +149,7 @@ async function startServer() {
         app.use("/ai", aiRoutes); // AI Models Router
         app.use("/admin", adminRoutes) // Admin Router
         app.use("/adsb", adsbRoutes) // Adsb Router
+        app.use("/api",apiRoutes) // ADSBLOL, AIRCRAFTS.LIVE & AIRNAVRADAR REST Endpoints
         app.use("/live-map", liveMapRoutes); // Independent ADSBHub TCP map pipeline
         app.use("/", watchlistRoutes); // Landing-page watchlist requests
         app.use("/", trackedAircraftRoutes) // Tracked aircraft cache endpoint
