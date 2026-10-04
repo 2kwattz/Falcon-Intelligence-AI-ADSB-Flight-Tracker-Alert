@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Log in to Falcon Intelligence.">
+  <title>Login | Falcon Intelligence</title>
+  <link rel="stylesheet" href="/auth.css">
+</head>
+<body data-auth-page="login">
+  <a class="skip-link" href="#login-title">Skip to login form</a>
+  <header class="site-header">
+    <nav class="nav shell" aria-label="Main navigation">
+      <a class="brand" href="/" aria-label="Falcon Intelligence home"><span class="brand-mark"><i class="laser-eye left" aria-hidden="true"></i><i class="laser-eye right" aria-hidden="true"></i><img src="/assets/falcon-laser-logo.png" alt=""></span><span><strong>FALCON</strong><small>INTELLIGENCE</small></span></a>
+      <button class="menu-button" type="button" aria-label="Open menu" aria-expanded="false">&#9776;</button>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/tracked-aircrafts">Intelligence Archive</a>
+        <a href="/live-map">Live Map</a>
+        <a href="/explore">Explore</a>
+        <a href="/about">About</a>
+        <a href="/contact">Contact</a>
+      </div>
+      <a class="nav-cta" href="/register">Register</a>
+    </nav>
+  </header>
+
+  <main class="shell auth-shell">
+    <section class="auth-card" aria-labelledby="login-title">
+      <div class="auth-intro">
+        <p class="eyebrow">Flight watch access</p>
+        <h1 id="login-title">Log in to your tracker.</h1>
+        <p class="lede">Return to your aircraft watchlist, alert settings, and saved flight-tracking workflow.</p>
+        <ul class="auth-badges" aria-label="Login highlights">
+          <li>Phone alerts</li>
+          <li>Email updates</li>
+          <li>ADS-B tracking</li>
+        </ul>
+      </div>
+      <form class="auth-form" id="login-form">
+        <label>Email
+          <input required type="email" name="identifier" autocomplete="email" placeholder="you@example.com">
+        </label>
+        <label>Password
+          <input required type="password" name="password" autocomplete="current-password" placeholder="Your password">
+        </label>
+        <button class="button" type="submit">Log in</button>
+        <p class="status" aria-live="polite"></p>
+        <p class="auth-link">Need access? <a href="/register">Register with referral ID</a></p>
+      </form>
+    </section>
+  </main>
+
+  <script src="/auth.js" defer></script>
+</body>
+</html>

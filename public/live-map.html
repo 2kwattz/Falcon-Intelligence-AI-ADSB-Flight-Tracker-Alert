@@ -13,76 +13,143 @@
   <div class="app-shell">
     <header class="site-header">
       <nav class="map-nav" aria-label="Main navigation">
-        <a class="brand" href="/" aria-label="Falcon Intelligence home"><span class="brand-mark"><i class="laser-eye left" aria-hidden="true"></i><i class="laser-eye right" aria-hidden="true"></i><img src="/assets/falcon-laser-logo.png" alt=""></span><span><strong>FALCON</strong><small>INTELLIGENCE</small></span></a>
-        <button class="menu-button" type="button" id="map-menu-button" aria-label="Open menu" aria-expanded="false">☰</button>
+        <a class="brand" href="/" aria-label="Falcon Intelligence home">
+          <span class="brand-mark">
+            <i class="laser-eye left" aria-hidden="true"></i>
+            <i class="laser-eye right" aria-hidden="true"></i>
+            <img src="/assets/falcon-laser-logo.png" alt="">
+          </span>
+          <span><strong>FALCON</strong><small>INTELLIGENCE</small></span>
+        </a>
+        <button class="menu-button" type="button" id="map-menu-button" aria-label="Open menu" aria-expanded="false">Menu</button>
         <div class="nav-links" id="map-nav-links">
           <a href="/">Home</a>
           <a href="/tracked-aircrafts">Intelligence Archive</a>
           <a class="active" href="/live-map">Live Map</a>
           <a href="/explore">Explore</a>
-          <a href="/#services">Services</a>
-          <a href="/#contact">Contact</a>
+          <a href="/about">About</a>
+          <a href="/contact">Contact</a>
         </div>
-        <a class="nav-cta" href="/#contact">Set an alert</a>
+        <a class="nav-cta" href="/login">Login</a>
       </nav>
     </header>
 
-    <main>
-      <section class="page-heading">
-        <div>
-          <p class="eyebrow">ADSBHub TCP live feed</p>
-          <h1>Live map</h1>
-          <p class="lede">Aircraft positions received directly through the ADSBHub TCP connection. Satellite imagery and place labels update beneath the live feed.</p>
-        </div>
+    <main class="map-shell" aria-label="Live aircraft map">
+      <div id="live-map" aria-label="Satellite map displaying live aircraft positions"></div>
+
+      <section class="map-hud" id="map-hud" aria-label="Live map controls">
         <div class="feed-status" id="feed-status" aria-live="polite"><span></span> Connecting to feed</div>
+        <div class="hud-count"><strong id="aircraft-count">0</strong><span>positioned aircraft</span></div>
+        <label class="hud-check"><input type="checkbox" id="follow-latest"> Follow</label>
+        <label class="map-type-control" for="feed-source"><span>Feed</span><select id="feed-source"><option value="adsbhub-tcp">ADSBHub</option><option value="vadodara-station">Vadodara Station</option></select></label>
+        <label class="map-type-control" for="map-type"><span>Map</span><select id="map-type"><option value="satellite">Satellite</option><option value="osm">OpenStreetMap</option><option value="hot">OSM HOT</option><option value="opentopo">OpenTopoMap</option><option value="cyclosm">CyclOSM</option></select></label>
+        <button class="hud-button" type="button" id="fit-aircraft">Fit</button>
+        <button class="hud-button" type="button" id="toggle-aircraft-panel" aria-controls="aircraft-panel" aria-expanded="false">Aircraft</button>
+        <button class="hud-button" type="button" id="toggle-no-position-panel" aria-controls="no-position-panel" aria-expanded="false">No position</button>
+        <button class="hud-button" type="button" id="toggle-bookmark-panel" aria-controls="bookmark-panel" aria-expanded="false">Bookmarks</button>
+        <button class="hud-icon-button overlay-toggle" type="button" id="toggle-map-overlay" aria-label="Hide map controls" aria-expanded="true" title="Hide map controls">
+          <svg class="overlay-icon overlay-icon-collapse" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 5h14v14H5z"></path>
+            <path d="m10 9 3 3-3 3"></path>
+          </svg>
+          <svg class="overlay-icon overlay-icon-expand" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 5h14v14H5z"></path>
+            <path d="m14 9-3 3 3 3"></path>
+          </svg>
+        </button>
       </section>
 
-      <section class="map-layout" aria-label="Live aircraft map and feed summary">
-        <div class="map-card">
-          <div class="map-toolbar">
-            <div><strong id="aircraft-count">0</strong><span> aircraft in this map view</span></div>
-            <div class="toolbar-actions"><label><input type="checkbox" id="follow-latest"> Follow latest position</label><button class="button" type="button" id="fit-aircraft">Fit aircraft</button></div>
+      <aside class="floating-panel aircraft-panel" id="aircraft-panel" aria-label="Aircraft with live positions">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Live signals</p>
+            <h1>Aircraft feed</h1>
           </div>
-          <div id="live-map" aria-label="Satellite map displaying live aircraft positions"></div>
-          <p class="map-note" id="map-note">Waiting for a position from ADSBHub.</p>
+          <span id="updated-at">-</span>
         </div>
-        <aside class="aircraft-panel" aria-label="Live aircraft list">
-          <div class="panel-heading"><div><p class="eyebrow">Live signals</p><h2>Aircraft feed</h2></div><span id="updated-at">—</span></div>
-          <div class="aircraft-list" id="aircraft-list" aria-live="polite"></div>
-        </aside>
-      </section>
-      <section class="bookmark-section" aria-labelledby="bookmarks-title">
-        <div class="bookmarks-heading">
+        <div class="aircraft-list" id="aircraft-list" aria-live="polite"></div>
+      </aside>
+
+      <aside class="floating-panel bookmark-panel" id="bookmark-panel" aria-label="Airspace bookmarks">
+        <div class="panel-heading">
           <div>
             <p class="eyebrow">Bookmarks</p>
-            <h2 id="bookmarks-title">Indian Airspace</h2>
+            <h2>Indian airspace</h2>
           </div>
-          <p>Live aircraft counts refresh every 5 seconds.</p>
+          <span>100 NM</span>
         </div>
-        <div class="bookmark-grid">
+        <div class="bookmark-list">
           <article class="airspace-bookmark" data-bookmark="bhuj">
-            <div class="bookmark-card-heading"><div><span class="bookmark-location">01 · Gujarat</span><h3>Bhuj Airspace</h3></div><button class="bookmark-focus" type="button" data-focus-bookmark="bhuj" aria-label="Center map on Bhuj Airspace">⌖</button></div>
-            <p class="bookmark-radius">100 NM radius · 23.2420°, 69.6669°</p>
-            <div class="bookmark-count"><strong data-bookmark-count>—</strong><span>aircraft nearby</span></div>
-            <p class="bookmark-detail" data-bookmark-detail>Connecting to live feed…</p>
-            <div class="bookmark-footer"><span class="bookmark-status" data-bookmark-status><i></i> Scanning</span><time data-bookmark-updated>—</time></div>
+            <div class="bookmark-card-heading">
+              <div><span class="bookmark-location">Gujarat</span><h3>Bhuj Airspace</h3></div>
+              <button class="bookmark-focus" type="button" data-focus-bookmark="bhuj" aria-label="Center map on Bhuj Airspace">Focus</button>
+            </div>
+            <p class="bookmark-radius">23.2420, 69.6669</p>
+            <div class="bookmark-count"><strong data-bookmark-count>-</strong><span>nearby</span></div>
+            <p class="bookmark-detail" data-bookmark-detail>Connecting to live feed...</p>
+            <div class="bookmark-footer"><span class="bookmark-status" data-bookmark-status><i></i> Scanning</span><time data-bookmark-updated>-</time></div>
           </article>
+
+          <article class="airspace-bookmark" data-bookmark="vadodara">
+            <div class="bookmark-card-heading">
+              <div><span class="bookmark-location">Gujarat</span><h3>Vadodara Station</h3></div>
+              <button class="bookmark-focus" type="button" data-focus-bookmark="vadodara" aria-label="Center map on Vadodara Station">Focus</button>
+            </div>
+            <p class="bookmark-radius">22.3072, 73.1812</p>
+            <div class="bookmark-count"><strong data-bookmark-count>-</strong><span>nearby</span></div>
+            <p class="bookmark-detail" data-bookmark-detail>Connecting to live feed...</p>
+            <div class="bookmark-footer"><span class="bookmark-status" data-bookmark-status><i></i> Scanning</span><time data-bookmark-updated>-</time></div>
+          </article>
+
           <article class="airspace-bookmark" data-bookmark="lucknow">
-            <div class="bookmark-card-heading"><div><span class="bookmark-location">02 · Uttar Pradesh</span><h3>Lucknow Airspace</h3></div><button class="bookmark-focus" type="button" data-focus-bookmark="lucknow" aria-label="Center map on Lucknow Airspace">⌖</button></div>
-            <p class="bookmark-radius">100 NM radius · 26.8467°, 80.9462°</p>
-            <div class="bookmark-count"><strong data-bookmark-count>—</strong><span>aircraft nearby</span></div>
-            <p class="bookmark-detail" data-bookmark-detail>Connecting to live feed…</p>
-            <div class="bookmark-footer"><span class="bookmark-status" data-bookmark-status><i></i> Scanning</span><time data-bookmark-updated>—</time></div>
+            <div class="bookmark-card-heading">
+              <div><span class="bookmark-location">Uttar Pradesh</span><h3>Lucknow Airspace</h3></div>
+              <button class="bookmark-focus" type="button" data-focus-bookmark="lucknow" aria-label="Center map on Lucknow Airspace">Focus</button>
+            </div>
+            <p class="bookmark-radius">26.8467, 80.9462</p>
+            <div class="bookmark-count"><strong data-bookmark-count>-</strong><span>nearby</span></div>
+            <p class="bookmark-detail" data-bookmark-detail>Connecting to live feed...</p>
+            <div class="bookmark-footer"><span class="bookmark-status" data-bookmark-status><i></i> Scanning</span><time data-bookmark-updated>-</time></div>
           </article>
+
+          <article class="airspace-bookmark" data-bookmark="delhi">
+            <a class="bookmark-link" href="/delhi-status">Delhi API status</a>
+            <div class="bookmark-card-heading">
+              <div><span class="bookmark-location">National Capital Region</span><h3>Delhi Airspace</h3></div>
+              <button class="bookmark-focus" type="button" data-focus-bookmark="delhi" aria-label="Center map on Delhi Airspace">Focus</button>
+            </div>
+            <p class="bookmark-radius">28.6139, 77.2090</p>
+            <div class="bookmark-count"><strong data-bookmark-count>-</strong><span>nearby</span></div>
+            <p class="bookmark-detail" data-bookmark-detail>Connecting to live feed...</p>
+            <div class="bookmark-footer"><span class="bookmark-status" data-bookmark-status><i></i> Scanning</span><time data-bookmark-updated>-</time></div>
+          </article>
+
           <article class="airspace-bookmark" data-bookmark="bengaluru">
-            <div class="bookmark-card-heading"><div><span class="bookmark-location">03 · Karnataka</span><h3>Bengaluru Airspace</h3></div><button class="bookmark-focus" type="button" data-focus-bookmark="bengaluru" aria-label="Center map on Bengaluru Airspace">⌖</button></div>
-            <p class="bookmark-radius">100 NM radius · 12.9716°, 77.5946°</p>
-            <div class="bookmark-count"><strong data-bookmark-count>—</strong><span>aircraft nearby</span></div>
-            <p class="bookmark-detail" data-bookmark-detail>Connecting to live feed…</p>
-            <div class="bookmark-footer"><span class="bookmark-status" data-bookmark-status><i></i> Scanning</span><time data-bookmark-updated>—</time></div>
+            <a class="bookmark-link" href="/bangalore-status">Bangalore API status</a>
+            <div class="bookmark-card-heading">
+              <div><span class="bookmark-location">Karnataka</span><h3>Bengaluru Airspace</h3></div>
+              <button class="bookmark-focus" type="button" data-focus-bookmark="bengaluru" aria-label="Center map on Bengaluru Airspace">Focus</button>
+            </div>
+            <p class="bookmark-radius">12.9716, 77.5946</p>
+            <div class="bookmark-count"><strong data-bookmark-count>-</strong><span>nearby</span></div>
+            <p class="bookmark-detail" data-bookmark-detail>Connecting to live feed...</p>
+            <div class="bookmark-footer"><span class="bookmark-status" data-bookmark-status><i></i> Scanning</span><time data-bookmark-updated>-</time></div>
           </article>
         </div>
-      </section>
+      </aside>
+
+      <aside class="floating-panel no-position-panel" id="no-position-panel" aria-label="Aircraft without coordinates">
+        <div class="panel-heading compact">
+          <div>
+            <p class="eyebrow">Receiver only</p>
+            <h2>Aircraft without position</h2>
+          </div>
+          <span id="no-position-count">0</span>
+        </div>
+        <div class="no-position-list" id="no-position-list" aria-live="polite"></div>
+      </aside>
+
+      <p class="map-note" id="map-note">Waiting for a position from ADSBHub.</p>
     </main>
   </div>
 

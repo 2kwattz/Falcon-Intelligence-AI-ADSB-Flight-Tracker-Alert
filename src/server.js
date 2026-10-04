@@ -44,7 +44,6 @@ const authRoutes = require("../routes/authRouter.js"); // Auth routes
 const chatroomRoutes = require("../routes/chatroomRoutes"); // Chatroom Routes
 const communityRoutes = require("../routes/communityRouter") // Communities Router
 const aiRoutes = require("../routes/aiRoutes.js") // AI LLM Routes
-const apiRoutes = require("../routes/apiRoutes.js") // General API Routes
 const adminRoutes = require("../routes/adminRoutes.js") // Admin Routes
 const adsbRoutes = require("../routes/adsbRoutes.js");
 const trackedAircraftRoutes = require("../routes/trackedAircraftRoutes.js");
@@ -82,9 +81,19 @@ async function startServer() {
                 directives: {
                     ...helmet.contentSecurityPolicy.getDefaultDirectives(),
                     // The landing page intentionally contains its own CSS and carousel script.
-                    "script-src": ["'self'", "'unsafe-inline'"],
+                    "script-src": ["'self'", "'unsafe-inline'", "https://checkout.razorpay.com"],
                     "style-src": ["'self'", "'unsafe-inline'"],
-                    "img-src": ["'self'", "data:", "https://tiles.maps.eox.at"]
+                    "img-src": [
+                        "'self'",
+                        "data:",
+                        "https://tiles.maps.eox.at",
+                        "https://*.tile.openstreetmap.org",
+                        "https://*.tile.openstreetmap.fr",
+                        "https://*.tile.opentopomap.org",
+                        "https://*.tile-cyclosm.openstreetmap.fr"
+                    ],
+                    "connect-src": ["'self'", "https://api.razorpay.com", "https://checkout.razorpay.com"],
+                    "frame-src": ["'self'", "https://api.razorpay.com", "https://checkout.razorpay.com"]
                 }
             }
         })); // Basic security, with trusted mapping resources for the aircraft-detail map
@@ -137,7 +146,13 @@ async function startServer() {
 
         // Main landing page for localhost, a LAN IP, and deployed domains.
         app.get("/", (req, res) => res.sendFile(path.join(__dirname, "../public/index.html")));
+        app.get("/about", (req, res) => res.sendFile(path.join(__dirname, "../public/about.html")));
         app.get("/contact", (req, res) => res.sendFile(path.join(__dirname, "../public/contact.html")));
+        app.get("/login", (req, res) => res.sendFile(path.join(__dirname, "../public/login.html")));
+        app.get("/register", (req, res) => res.sendFile(path.join(__dirname, "../public/register.html")));
+        app.get("/bangalore-status", (req, res) => res.sendFile(path.join(__dirname, "../public/bangalore-status.html")));
+        app.get("/banglore-status", (req, res) => res.redirect(301, "/bangalore-status"));
+        app.get("/delhi-status", (req, res) => res.sendFile(path.join(__dirname, "../public/delhi-status.html")));
 
         app.get("/errorTest", (req, res, next) => {
             const simulatedError = new Error("Manual Error Testing");
@@ -149,7 +164,6 @@ async function startServer() {
 
         app.use("/auth", authRoutes); // Authentication routes
         app.use("/ai", aiRoutes); // AI Models Router
-        app.use("/api", apiRoutes); // General API Router
         app.use("/admin", adminRoutes) // Admin Router
         app.use("/adsb", adsbRoutes) // Adsb Router
         app.use("/api",apiRoutes) // ADSBLOL, AIRCRAFTS.LIVE & AIRNAVRADAR REST Endpoints

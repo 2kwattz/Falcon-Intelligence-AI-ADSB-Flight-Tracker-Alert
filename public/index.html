@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Falcon Intelligence — ADS-B aircraft tracking, proximity alerts and intelligence archive for plane spotters.">
+  <meta name="description" content="Falcon Intelligence — ADS-B aircraft tracking with immediate phone call alerts and detailed aircraft email updates for plane spotters.">
   <title>Falcon Intelligence | Flight Tracking & Alerts</title>
   <style>
     :root {
@@ -143,6 +143,7 @@
     .about-copy { max-width: 930px; }
     .about-copy p { color: #b4c4d1; font-size: 1rem; line-height: 1.82; }
     .about-copy p:first-of-type::first-letter { float: left; padding-right: 10px; color: var(--teal); font-weight: 800; font-size: 3.5rem; line-height: .84; }
+    .about-copy .eyebrow::first-letter { float: none; padding-right: 0; font-size: inherit; line-height: inherit; }
     .about-signoff { margin-top: 31px !important; color: var(--amber) !important; font-weight: 800; letter-spacing: .06em; font-size: .81rem !important; text-transform: uppercase; }
     .service-card { min-height: 270px; position: relative; }
     .service-card .arrow { position: absolute; bottom: 22px; color: var(--teal); }
@@ -218,21 +219,21 @@
         <a href="/tracked-aircrafts">Intelligence Archive</a>
         <a href="/live-map">Live Map</a>
         <a href="/explore">Explore</a>
-        <a href="#services">Services</a>
+        <a href="/about">About</a>
         <a href="/contact">Contact</a>
       </div>
-      <a class="nav-cta" href="#contact">Request Demo</a>
+      <a class="nav-cta" href="/login">Login</a>
     </nav>
   </header>
 
   <main>
     <section class="hero shell" id="home">
       <div>
-        <p class="eyebrow">ADS-B intelligence for plane spotters</p>
+        <p class="eyebrow">ADS-B flight tracking for plane spotters</p>
         <h1>Never miss the <span>sound</span> of arrival.</h1>
-        <p class="hero-copy">Falcon Intelligence watches the sky while you live your life. Get a call and detailed email the moment your chosen aircraft enters a 100-mile radius of your city.</p>
+        <p class="hero-copy">Falcon Intelligence watches the sky while you live your life. The moment your chosen aircraft enters your alert radius, you get an immediate phone call plus a detailed email with aircraft information.</p>
         <div class="hero-actions"><a class="button" href="#contact">Configure alert</a><a class="text-link" href="#live-track">View live activity <span>→</span></a></div>
-        <div class="hero-meta"><div><strong>100 mi</strong>custom alert radius</div><div><strong>ADS-B</strong>tracked intelligence</div><div><strong>24 / 7</strong>sky surveillance</div></div>
+        <div class="hero-meta"><div><strong>Instant</strong>phone call alert</div><div><strong>Email</strong>aircraft details</div><div><strong>24 / 7</strong>flight watch</div></div>
       </div>
 
       <div class="hero-visual" aria-label="Flight alert carousel">
@@ -244,14 +245,14 @@
             <div class="map-stats"><span>Altitude<b>24,000 ft</b></span><span>Heading<b>274° W</b></span><span>Speed<b>412 kt</b></span></div>
           </article>
           <article class="slide">
-            <span class="visual-label">Inbound notification / priority one</span>
+            <span class="visual-label">Immediate phone call / detailed email alert</span>
             <div class="phone"><div class="phone-screen"><span class="phone-time">09:41</span><div class="caller-ring">☎</div><p class="caller-name">Falcon Intelligence<br>Flight Alert</p><p class="caller-sub">Incoming call · Aircraft detected</p><div class="call-options"><span>☎</span><span>☎</span></div></div></div>
-            <div class="email-card"><p>FLIGHT INTELLIGENCE REPORT</p><b>Target now within 100 miles</b><p>Landing assessment, current position, altitude, speed and predicted ETA are ready in your inbox.</p></div>
+            <div class="email-card"><p>DETAILED AIRCRAFT EMAIL</p><b>Aircraft now within range</b><p>Callsign, position, altitude, speed, heading and estimated arrival context are sent to your inbox.</p></div>
           </article>
           <article class="slide">
             <div class="orbit"></div><div class="map-grid"></div>
-            <div class="slide-copy"><p class="eyebrow">Landing-aware calls</p><h3>Know whether to get your camera ready.</h3><p>Our call alert can be tuned to reach you only when a tracked aircraft is likely to land in range—not just pass through your airspace.</p></div>
-            <div class="alert-list"><div class="alert-item">TANGO 04 · APPROACH ASSESSMENT <span>LIKELY LANDING</span><b>ETA 34 min · 57.1 mi away</b></div><div class="alert-item">FALCON 12 · ROUTE ASSESSMENT <span>TRANSITING</span><b>Heading west · 88.3 mi away</b></div></div>
+            <div class="slide-copy"><p class="eyebrow">Arrival-aware calls</p><h3>Know when to get your camera ready.</h3><p>Call alerts can be tuned around aircraft activity near your city, helping you decide when a flight is worth watching.</p></div>
+            <div class="alert-list"><div class="alert-item">AIC 101 · ARRIVAL CHECK <span>APPROACHING</span><b>ETA 34 min · 57.1 mi away</b></div><div class="alert-item">IGO 218 · ROUTE CHECK <span>PASSING BY</span><b>Heading west · 88.3 mi away</b></div></div>
           </article>
           <div class="carousel-dots" role="tablist" aria-label="Carousel slides"><button class="dot active" type="button" aria-label="Show live tracking slide"></button><button class="dot" type="button" aria-label="Show phone alert slide"></button><button class="dot" type="button" aria-label="Show landing assessment slide"></button></div>
         </div>
@@ -259,7 +260,7 @@
     </section>
 
     <section class="section" id="archive"><div class="shell">
-      <div class="section-heading"><p class="eyebrow">01 / Intelligence Archive</p><h2>Turn rare sightings into a searchable record.</h2><p>Retain the observation trail behind every notable flight. Review what crossed the sky, when it appeared and the signal intelligence available at that moment.</p></div>
+      <div class="section-heading"><p class="eyebrow">01 / Flight Archive</p><h2>Turn memorable sightings into a searchable record.</h2><p>Retain the observation trail behind every notable flight. Review what crossed the sky, when it appeared and the live data available at that moment.</p></div>
       <div class="archive-layout">
         <article class="archive-card"><span class="card-index">01</span><h3>Retained observations</h3><p>Search aircraft captured in the Falcon tracking cache by callsign, registration, type and observation time.</p><div class="metric-row"><div><b>5 days</b><span>retention window</span></div><div><b>ADS-B</b><span>source signal</span></div></div></article>
         <article class="archive-card"><span class="card-index">02</span><h3>Signal-level detail</h3><p>See altitude, speed, heading, coordinate and transponder fields gathered at the time of observation.</p><div class="metric-row"><div><b>ICAO</b><span>aircraft identity</span></div><div><b>UTC</b><span>observation time</span></div></div></article>
@@ -268,10 +269,10 @@
     </div></section>
 
     <section class="section" id="live-track"><div class="shell">
-      <div class="section-heading"><p class="eyebrow">02 / Live Track</p><h2>Your targets, on a single tactical view.</h2><p>Set aircraft and city preferences, then let Falcon Intelligence calculate proximity, movement and an estimated arrival picture.</p></div>
+      <div class="section-heading"><p class="eyebrow">02 / Live Track</p><h2>Immediate calls. Detailed aircraft emails.</h2><p>Set aircraft and city preferences, then let Falcon Intelligence calculate proximity, movement and estimated arrival context for every alert.</p></div>
       <div class="track-panel">
-        <div class="track-copy"><p class="eyebrow">Signal status</p><h3 style="font-size:1.65rem;letter-spacing:-.04em">Active monitoring, without the screen time.</h3><p>We watch for aircraft of your choice entering the radius around your selected city. You receive an immediate call and a more complete intelligence report by email.</p><div class="live-indicator"><i></i> Monitoring configured targets</div><a class="button button-outline" href="#contact">Start a watchlist</a></div>
-        <div class="flight-list"><div class="flight-list-header"><span>Tracked signal</span><span>Proximity</span></div><div class="flight"><div><strong>VIKING 21 · C-17</strong><small>Altitude 28,700 ft · heading 166°</small></div><span class="distance">82.1 MI</span></div><div class="flight"><div><strong>TALLY 04 · JAGUAR</strong><small>Altitude 16,400 ft · heading 242°</small></div><span class="distance">54.6 MI</span></div><div class="flight"><div><strong>FALCON 12 · UNKNOWN</strong><small>Altitude 31,800 ft · heading 291°</small></div><span class="distance">96.8 MI</span></div></div>
+        <div class="track-copy"><p class="eyebrow">Flight status</p><h3 style="font-size:1.65rem;letter-spacing:-.04em">Active tracking, without the screen time.</h3><p>We watch for aircraft of your choice entering the radius around your selected city. You receive an immediate phone call alert, followed by a detailed email covering the aircraft's latest information.</p><div class="live-indicator"><i></i> Monitoring configured flights</div><a class="button button-outline" href="#contact">Start a watchlist</a></div>
+        <div class="flight-list"><div class="flight-list-header"><span>Tracked flight</span><span>Proximity</span></div><div class="flight"><div><strong>AIC 101 · BOEING 777</strong><small>Altitude 28,700 ft · heading 166°</small></div><span class="distance">82.1 MI</span></div><div class="flight"><div><strong>IGO 218 · AIRBUS A320</strong><small>Altitude 16,400 ft · heading 242°</small></div><span class="distance">54.6 MI</span></div><div class="flight"><div><strong>VTI 742 · AIRBUS A321</strong><small>Altitude 31,800 ft · heading 291°</small></div><span class="distance">96.8 MI</span></div></div>
       </div>
 
     <section class="section data-client-section" id="data-clients"><div class="shell">
@@ -290,24 +291,24 @@
 
     <section class="section" id="about"><div class="shell about-copy">
       <p class="eyebrow">The mission</p><h2>From a planespotter, for planespotters.</h2>
-      <p>The Tango aim of this project is to create a program that will provide critical intelligence via automated calls and emails to plane spotters of their favourite aircrafts and potentially providing its legally trackable location Intel prompting spotters to position themselves at the designated photographing spot before the estimated time of arrival (ETA) of the military jet. It's crucial to note that certain military aircraft, such as the Charlie 17s, have a limited operational window of maximum 2 hours before they are scrambled at other air force stations. For Military Aviation enthusiasts, this limitation poses a significant setback, as it has personally led to missed spotting opportunities.</p>
-      <p>That is : Most of the military aircrafts have negative contact in some of the fight radar apps. So If you are not present at the right time, right place with your right camera settings . You will not get the perfect shot. Airforce works in secrecy, Most of the best things such as when tally 4 SEPECAT Jaguar fighterjets visited Vadodara happened quite unexpectedly Some of these rare jets are visible on one platform but not on other and vice versa. As a result, It is extremely difficult to predict its ETA as well.</p>
-      <p>Some of these jets arrive once in 8 months to max to max 6 years, And not every planespotter has time to hook up to FR24,Radarbox, ADBS Exchange 24x7. Also 6 years is a very long time for a fellow planespotter to witness his aircraft girlfriend with its full mighty engines roaring, 7000 RPM taking off after such a long time.</p>
-      <p>This is a flight tracker &amp; notification sender from a planespotter to planespotters for planespotting! We Got This.</p>
-      <p class="about-signoff">Prepare for the Lima Oscar November Golf End of Time. Over.</p>
+      <p>Falcon Intelligence is built to help aviation enthusiasts follow the flights they care about without staring at flight-tracking screens all day. Add an aircraft and a city, and the tracker can trigger an immediate phone call plus a detailed email when that aircraft enters your chosen radius.</p>
+      <p>The project focuses on practical, legally available ADS-B data: location, altitude, speed, heading, timing, and route context. The goal is simple: make it easier to know when an interesting aircraft is nearby and whether it is worth getting ready for a sighting.</p>
+      <p>Not every aircraft appears on every tracking service at the same time, and not every spotter has the time to keep multiple tabs open. Falcon Intelligence brings the useful parts together so you can spend less time refreshing and more time watching the sky.</p>
+      <p>This is a flight tracker and notification sender from a planespotter to planespotters for planespotting. We got this.</p>
+      <p class="about-signoff">Built for calmer tracking, better timing, and more successful sightings.</p>
     </div></section>
 
     <section class="section" id="services"><div class="shell">
-      <div class="section-heading"><p class="eyebrow">03 / Services</p><h2>Signal to insight, delivered before arrival.</h2><p>A focused suite of tools for the aircraft you care about and the moment you need to act.</p></div>
+      <div class="section-heading"><p class="eyebrow">03 / Tools</p><h2>Phone call alerts and aircraft emails, delivered before arrival.</h2><p>A focused suite of tools for the aircraft you care about and the moment you need to act.</p></div>
       <div class="service-grid">
-        <article class="service-card"><span class="card-index">A</span><h3>100-mile phone alerts</h3><p>Receive an automated phone call when your aircraft of choice comes within 100 miles of your configured city.</p><span class="arrow">→</span></article>
-        <article class="service-card"><span class="card-index">B</span><h3>Detailed email intelligence</h3><p>Get a concise report with detection time, position, altitude, speed, heading and estimated arrival context.</p><span class="arrow">→</span></article>
+        <article class="service-card"><span class="card-index">A</span><h3>Immediate phone call alerts</h3><p>Receive an automated phone call as soon as your aircraft of choice comes within the configured radius of your city.</p><span class="arrow">→</span></article>
+        <article class="service-card"><span class="card-index">B</span><h3>Detailed aircraft email alerts</h3><p>Get aircraft information in your inbox, including detection time, position, altitude, speed, heading and estimated arrival context.</p><span class="arrow">→</span></article>
         <article class="service-card"><span class="card-index">C</span><h3>Landing-aware assessment</h3><p>Choose alerts based on whether the aircraft is likely to land locally, helping you decide when it is time to move.</p><span class="arrow">→</span></article>
       </div>
     </div></section>
 
     <section class="section" id="contact"><div class="shell">
-      <div class="contact-box"><div><p class="eyebrow">04 / Contact</p><h2>Build your watchlist.</h2><p>Tell us what you want to track. We’ll help shape an alert configuration around your city, aircraft and spotting routine.</p><div class="contact-facts"><div><b>Response</b>Within 24 hours</div><div><b>Coverage</b>Custom aircraft &amp; city watchlists</div><div><b>Delivery</b>Phone call + email intelligence</div></div></div>
+      <div class="contact-box"><div><p class="eyebrow">04 / Contact</p><h2>Build your watchlist.</h2><p>Tell us what you want to track. We’ll help shape an alert configuration around your city, aircraft and spotting routine.</p><div class="contact-facts"><div><b>Response</b>Within 24 hours</div><div><b>Coverage</b>Custom aircraft &amp; city watchlists</div><div><b>Delivery</b>Immediate call + detailed email</div></div></div>
         <form class="contact-form" id="contact-form"><label>Name<input required name="name" autocomplete="name" placeholder="Your name"></label><label>Email<input required type="email" name="email" autocomplete="email" placeholder="you@example.com"></label><label class="wide">Phone number<input required type="tel" name="phone" autocomplete="tel" placeholder="Your phone number"></label><label class="wide">What do you want to track and why?<textarea required name="message" maxlength="3000" placeholder="Aircraft, city and why you want to track it…"></textarea></label><button class="button wide" type="submit">Send watchlist request</button><p class="form-status" aria-live="polite"></p></form>
       </div>
     </div></section>

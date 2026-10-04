@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Register for Falcon Intelligence with a reference ID.">
+  <title>Register | Falcon Intelligence</title>
+  <link rel="stylesheet" href="/auth.css">
+</head>
+<body data-auth-page="register">
+  <a class="skip-link" href="#register-title">Skip to registration form</a>
+  <header class="site-header">
+    <nav class="nav shell" aria-label="Main navigation">
+      <a class="brand" href="/" aria-label="Falcon Intelligence home"><span class="brand-mark"><i class="laser-eye left" aria-hidden="true"></i><i class="laser-eye right" aria-hidden="true"></i><img src="/assets/falcon-laser-logo.png" alt=""></span><span><strong>FALCON</strong><small>INTELLIGENCE</small></span></a>
+      <button class="menu-button" type="button" aria-label="Open menu" aria-expanded="false">&#9776;</button>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/tracked-aircrafts">Intelligence Archive</a>
+        <a href="/live-map">Live Map</a>
+        <a href="/explore">Explore</a>
+        <a href="/about">About</a>
+        <a href="/contact">Contact</a>
+      </div>
+      <a class="nav-cta" href="/login">Log in</a>
+    </nav>
+  </header>
+
+  <main class="shell auth-shell">
+    <section class="auth-card" aria-labelledby="register-title">
+      <div class="auth-intro">
+        <p class="eyebrow">Reference access</p>
+        <h1 id="register-title">Enter your registration reference.</h1>
+        <p class="lede">Falcon Intelligence registration is limited for now. Enter the registration reference ID you received to continue.</p>
+        <ul class="auth-badges" aria-label="Registration highlights">
+          <li>Reference ID</li>
+          <li>Limited access</li>
+          <li>Private beta</li>
+        </ul>
+      </div>
+      <form class="auth-form" id="register-form">
+        <label>Registration reference ID
+          <input required name="registrationReferenceId" autocomplete="off" placeholder="Enter reference ID">
+        </label>
+        <button class="button reference-button" type="submit">Validate reference</button>
+        <p class="status" aria-live="polite"></p>
+        <p class="auth-link">Already have access? <a href="/login">Log in</a></p>
+      </form>
+    </section>
+  </main>
+
+  <script src="/auth.js" defer></script>
+</body>
+</html>

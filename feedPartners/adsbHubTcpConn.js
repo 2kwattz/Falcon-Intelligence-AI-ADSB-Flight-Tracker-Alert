@@ -1,16 +1,25 @@
 const net = require("net");
 
-const HOST = "data.adsbhub.org";
-const PORT = 5002;
+const HOST = process.env.ADSBHUB_HOST || "data.adsbhub.org";
+const PORT = Number(process.env.ADSBHUB_PORT || 5002);
 
 const RECONNECT_DELAY = 5000;
 const AIRCRAFT_TIMEOUT = 60 * 1000;
+const NO_DATA_WARNING_MS = Number(process.env.ADSBHUB_NO_DATA_WARNING_MS || 30000);
 
 let socket = null;
 let buffer = "";
 let reconnectTimer = null;
 let connectedAt = null;
 let lastMessageAt = null;
+let lastConnectAttemptAt = null;
+let lastError = null;
+let lastCloseAt = null;
+let receivedBytes = 0;
+let receivedLines = 0;
+let parsedMessages = 0;
+let currentConnectionMessages = 0;
+let lastNoDataCloseAt = null;
 
 const aircraft = new Map();
 
@@ -47,7 +56,8 @@ function getAircraft(hex) {
             spi: null,
             isOnGround: null,
 
-            lastSeen: null
+            lastSeen: null,
+            positionSeen: null
         };
 
         aircraft.set(hex, ac);
@@ -60,7 +70,7 @@ function parseSBS(line) {
     const fields = line.split(",");
 
     if (fields[0] !== "MSG") {
-        return;
+        return false;
     }
 
     const messageType = Number(fields[1]);
@@ -68,7 +78,7 @@ function parseSBS(line) {
     const hex = fields[4]?.trim().toUpperCase();
 
     if (!hex) {
-        return;
+        return false;
     }
 
     const ac = getAircraft(hex);
@@ -113,6 +123,14 @@ function parseSBS(line) {
         ac.longitude = longitude;
     }
 
+    if (
+        Number.isFinite(ac.latitude) &&
+        Number.isFinite(ac.longitude) &&
+        (latitude !== null || longitude !== null)
+    ) {
+        ac.positionSeen = Date.now();
+    }
+
     // Vertical rate
     const verticalRate = numberOrNull(fields[16]);
 
@@ -152,10 +170,13 @@ function parseSBS(line) {
     ac.lastSeen = Date.now();
 
     lastMessageAt = ac.lastSeen;
+
+    return true;
 }
 
 function connect() {
     console.log(`Connecting to ${HOST}:${PORT}...`);
+    lastConnectAttemptAt = Date.now();
 
     socket = net.createConnection(
         {
@@ -166,17 +187,21 @@ function connect() {
             console.log(`Connected to ADSBHub ${HOST}:${PORT}`);
             buffer = "";
             connectedAt = Date.now();
+            currentConnectionMessages = 0;
+            lastError = null;
         }
     );
 
     socket.setKeepAlive(true, 30000);
 
     socket.on("data", (chunk) => {
+        receivedBytes += chunk.length;
         buffer += chunk.toString("utf8");
 
         const lines = buffer.split(/\r?\n/);
 
         buffer = lines.pop() || "";
+        receivedLines += lines.length;
 
         for (const line of lines) {
             const message = line.trim();
@@ -186,7 +211,10 @@ function connect() {
             }
 
             try {
-                parseSBS(message);
+                if (parseSBS(message)) {
+                    parsedMessages += 1;
+                    currentConnectionMessages += 1;
+                }
             } catch (error) {
                 console.error("SBS parse error:", error.message);
             }
@@ -194,12 +222,21 @@ function connect() {
     });
 
     socket.on("error", (error) => {
+        lastError = {
+            message: error.message,
+            code: error.code || null,
+            at: Date.now()
+        };
         console.error("ADS-B TCP error:", error.message);
     });
 
     socket.on("close", () => {
         console.log("ADSBHub connection closed.");
         connectedAt = null;
+        lastCloseAt = Date.now();
+        if (currentConnectionMessages === 0) {
+            lastNoDataCloseAt = lastCloseAt;
+        }
 
         if (reconnectTimer) {
             return;
@@ -234,11 +271,50 @@ function getLiveAircraft() {
 }
 
 function getConnectionStatus() {
+    const now = Date.now();
+    const isConnected = Boolean(socket && !socket.destroyed && connectedAt);
+    const isConnecting = Boolean(socket && !socket.destroyed && !connectedAt);
+    const noDataForMs = isConnected
+        ? now - (lastMessageAt || connectedAt)
+        : null;
+    const waitingForFirstMessage = isConnected && !lastMessageAt;
+    const state = isConnected
+        ? waitingForFirstMessage
+            ? "connected-awaiting-data"
+            : "receiving"
+        : isConnecting
+            ? "connecting"
+        : reconnectTimer
+            ? "reconnecting"
+            : "disconnected";
+    const hasNeverReceivedData = parsedMessages === 0;
+    const warning = isConnected && noDataForMs > NO_DATA_WARNING_MS
+        ? "Connected to ADSBHub, but no SBS messages have been received. Confirm this server's public IP is saved on the ADSBHub profile Data Access page and that your station is actively feeding ADSBHub."
+        : hasNeverReceivedData && lastNoDataCloseAt
+            ? "ADSBHub accepted the TCP connection and closed it before sending SBS messages. Confirm this server's public IP is saved on the ADSBHub profile Data Access page and that your station is actively feeding ADSBHub."
+        : null;
+
     return {
-        connected: Boolean(socket && !socket.destroyed && connectedAt),
+        host: HOST,
+        port: PORT,
+        state,
+        connected: isConnected,
         connectedAt,
+        lastConnectAttemptAt,
         lastMessageAt,
-        aircraftCount: aircraft.size
+        lastCloseAt,
+        lastNoDataCloseAt,
+        lastError,
+        noDataForMs,
+        warning,
+        aircraftCount: aircraft.size,
+        receivedBytes,
+        receivedLines,
+        parsedMessages,
+        remoteAddress: socket?.remoteAddress || null,
+        remotePort: socket?.remotePort || null,
+        localAddress: socket?.localAddress || null,
+        localPort: socket?.localPort || null
     };
 }
 

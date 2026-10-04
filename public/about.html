@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="About Falcon Intelligence and support the project with a donation.">
+  <title>About | Falcon Intelligence</title>
+  <link rel="stylesheet" href="/about.css">
+</head>
+<body>
+  <a class="skip-link" href="#about-content">Skip to about content</a>
+  <div class="app-shell">
+    <header class="site-header">
+      <nav class="about-nav" aria-label="Main navigation">
+        <a class="brand" href="/" aria-label="Falcon Intelligence home"><span class="brand-mark"><i class="laser-eye left" aria-hidden="true"></i><i class="laser-eye right" aria-hidden="true"></i><img src="/assets/falcon-laser-logo.png" alt=""></span><span><strong>FALCON</strong><small>INTELLIGENCE</small></span></a>
+        <button class="menu-button" type="button" id="about-menu-button" aria-label="Open menu" aria-expanded="false">&#9776;</button>
+        <div class="nav-links" id="about-nav-links">
+          <a href="/">Home</a>
+          <a href="/tracked-aircrafts">Intelligence Archive</a>
+          <a href="/live-map">Live Map</a>
+          <a href="/explore">Explore</a>
+          <a class="active" href="/about">About</a>
+          <a href="/contact">Contact</a>
+        </div>
+        <a class="nav-cta" href="/login">Login</a>
+      </nav>
+    </header>
+
+    <main id="about-content">
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">About Falcon Intelligence</p>
+          <h1>Built for aircraft watchers who do not want to miss the sky.</h1>
+          <p class="lede">This is placeholder copy for now. Replace it with the real mission, story, and operating model when the content is ready.</p>
+        </div>
+      </section>
+
+      <section class="about-grid" aria-label="About details">
+        <article>
+          <span>01</span>
+          <h2>Mission</h2>
+          <p>Dummy data: Falcon Intelligence helps aviation enthusiasts monitor notable aircraft, understand signals, and act before a rare sighting passes overhead.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <h2>Coverage</h2>
+          <p>Dummy data: The platform combines live aircraft lookups, retained observations, airspace bookmarks, and alert workflows into one focused experience.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <h2>Roadmap</h2>
+          <p>Dummy data: Future work includes better landing assessment, cleaner aircraft profiles, richer map filters, and more reliable notification flows.</p>
+        </article>
+      </section>
+
+      <section class="donation-section" aria-labelledby="donation-title">
+        <div class="donation-copy">
+          <p class="eyebrow">Support the project</p>
+          <h2 id="donation-title">Help keep Falcon Intelligence online 24/7.</h2>
+          <p>Falcon Intelligence has to stay awake around the clock to be useful. Donations help cover server hosting, live data polling, maps, email delivery, phone-call alert infrastructure, monitoring, and maintenance so the tracker can keep running reliably for plane spotters.</p>
+        </div>
+        <form class="donation-card" id="donation-form">
+          <fieldset>
+            <legend>Choose amount</legend>
+            <div class="amount-options">
+              <label><input type="radio" name="amount" value="10000" checked><span>INR 100</span></label>
+              <label><input type="radio" name="amount" value="25000"><span>INR 250</span></label>
+              <label><input type="radio" name="amount" value="50000"><span>INR 500</span></label>
+            </div>
+          </fieldset>
+          <label class="custom-amount">Custom amount in INR
+            <input id="custom-amount" type="number" min="1" step="1" inputmode="numeric" placeholder="Optional">
+          </label>
+          <button class="button" type="submit" id="donate-button">Donate with Razorpay</button>
+          <p class="payment-status" id="payment-status" aria-live="polite">Every contribution helps with uptime, alert delivery, and future improvements.</p>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script src="/about.js" defer></script>
+</body>
+</html>

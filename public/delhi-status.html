@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Live status for the Delhi ADSBHub TCP alert API.">
+  <title>Delhi API Status | Falcon Intelligence</title>
+  <link rel="stylesheet" href="/bangalore-status.css">
+</head>
+<body>
+  <a class="skip-link" href="#status-content">Skip to status</a>
+  <div class="app-shell">
+    <header class="site-header">
+      <nav class="status-nav" aria-label="Main navigation">
+        <a class="brand" href="/" aria-label="Falcon Intelligence home"><span class="brand-mark"><i class="laser-eye left" aria-hidden="true"></i><i class="laser-eye right" aria-hidden="true"></i><img src="/assets/falcon-laser-logo.png" alt=""></span><span><strong>FALCON</strong><small>INTELLIGENCE</small></span></a>
+        <button class="menu-button" type="button" id="status-menu-button" aria-label="Open menu" aria-expanded="false">&#9776;</button>
+        <div class="nav-links" id="status-nav-links">
+          <a href="/">Home</a>
+          <a href="/tracked-aircrafts">Intelligence Archive</a>
+          <a class="active" href="/live-map">Live Map</a>
+          <a href="/explore">Explore</a>
+          <a href="/about">About</a>
+          <a href="/contact">Contact</a>
+        </div>
+        <a class="nav-cta" href="/login">Login</a>
+      </nav>
+    </header>
+
+    <main id="status-content">
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Delhi ADSBHub TCP monitor</p>
+          <h1>Delhi API status</h1>
+          <p class="lede">Live health view for the Delhi 100-mile IAF alert poller and the ADSBHub TCP nearby-aircraft API.</p>
+        </div>
+        <div class="feed-status" id="status-pill" aria-live="polite"><span></span> Checking API</div>
+      </section>
+
+      <section class="status-grid" aria-label="Delhi API status summary">
+        <article><span>Status</span><strong id="metric-status">Checking</strong><small id="metric-error">No errors reported yet</small></article>
+        <article><span>TCP feed</span><strong id="metric-feed">Unknown</strong><small id="metric-feed-detail">Waiting for connection data</small></article>
+        <article><span>Aircraft nearby</span><strong id="metric-nearby">0</strong><small>Inside 100 miles of Delhi</small></article>
+        <article><span>IAF matches</span><strong id="metric-matches">0</strong><small>Matched hex codes in latest poll</small></article>
+      </section>
+
+      <section class="response-layout">
+        <article class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">Polling API</p><h2>Nearby response</h2></div><time id="nearby-updated">--</time></div>
+          <div class="aircraft-list" id="nearby-aircraft" aria-live="polite"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">Raw response</p><h2>Live JSON</h2></div><time id="status-updated">--</time></div>
+          <pre id="raw-response">{}</pre>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script src="/delhi-status.js" defer></script>
+</body>
+</html>
