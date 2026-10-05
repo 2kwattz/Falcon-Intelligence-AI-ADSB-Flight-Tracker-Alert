@@ -53,6 +53,22 @@
         </article>
       </section>
 
+      <section class="health-section" aria-labelledby="health-title">
+        <div class="health-heading">
+          <div>
+            <p class="eyebrow">Server health check</p>
+            <h2 id="health-title">Operational status</h2>
+          </div>
+          <time id="health-updated">Checking now</time>
+        </div>
+        <div class="health-grid" id="health-grid" aria-live="polite">
+          <article class="health-card loading"><span></span><h3>Website Status</h3><p>Checking</p></article>
+          <article class="health-card loading"><span></span><h3>Vadodara Airspace</h3><p>Checking</p></article>
+          <article class="health-card loading"><span></span><h3>Bangalore Airspace</h3><p>Checking</p></article>
+          <article class="health-card loading"><span></span><h3>ADSB TCP Connection</h3><p>Checking</p></article>
+        </div>
+      </section>
+
       <section class="donation-section" aria-labelledby="donation-title">
         <div class="donation-copy">
           <p class="eyebrow">Support the project</p>
@@ -78,6 +94,7 @@
     </main>
   </div>
 
+  <footer class="site-footer">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <script src="/about.js" defer></script>
 </body>

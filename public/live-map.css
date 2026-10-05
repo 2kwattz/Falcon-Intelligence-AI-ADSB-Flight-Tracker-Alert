@@ -676,6 +676,24 @@ button { cursor: pointer; }
   backdrop-filter: blur(12px);
 }
 
+.site-footer {
+  position: absolute;
+  right: 18px;
+  bottom: 8px;
+  z-index: 650;
+  max-width: calc(100% - 36px);
+  padding: 7px 10px;
+  border: 1px solid rgba(89, 130, 154, .42);
+  border-radius: 7px;
+  color: #71879a;
+  background: rgba(8, 18, 29, .68);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .18);
+  font-size: .7rem;
+  letter-spacing: .06em;
+  text-align: center;
+  backdrop-filter: blur(12px);
+}
+
 .no-position-panel.is-open + .map-note {
   bottom: 258px;
 }
@@ -1048,13 +1066,20 @@ button { cursor: pointer; }
 
   .map-note {
     right: 12px;
-    bottom: 12px;
+    bottom: 48px;
     left: 12px;
     max-width: none;
   }
 
   .no-position-panel.is-open + .map-note {
     bottom: 234px;
+  }
+
+  .site-footer {
+    right: 12px;
+    bottom: 8px;
+    max-width: calc(100% - 24px);
+    font-size: .62rem;
   }
 }
 

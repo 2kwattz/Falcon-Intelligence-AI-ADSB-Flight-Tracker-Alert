@@ -8,7 +8,14 @@
     bengaluru: {
       label: "Bengaluru Airspace (Live Only)",
       endpoint: "/api/adsbhub-tcp/nearby/12.9716/77.5946/100?limit=500",
-      mode: "live"
+      mode: "live",
+      hint: "Live aircraft inside the Bengaluru radius"
+    },
+    delhi: {
+      label: "Delhi Airspace (Live Only)",
+      endpoint: "/api/adsbhub-tcp/nearby/28.6139/77.2090/100?limit=500",
+      mode: "live",
+      hint: "Live aircraft inside the Delhi radius"
     }
   };
   const state = { aircraft: [], filtered: [], lastLoadedAt: null, airspace: "vadodara" };
@@ -175,7 +182,7 @@
       status.className = "connection-status ready";
       status.innerHTML = `<span></span> ${view.mode === "live" ? "Live feed connected" : "Archive connected"}`;
       $("#updated-at").textContent = `${view.label} loaded ${formatDate(state.lastLoadedAt,{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"})}`;
-      $("#sort-hint").textContent = view.mode === "live" ? "Live aircraft inside the Bengaluru radius" : "Grouped by observation date";
+      $("#sort-hint").textContent = view.mode === "live" ? view.hint : "Grouped by observation date";
     } catch (error) {
       state.aircraft = [];
       renderResults();

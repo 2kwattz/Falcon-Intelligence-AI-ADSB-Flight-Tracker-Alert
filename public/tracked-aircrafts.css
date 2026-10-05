@@ -30,4 +30,5 @@ dialog { width:min(760px,calc(100vw - 28px)); max-width:calc(100vw - 28px); max-
 .airspace-select select::-ms-expand { display:none; }
 .airspace-select select:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(86,216,183,.1); }
 .airspace-select option { color:#0b1825; background:#eef7f6; }
+.site-footer { width:100%; max-width:1560px; margin:0 auto; padding:28px 28px 36px; color:#71879a; font-size:.7rem; letter-spacing:.06em; text-align:center; }
 @media (max-width:760px) { .airspace-row { display:block; } .airspace-select { align-items:stretch; flex-direction:column; gap:6px; } .airspace-select select { width:100%; min-width:0; } }

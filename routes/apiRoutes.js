@@ -623,12 +623,94 @@ function buildCityAlertStatus(config) {
     };
 }
 
+async function buildServerHealthStatus() {
+    const adsbTcpConnection = getConnectionStatus();
+    let vadodaraStation = null;
+
+    try {
+        const stationFeed = await getLocalSdrAircraft();
+        vadodaraStation = {
+            status: true,
+            state: "receiving",
+            connected: Boolean(stationFeed.connection?.connected),
+            aircraftCount: stationFeed.connection?.aircraftCount ?? stationFeed.aircraft?.length ?? 0,
+            lastMessageAt: stationFeed.connection?.lastMessageAt || null,
+            stationName: stationFeed.connection?.stationName || STATION_NAME,
+            source: stationFeed.connection?.source || STATION_ID
+        };
+    }
+    catch (error) {
+        vadodaraStation = {
+            status: false,
+            state: "unavailable",
+            connected: false,
+            aircraftCount: 0,
+            lastMessageAt: null,
+            stationName: STATION_NAME,
+            source: STATION_ID,
+            error: error.message || String(error)
+        };
+    }
+
+    const bangaloreConfig = cityAlertConfigById.get("bangalore");
+
+    return {
+        status: true,
+        checkedAt: new Date().toISOString(),
+        website: {
+            status: true,
+            state: "online",
+            uptimeSeconds: Math.round(process.uptime())
+        },
+        adsbTcpConnection: {
+            status: Boolean(adsbTcpConnection.connected && !adsbTcpConnection.warning),
+            state: adsbTcpConnection.state,
+            connected: adsbTcpConnection.connected,
+            aircraftCount: adsbTcpConnection.aircraftCount,
+            lastMessageAt: adsbTcpConnection.lastMessageAt,
+            warning: adsbTcpConnection.warning || null
+        },
+        vadodaraAirspace: vadodaraStation,
+        bangaloreAirspace: {
+            status: !bangaloreConfig.state.lastError,
+            state: bangaloreConfig.state.isRunning
+                ? "polling"
+                : bangaloreConfig.state.lastError
+                    ? "error"
+                    : bangaloreConfig.state.lastRunAt
+                        ? "ready"
+                        : "starting",
+            radiusMiles: bangaloreConfig.radiusMiles,
+            lastRunAt: bangaloreConfig.state.lastRunAt,
+            lastError: bangaloreConfig.state.lastError,
+            lastMatches: bangaloreConfig.state.lastMatches.length,
+            emailRecipients: bangaloreConfig.emails.length,
+            callRecipients: bangaloreConfig.callPhones.length,
+            callAlertsEnabled: bangaloreConfig.enableCallAlerts
+        }
+    };
+}
+
 router.get("/bangalore-iaf-alert-status", function(req, res) {
     return res.status(200).json(buildCityAlertStatus(cityAlertConfigById.get("bangalore")));
 });
 
 router.get("/delhi-iaf-alert-status", function(req, res) {
     return res.status(200).json(buildCityAlertStatus(cityAlertConfigById.get("delhi")));
+});
+
+router.get("/server-health", async function(req, res) {
+    try {
+        return res.status(200).json(await buildServerHealthStatus());
+    }
+    catch (error) {
+        console.error("[*] Server health check failed:", error.message || error);
+
+        return res.status(500).json({
+            status: false,
+            message: "Unable to build server health status"
+        });
+    }
 });
 
 router.get("/razorpay-key", function(req, res) {

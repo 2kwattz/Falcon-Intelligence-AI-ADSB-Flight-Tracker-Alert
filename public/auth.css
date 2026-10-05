@@ -140,6 +140,7 @@ input:focus,select:focus { border-color:var(--teal); box-shadow:0 0 0 3px rgba(8
   font-size:.66rem;
   letter-spacing:.08em;
 }
+.site-footer { padding-top:28px; padding-bottom:36px; color:#71879a; font-size:.7rem; letter-spacing:.06em; text-align:center; }
 
 @media (max-width:980px) {
   .nav-links { gap:14px; }

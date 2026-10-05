@@ -3,6 +3,8 @@
   const form = $("#donation-form");
   const status = $("#payment-status");
   const donateButton = $("#donate-button");
+  const healthGrid = $("#health-grid");
+  const healthUpdated = $("#health-updated");
 
   function setStatus(message, state = "") {
     status.className = "payment-status" + (state ? " " + state : "");
@@ -30,6 +32,86 @@
     if (!response.ok || !payload.status) throw new Error(payload.message || "Request failed");
 
     return payload;
+  }
+
+  function formatNumber(value) {
+    const number = Number(value);
+
+    return Number.isFinite(number) ? number.toLocaleString() : "0";
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>'"]/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" })[char]);
+  }
+
+  function formatTime(value) {
+    return value
+      ? new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(value))
+      : "No recent timestamp";
+  }
+
+  function formatUptime(seconds) {
+    const total = Number(seconds);
+
+    if (!Number.isFinite(total)) return "Uptime unavailable";
+
+    const days = Math.floor(total / 86400);
+    const hours = Math.floor((total % 86400) / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+
+    if (days) return `${days}d ${hours}h uptime`;
+    if (hours) return `${hours}h ${minutes}m uptime`;
+    return `${minutes}m uptime`;
+  }
+
+  function healthCard({ title, ok, state, detail }) {
+    return `<article class="health-card ${ok ? "ready" : "error"}"><span></span><h3>${escapeHtml(title)}</h3><strong>${escapeHtml(state)}</strong><p>${escapeHtml(detail)}</p></article>`;
+  }
+
+  function renderHealth(payload) {
+    const cards = [
+      healthCard({
+        title: "Website Status",
+        ok: payload.website?.status,
+        state: payload.website?.state || "unknown",
+        detail: formatUptime(payload.website?.uptimeSeconds)
+      }),
+      healthCard({
+        title: "Vadodara Airspace",
+        ok: payload.vadodaraAirspace?.status,
+        state: payload.vadodaraAirspace?.state || "unknown",
+        detail: `${formatNumber(payload.vadodaraAirspace?.aircraftCount)} aircraft, last signal ${formatTime(payload.vadodaraAirspace?.lastMessageAt)}`
+      }),
+      healthCard({
+        title: "Bangalore Airspace",
+        ok: payload.bangaloreAirspace?.status,
+        state: payload.bangaloreAirspace?.state || "unknown",
+        detail: `${formatNumber(payload.bangaloreAirspace?.lastMatches)} latest matches, last poll ${formatTime(payload.bangaloreAirspace?.lastRunAt)}`
+      }),
+      healthCard({
+        title: "ADSB TCP Connection",
+        ok: payload.adsbTcpConnection?.status,
+        state: payload.adsbTcpConnection?.state || "unknown",
+        detail: payload.adsbTcpConnection?.warning || `${formatNumber(payload.adsbTcpConnection?.aircraftCount)} aircraft in memory, last message ${formatTime(payload.adsbTcpConnection?.lastMessageAt)}`
+      })
+    ];
+
+    healthGrid.innerHTML = cards.join("");
+    healthUpdated.textContent = `Checked ${formatTime(payload.checkedAt)}`;
+  }
+
+  async function loadHealth() {
+    try {
+      renderHealth(await requestJson("/api/server-health"));
+    } catch (error) {
+      healthGrid.innerHTML = healthCard({
+        title: "Server Health Check",
+        ok: false,
+        state: "unavailable",
+        detail: error.message || "Unable to read server health."
+      });
+      healthUpdated.textContent = "Health check failed";
+    }
   }
 
   async function openCheckout(amount) {
@@ -88,6 +170,9 @@
       menuButton.setAttribute("aria-expanded", "false");
       menuButton.textContent = "\u2630";
     }));
+
+    loadHealth();
+    window.setInterval(loadHealth, 30000);
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
