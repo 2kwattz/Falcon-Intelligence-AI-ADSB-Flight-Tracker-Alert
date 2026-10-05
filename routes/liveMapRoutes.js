@@ -99,8 +99,8 @@ router.get("/aircrafts", async (req, res) => {
     const requestedNoPositionLimit = Number.parseInt(req.query.noPositionLimit, 10);
     const source = resolveFeedSource(req.query.source);
     // A hard ceiling keeps a busy feed from overwhelming the browser.
-    const limit = Number.isInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 350) : 250;
-    const noPositionLimit = Number.isInteger(requestedNoPositionLimit) ? Math.min(Math.max(requestedNoPositionLimit, 1), 350) : 120;
+    const limit = Number.isInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 200) : 160;
+    const noPositionLimit = Number.isInteger(requestedNoPositionLimit) ? Math.min(Math.max(requestedNoPositionLimit, 1), 200) : 80;
     let sourcePayload;
 
     try {

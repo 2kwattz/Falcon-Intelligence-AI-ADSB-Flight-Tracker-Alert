@@ -3,14 +3,15 @@
   const bookmarkEndpoint = "/api/aircraft/nearby";
   // The TCP receiver is already in memory, so a one-second UI snapshot keeps
   // positions responsive without opening additional feed connections.
-  const refreshInterval = 1000;
+  const refreshInterval = 1500;
   const bookmarkRefreshInterval = 5000;
-  const maximumAircraft = 250;
-  const maximumNoPositionAircraft = 120;
+  const maximumAircraft = 160;
+  const maximumNoPositionAircraft = 80;
   const bookmarkRadiusNm = 100;
-  const labelZoom = 2;
-  const labelLimit = maximumAircraft;
-  const markerMoveDuration = 900;
+  const labelZoom = 7;
+  const labelLimit = 80;
+  const markerMoveDuration = 1200;
+  const panelRenderInterval = 3000;
   const deadReckonMaxSeconds = 8;
   const earthRadiusNm = 3440.065;
   const defaultMapType = "satellite";
@@ -72,6 +73,7 @@
   const $ = (selector) => document.querySelector(selector);
   const markers = new Map();
   const markerStates = new Map();
+  const markerRenderStates = new Map();
   const baseLayers = new Map();
   let map;
   let activeBaseLayer = null;
@@ -83,6 +85,9 @@
   let bookmarkRefreshInFlight = false;
   let markerAnimationFrame = null;
   let selectedFeedSource = defaultFeedSource;
+  let lastPanelRenderAt = 0;
+  let lastPositionListSignature = "";
+  let lastNoPositionListSignature = "";
 
   const finite = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
   const text = (value, fallback = "-") => value === undefined || value === null || String(value).trim() === "" ? fallback : String(value).trim();
@@ -94,6 +99,30 @@
   const formatTime = (value) => value ? new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(value)) : "-";
   const callsign = (aircraft) => text(aircraft.callsign, aircraft.hex);
   const label = (aircraft) => `${callsign(aircraft)} - ${aircraft.hex}`;
+  const headingBucket = (aircraft) => {
+    const heading = finite(aircraft.heading) ?? 0;
+
+    return Math.round(heading / 10) * 10;
+  };
+  const positionedListSignature = (aircraft) => aircraft
+    .map((item) => [
+      item.hex,
+      callsign(item),
+      item.altitude ?? "",
+      item.groundSpeed ?? "",
+      item.heading ?? ""
+    ].join(":"))
+    .join("|");
+  const noPositionListSignature = (aircraft) => aircraft
+    .map((item) => [
+      item.hex,
+      callsign(item),
+      item.altitude ?? "",
+      item.groundSpeed ?? "",
+      item.heading ?? "",
+      item.lastSeen ?? ""
+    ].join(":"))
+    .join("|");
 
   function projectPosition(latitude, longitude, bearingDegrees, distanceNm) {
     const angularDistance = distanceNm / earthRadiusNm;
@@ -181,7 +210,7 @@
   }
 
   function aircraftIcon(aircraft) {
-    const bearing = finite(aircraft.heading) ?? 0;
+    const bearing = headingBucket(aircraft);
     return window.L.divIcon({
       className: "aircraft-marker",
       html: `<span class="aircraft-marker__inner"><svg viewBox="0 0 100 100" style="--bearing:${bearing}deg" aria-hidden="true"><path d="M50 2c-5.8 7.3-7.6 17.8-7.6 28.6l-.8 8-6.1 8-5 4.7L8 72.8v9.6l27.2-4.6 7.2 3.1-10.4 13.1 8.5 4.5L50 90.2l9.5 8.3 8.5-4.5L57.6 80.9l7.2-3.1L92 82.4v-9.6L69.5 51.3l-5-4.7-6.1-8-.8-8C57.6 19.8 55.8 9.3 50 2Z"/></svg></span>`,
@@ -251,21 +280,44 @@
     aircraft.forEach((item) => {
       liveHexes.add(item.hex);
       const latLng = [item.latitude, item.longitude];
+      const itemLabel = label(item);
+      const itemHeadingBucket = headingBucket(item);
       let marker = markers.get(item.hex);
       if (!marker) {
-        marker = window.L.marker(liveLatLng(item) || latLng, { icon: aircraftIcon(item), title: label(item), riseOnHover: true }).addTo(map);
-        marker.bindTooltip(label(item), { direction: "top", offset: [0, -18], className: "aircraft-label", opacity: 0.95 });
+        marker = window.L.marker(liveLatLng(item) || latLng, { icon: aircraftIcon(item), title: itemLabel, riseOnHover: true }).addTo(map);
+        marker.bindTooltip(itemLabel, { direction: "top", offset: [0, -18], className: "aircraft-label", opacity: 0.95 });
+        marker.bindPopup(popup(item));
         markers.set(item.hex, marker);
+        markerRenderStates.set(item.hex, {
+          label: itemLabel,
+          headingBucket: itemHeadingBucket
+        });
       } else {
-        marker.setIcon(aircraftIcon(item));
-        marker.setTooltipContent(label(item));
+        const renderState = markerRenderStates.get(item.hex) || {};
+
+        if (renderState.headingBucket !== itemHeadingBucket) {
+          marker.setIcon(aircraftIcon(item));
+          renderState.headingBucket = itemHeadingBucket;
+        }
+
+        if (renderState.label !== itemLabel) {
+          marker.setTooltipContent(itemLabel);
+          marker.options.title = itemLabel;
+          renderState.label = itemLabel;
+        }
+
+        if (marker.isPopupOpen()) {
+          marker.setPopupContent(popup(item));
+        }
+
+        markerRenderStates.set(item.hex, renderState);
         moveMarker(item.hex, marker, item);
       }
-      marker.bindPopup(popup(item));
     });
     markers.forEach((marker, hex) => {
       if (!liveHexes.has(hex)) {
         markerStates.delete(hex);
+        markerRenderStates.delete(hex);
         marker.remove();
         markers.delete(hex);
       }
@@ -361,9 +413,13 @@
     }
 
     markerStates.clear();
+    markerRenderStates.clear();
     markers.forEach((marker) => marker.remove());
     markers.clear();
     lastAircraft = [];
+    lastPanelRenderAt = 0;
+    lastPositionListSignature = "";
+    lastNoPositionListSignature = "";
     hasLoadedInitialFeed = false;
     $("#aircraft-count").textContent = "0";
     $("#no-position-count").textContent = "0";
@@ -408,8 +464,26 @@
       hasLoadedInitialFeed = true;
       lastAircraft = payload.aircraft;
       renderMarkers(payload.aircraft);
-      renderPositionList(payload.aircraft);
-      renderNoPositionList(noPositionAircraft, payload.totalWithoutPosition, payload.noPositionTruncated);
+      $("#aircraft-count").textContent = payload.aircraft.length.toLocaleString();
+      $("#no-position-count").textContent = Number(payload.totalWithoutPosition || noPositionAircraft.length).toLocaleString();
+
+      const now = Date.now();
+      const positionSignature = positionedListSignature(payload.aircraft);
+      const noPositionSignature = noPositionListSignature(noPositionAircraft);
+      const shouldRenderPanels =
+        isInitialLoad ||
+        now - lastPanelRenderAt >= panelRenderInterval ||
+        positionSignature !== lastPositionListSignature ||
+        noPositionSignature !== lastNoPositionListSignature;
+
+      if (shouldRenderPanels) {
+        renderPositionList(payload.aircraft);
+        renderNoPositionList(noPositionAircraft, payload.totalWithoutPosition, payload.noPositionTruncated);
+        lastPanelRenderAt = now;
+        lastPositionListSignature = positionSignature;
+        lastNoPositionListSignature = noPositionSignature;
+      }
+
       if (isInitialLoad && payload.aircraft.length) fitAircraft(payload.aircraft);
       setStatus(payload.connection, false, payload.feed);
       $("#updated-at").textContent = `Updated ${formatTime(payload.updatedAt)}`;

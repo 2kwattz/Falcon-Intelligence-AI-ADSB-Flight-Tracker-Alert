@@ -1,6 +1,17 @@
 (() => {
-  const endpoint = "/trackedaircrafts";
-  const state = { aircraft: [], filtered: [], lastLoadedAt: null };
+  const airspaceViews = {
+    vadodara: {
+      label: "Vadodara Airspace",
+      endpoint: "/trackedaircrafts",
+      mode: "archive"
+    },
+    bengaluru: {
+      label: "Bengaluru Airspace (Live Only)",
+      endpoint: "/api/adsbhub-tcp/nearby/12.9716/77.5946/100?limit=500",
+      mode: "live"
+    }
+  };
+  const state = { aircraft: [], filtered: [], lastLoadedAt: null, airspace: "vadodara" };
   let detailMap = null;
   const $ = (selector) => document.querySelector(selector);
   const fields = ["search-input", "date-from", "date-to", "type-filter", "registration-filter", "operator-filter", "source-filter", "emergency-filter", "min-altitude", "max-altitude", "min-speed", "max-age", "field-filter", "field-value", "sort-by"];
@@ -14,7 +25,18 @@
   const operator = (aircraft) => display(field(aircraft, "operator", "ownOp"));
   const altitude = (aircraft) => finite(field(aircraft, "alt_baro", "alt_geom", "altitude"));
   const speed = (aircraft) => finite(field(aircraft, "gs", "tas", "speed"));
-  const observedAt = (aircraft) => new Date(field(aircraft, "trackedAt", "lastUpdatedAt") || 0);
+  const latitude = (aircraft) => finite(field(aircraft, "lat", "latitude"));
+  const longitude = (aircraft) => finite(field(aircraft, "lon", "longitude"));
+  const observedAt = (aircraft) => {
+    const value = field(aircraft, "trackedAt", "lastUpdatedAt", "lastSeen", "positionSeen");
+    const timestamp = typeof value === "number" ? value : Number(value);
+
+    if (Number.isFinite(timestamp) && timestamp > 100000000000) {
+      return new Date(timestamp);
+    }
+
+    return new Date(value || 0);
+  };
   const formatNumber = (value, suffix = "") => value === null ? "—" : `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value)}${suffix}`;
   const formatDate = (date, options) => Number.isNaN(date.getTime()) ? "Unknown date" : new Intl.DateTimeFormat("en-GB", options).format(date);
   const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" })[char]);
@@ -73,7 +95,8 @@
   }
   function row(aircraft) {
     const time = observedAt(aircraft); const emergency = display(aircraft.emergency, "none");
-    return `<tr><td><span class="primary-cell">${escapeHtml(callsign(aircraft))}</span><span class="secondary">${escapeHtml(registration(aircraft))}</span></td><td><span class="primary-cell">${escapeHtml(display(aircraft.hex))}</span><span class="secondary">${escapeHtml(display(aircraft.type))}</span></td><td><span class="badge">${escapeHtml(type(aircraft))}</span><span class="secondary">${escapeHtml(display(field(aircraft,"description","desc")))}</span></td><td>${escapeHtml(operator(aircraft))}</td><td>${formatNumber(altitude(aircraft), " ft")}</td><td>${formatNumber(speed(aircraft), " kt")}</td><td>${aircraft.lat != null && aircraft.lon != null ? `${Number(aircraft.lat).toFixed(4)}, ${Number(aircraft.lon).toFixed(4)}` : "—"}</td><td><span class="badge${emergency !== "none" ? " alert" : ""}">${escapeHtml(emergency)}</span></td><td>${formatDate(time,{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</td><td><button class="details-button" type="button" data-aircraft="${escapeHtml(display(aircraft.hex,"record"))}">View details →</button></td></tr>`;
+    const lat = latitude(aircraft); const lon = longitude(aircraft);
+    return `<tr><td><span class="primary-cell">${escapeHtml(callsign(aircraft))}</span><span class="secondary">${escapeHtml(registration(aircraft))}</span></td><td><span class="primary-cell">${escapeHtml(display(aircraft.hex))}</span><span class="secondary">${escapeHtml(display(aircraft.type))}</span></td><td><span class="badge">${escapeHtml(type(aircraft))}</span><span class="secondary">${escapeHtml(display(field(aircraft,"description","desc")))}</span></td><td>${escapeHtml(operator(aircraft))}</td><td>${formatNumber(altitude(aircraft), " ft")}</td><td>${formatNumber(speed(aircraft), " kt")}</td><td>${lat !== null && lon !== null ? `${lat.toFixed(4)}, ${lon.toFixed(4)}` : "—"}</td><td><span class="badge${emergency !== "none" ? " alert" : ""}">${escapeHtml(emergency)}</span></td><td>${formatDate(time,{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</td><td><button class="details-button" type="button" data-aircraft="${escapeHtml(display(aircraft.hex,"record"))}">View details →</button></td></tr>`;
   }
   function renderResults() {
     const filters = currentFilters(); state.filtered = sortRecords(state.aircraft.filter((a) => recordMatches(a, filters)), filters["sort-by"]); renderMetrics(); renderChips(filters);
@@ -110,8 +133,60 @@
   }
   function showDetails(aircraft) { if (!aircraft) return; const dialog = $("#aircraft-dialog"); const latitude = finite(field(aircraft, "lat", "latitude")); const longitude = finite(field(aircraft, "lon", "longitude")); const heading = finite(field(aircraft, "track", "heading")); const hasPosition = latitude !== null && longitude !== null && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180; const label = `${callsign(aircraft)} · ${display(aircraft.hex)}`; $("#dialog-title").textContent = label; const raw = Object.entries(aircraft).sort(([a],[b]) => a.localeCompare(b)); const location = hasPosition ? `<section class="location-section"><div class="location-heading"><div class="location-title"><span class="location-aircraft-icon" aria-hidden="true">✈</span><h3 class="detail-section-title">Last reported position</h3></div><a href="https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=12/${latitude}/${longitude}" target="_blank" rel="noreferrer">Open in OpenStreetMap ↗</a></div><div class="aircraft-location-map" id="aircraft-location-map" aria-label="Satellite map centered on the last reported aircraft position"></div><p class="location-note">Satellite mosaic centred at ${latitude.toFixed(4)}°, ${longitude.toFixed(4)}°. The marker shows the last position supplied by the tracking feed.</p></section>` : ""; $("#dialog-content").innerHTML = `<div class="detail-content"><p class="lede">Full retained payload for this aircraft. Values not transmitted by the feed are omitted.</p>${location}<h3 class="detail-section-title">All available fields (${raw.length})</h3><div class="detail-grid">${raw.map(([key,value]) => `<div class="detail-item"><div class="detail-key">${escapeHtml(key.replace(/_/g," "))}</div><div class="detail-value">${escapeHtml(typeof value === "object" ? JSON.stringify(value) : display(value))}</div></div>`).join("")}</div></div>`; dialog.showModal(); if (hasPosition) showSatelliteMap(latitude, longitude, label, heading); }
   function clearFilters() { fields.forEach((id) => { if (id !== "sort-by") $("#" + id).value = ""; }); renderResults(); }
-  async function loadAircraft() { const status = $("#connection-status"); status.className = "connection-status"; status.innerHTML = "<span></span> Loading archive"; try { const response = await fetch(endpoint, { headers:{Accept:"application/json"}, cache:"no-store" }); if (!response.ok) throw new Error(`Server returned ${response.status}`); const payload = await response.json(); if (!payload.status || !Array.isArray(payload.aircraftData)) throw new Error(payload.message || "Unexpected data format"); state.aircraft = payload.aircraftData; state.lastLoadedAt = new Date(); populateFilters(); renderResults(); status.className = "connection-status ready"; status.innerHTML = "<span></span> Archive connected"; $("#updated-at").textContent = `Loaded ${formatDate(state.lastLoadedAt,{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"})}`; } catch (error) { state.aircraft = []; renderResults(); status.className = "connection-status error"; status.innerHTML = "<span></span> Archive unavailable"; $("#result-summary").textContent = "Unable to load aircraft"; $("#aircraft-results").innerHTML = `<div class="empty-state"><span aria-hidden="true">!</span><h2>Could not load the tracked-aircraft archive</h2><p>${escapeHtml(error.message)}. Check that the Falcon Intelligence API is running, then refresh.</p></div>`; } }
+  function normalizeLiveAircraft(aircraft, view) {
+    const lastSeen = finite(field(aircraft, "lastSeen", "positionSeen")) || Date.now();
+
+    return {
+      ...aircraft,
+      trackedAt: new Date(lastSeen).toISOString(),
+      lastUpdatedAt: new Date(lastSeen).toISOString(),
+      lat: field(aircraft, "lat", "latitude"),
+      lon: field(aircraft, "lon", "longitude"),
+      gs: field(aircraft, "gs", "groundSpeed"),
+      flight: field(aircraft, "flight", "callsign"),
+      type: aircraft.type || aircraft.source || view.label,
+      sourceLabel: view.label
+    };
+  }
+  function recordsFromPayload(payload, view) {
+    if (view.mode === "live") {
+      if (!payload.status || !Array.isArray(payload.aircraft)) throw new Error(payload.message || "Unexpected live data format");
+      return payload.aircraft.map((aircraft) => normalizeLiveAircraft(aircraft, view));
+    }
+
+    if (!payload.status || !Array.isArray(payload.aircraftData)) throw new Error(payload.message || "Unexpected data format");
+    return payload.aircraftData;
+  }
+  async function loadAircraft() {
+    const view = airspaceViews[state.airspace] || airspaceViews.vadodara;
+    const status = $("#connection-status");
+    status.className = "connection-status";
+    status.innerHTML = `<span></span> Loading ${view.mode === "live" ? "live airspace" : "archive"}`;
+
+    try {
+      const response = await fetch(view.endpoint, { headers:{Accept:"application/json"}, cache:"no-store" });
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
+      const payload = await response.json();
+      state.aircraft = recordsFromPayload(payload, view);
+      state.lastLoadedAt = new Date();
+      $("#metric-total-label").textContent = view.mode === "live" ? "Live aircraft" : "Aircraft in archive";
+      populateFilters();
+      renderResults();
+      status.className = "connection-status ready";
+      status.innerHTML = `<span></span> ${view.mode === "live" ? "Live feed connected" : "Archive connected"}`;
+      $("#updated-at").textContent = `${view.label} loaded ${formatDate(state.lastLoadedAt,{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"})}`;
+      $("#sort-hint").textContent = view.mode === "live" ? "Live aircraft inside the Bengaluru radius" : "Grouped by observation date";
+    } catch (error) {
+      state.aircraft = [];
+      renderResults();
+      status.className = "connection-status error";
+      status.innerHTML = `<span></span> ${view.mode === "live" ? "Live feed unavailable" : "Archive unavailable"}`;
+      $("#result-summary").textContent = "Unable to load aircraft";
+      $("#aircraft-results").innerHTML = `<div class="empty-state"><span aria-hidden="true">!</span><h2>Could not load ${escapeHtml(view.label)}</h2><p>${escapeHtml(error.message)}. Check that the Falcon Intelligence API is running, then refresh.</p></div>`;
+    }
+  }
   fields.forEach((id) => $("#" + id).addEventListener(id === "search-input" ? "input" : "change", renderResults));
+  $("#airspace-select").addEventListener("change", (event) => { state.airspace = event.target.value; clearFilters(); loadAircraft(); });
   $("#clear-filters").addEventListener("click", clearFilters); $("#refresh-button").addEventListener("click", loadAircraft); $("#close-dialog").addEventListener("click", () => $("#aircraft-dialog").close()); $("#aircraft-dialog").addEventListener("click", (event) => { if (event.target === event.currentTarget) event.currentTarget.close(); });
   const menuButton = $("#archive-menu-button"); const navLinks = $("#archive-nav-links"); menuButton.addEventListener("click", () => { const open = navLinks.classList.toggle("open"); menuButton.setAttribute("aria-expanded", String(open)); menuButton.textContent = open ? "×" : "☰"; }); navLinks.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => { navLinks.classList.remove("open"); menuButton.setAttribute("aria-expanded", "false"); menuButton.textContent = "☰"; }));
   $("#toggle-filters").addEventListener("click", (event) => { const panel = $("#advanced-filters"); const hidden = panel.hidden = !panel.hidden; event.currentTarget.setAttribute("aria-expanded", String(!hidden)); event.currentTarget.innerHTML = `Advanced filters <span aria-hidden="true">${hidden ? "›" : "⌄"}</span>`; });

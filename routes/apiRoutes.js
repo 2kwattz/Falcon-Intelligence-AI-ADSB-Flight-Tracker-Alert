@@ -12,6 +12,7 @@ const bangaloreIafData = require("../iafDataBangalore");
 const delhiIafData = require("../iafDataDelhi");
 const flightAlertTemplate = require("../templates/flightAlertTemplate");
 const sendEmail = require("../services/sendEmail");
+const twilio = require("twilio");
 
 const cleanXSS = require("../utils/xssCleaner");
 
@@ -36,6 +37,16 @@ const CITY_ALERT_RADIUS_MILES = 100;
 const CITY_ALERT_INTERVAL_MS = 1000;
 const CITY_ALERT_EXPIRY_SECONDS = 20 * 60;
 const EARTH_RADIUS_MILES = 3958.7613;
+const CITY_CALL_ALERT_MAX_ALTITUDE_FEET = 20000;
+const TWILIO_CALLER_ID = process.env.TWILIO_CALLER_ID || "+12792392187";
+const BANGALORE_AIRSPACE_CALLER_ID =
+    process.env.BANGALORE_AIRSPACE_NUMBER || TWILIO_CALLER_ID;
+
+const twilioClient = twilio(
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN
+);
+const VoiceResponse = twilio.twiml.VoiceResponse;
 
 const bangaloreAlertEmails = [
     "roshan.bhatia.blueera@gmail.com",
@@ -46,6 +57,13 @@ const delhiAlertEmails = [
     "roshan.bhatia.blueera@gmail.com",
     "prakashbhatia1970@gmail.com"
 ];
+
+const bangaloreAlertPhoneNumbers = [
+    process.env.BANGALORE_ALERT_PHONE_1,
+    process.env.BANGALORE_ALERT_PHONE_2,
+    process.env.BANGALORE_ALERT_PHONE_3,
+    process.env.BANGALORE_ALERT_PHONE_4
+].filter(Boolean);
 
 const razorpay = RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET
     ? new Razorpay({
@@ -265,6 +283,10 @@ const cityAlertConfigs = [
         intervalMs: CITY_ALERT_INTERVAL_MS,
         expirySeconds: CITY_ALERT_EXPIRY_SECONDS,
         emails: bangaloreAlertEmails,
+        callPhones: bangaloreAlertPhoneNumbers,
+        callFrom: BANGALORE_AIRSPACE_CALLER_ID,
+        enableCallAlerts: true,
+        cacheMatchedAircraft: true,
         iafData: bangaloreIafData,
         distanceField: "distanceFromBangaloreMiles"
     },
@@ -276,6 +298,10 @@ const cityAlertConfigs = [
         intervalMs: CITY_ALERT_INTERVAL_MS,
         expirySeconds: CITY_ALERT_EXPIRY_SECONDS,
         emails: delhiAlertEmails,
+        callPhones: [],
+        callFrom: TWILIO_CALLER_ID,
+        enableCallAlerts: false,
+        cacheMatchedAircraft: false,
         iafData: delhiIafData,
         distanceField: "distanceFromDelhiMiles"
     }
@@ -306,6 +332,49 @@ async function shouldTriggerCityEmail(config, hexCode, email) {
     return result === "OK";
 }
 
+async function cacheCityMatchedAircraft(config, match) {
+    if (!config.cacheMatchedAircraft) {
+        return;
+    }
+
+    const key = `${config.id}-matched-aircraft:${match.hexCode}`;
+
+    await redisClient.set(
+        key,
+        JSON.stringify({
+            ...match,
+            cacheScope: "city-alert-match",
+            cachedAt: new Date().toISOString()
+        }),
+        "EX",
+        config.expirySeconds
+    );
+}
+
+async function shouldTriggerCityCall(config, hexCode, phoneNumber) {
+    const key = `${config.id}-flight-alert:call:${hexCode}:${phoneNumber}`;
+
+    const result = await redisClient.set(
+        key,
+        Date.now(),
+        "EX",
+        config.expirySeconds,
+        "NX"
+    );
+
+    return result === "OK";
+}
+
+function shouldAllowCityCallForAltitude(match) {
+    if (match.isOnGround) {
+        return true;
+    }
+
+    const altitude = Number(match.altitude);
+
+    return !Number.isFinite(altitude) || altitude <= CITY_CALL_ALERT_MAX_ALTITUDE_FEET;
+}
+
 function toCityAlertMatch(config, adsbAircraft, iafAircraft, distanceMilesFromCenter) {
     const match = {
         hexCode: normalizeHexCode(adsbAircraft.hex) ?? iafAircraft.HexCode,
@@ -324,6 +393,7 @@ function toCityAlertMatch(config, adsbAircraft, iafAircraft, distanceMilesFromCe
         longitude: adsbAircraft.longitude,
         alert: adsbAircraft.alert,
         spi: adsbAircraft.spi,
+        isOnGround: adsbAircraft.isOnGround,
         seen: adsbAircraft.lastSeen ? Math.max(0, Math.round((Date.now() - adsbAircraft.lastSeen) / 1000)) : null,
         distanceFromAlertCenterMiles: Number(distanceMilesFromCenter.toFixed(1)),
         alertLocation: config.label,
@@ -355,6 +425,53 @@ async function sendCityAlertEmails(config, match) {
         }
         catch (error) {
             console.error(`[${config.id.toUpperCase()} EMAIL ERROR]`, error.message || error);
+        }
+    }
+}
+
+async function triggerCityCallAlert(config, match) {
+    if (!config.enableCallAlerts || !config.callPhones.length) {
+        return;
+    }
+
+    if (!shouldAllowCityCallForAltitude(match)) {
+        console.log(
+            `[${config.id.toUpperCase()} CALL] ${match.registration} (${match.hexCode}) is above ${CITY_CALL_ALERT_MAX_ALTITUDE_FEET} ft - skipping call`
+        );
+        return;
+    }
+
+    const response = new VoiceResponse();
+
+    response.say(
+        `Hello, this is a call from 2kwattz Falcon Intelligence. ` +
+        `${match.aircraftType} ${match.registration} of ${match.operator} ` +
+        `is within ${config.radiusMiles} miles of ${config.label}. ` +
+        `Grab your camera and start shooting.`,
+        {
+            voice: "alice"
+        }
+    );
+
+    for (const phoneNumber of config.callPhones) {
+        try {
+            const shouldCall = await shouldTriggerCityCall(config, match.hexCode, phoneNumber);
+
+            if (!shouldCall) {
+                console.log(`[${config.id.toUpperCase()} CALL] Skipping ${phoneNumber} for ${match.hexCode}`);
+                continue;
+            }
+
+            console.log(`[${config.id.toUpperCase()} CALL] Calling ${phoneNumber} for ${match.hexCode}`);
+
+            await twilioClient.calls.create({
+                to: phoneNumber,
+                from: config.callFrom,
+                twiml: response.toString()
+            });
+        }
+        catch (error) {
+            console.error(`[${config.id.toUpperCase()} CALL ERROR]`, error.message || error);
         }
     }
 }
@@ -393,7 +510,9 @@ async function pollCityIafAlerts(config) {
                 );
 
                 matches.push(match);
+                await cacheCityMatchedAircraft(config, match);
                 await sendCityAlertEmails(config, match);
+                await triggerCityCallAlert(config, match);
             }
         }
 
@@ -491,6 +610,11 @@ function buildCityAlertStatus(config) {
         center: config.center,
         radiusMiles: config.radiusMiles,
         emailRecipients: config.emails.length,
+        callRecipients: config.callPhones.length,
+        callAlertsEnabled: config.enableCallAlerts,
+        callAltitudeLimitFeet: CITY_CALL_ALERT_MAX_ALTITUDE_FEET,
+        matchedAircraftCacheEnabled: config.cacheMatchedAircraft,
+        matchedAircraftCacheSeconds: config.cacheMatchedAircraft ? config.expirySeconds : 0,
         iafHexesLoaded: config.iafAircraftByHexCode.size,
         lastRunAt: config.state.lastRunAt,
         lastError: config.state.lastError,

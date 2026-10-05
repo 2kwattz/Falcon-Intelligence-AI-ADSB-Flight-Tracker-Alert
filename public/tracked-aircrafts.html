@@ -39,13 +39,22 @@
       </section>
 
       <section class="metrics" aria-label="Archive summary">
-        <article><span>Aircraft in archive</span><strong id="metric-total">—</strong></article>
+        <article><span id="metric-total-label">Aircraft in archive</span><strong id="metric-total">—</strong></article>
         <article><span>Matching now</span><strong id="metric-matching">—</strong></article>
         <article><span>Aircraft types</span><strong id="metric-types">—</strong></article>
         <article><span>Dates represented</span><strong id="metric-dates">—</strong></article>
       </section>
 
       <section class="control-panel" aria-label="Aircraft filters">
+        <div class="airspace-row">
+          <label class="airspace-select" for="airspace-select">
+            <span>Airspace</span>
+            <select id="airspace-select">
+              <option value="vadodara">Vadodara Airspace</option>
+              <option value="bengaluru">Bengaluru Airspace (Live Only)</option>
+            </select>
+          </label>
+        </div>
         <div class="search-row">
           <label class="search-box" for="search-input">
             <span aria-hidden="true">⌕</span>
