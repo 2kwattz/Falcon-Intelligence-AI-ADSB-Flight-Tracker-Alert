@@ -5,11 +5,12 @@
   // positions responsive without opening additional feed connections.
   const refreshInterval = 1500;
   const bookmarkRefreshInterval = 5000;
-  const maximumAircraft = 160;
   const maximumNoPositionAircraft = 80;
   const bookmarkRadiusNm = 100;
   const labelZoom = 7;
   const labelLimit = 80;
+  const denseMarkerThreshold = 500;
+  const panelAircraftRowLimit = 250;
   const markerMoveDuration = 1200;
   const panelRenderInterval = 3000;
   const deadReckonMaxSeconds = 8;
@@ -76,6 +77,7 @@
   const markerRenderStates = new Map();
   const baseLayers = new Map();
   let map;
+  let aircraftCanvasRenderer = null;
   let activeBaseLayer = null;
   let placeLabelLayer = null;
   let lastAircraft = [];
@@ -105,6 +107,7 @@
     return Math.round(heading / 10) * 10;
   };
   const positionedListSignature = (aircraft) => aircraft
+    .slice(0, panelAircraftRowLimit)
     .map((item) => [
       item.hex,
       callsign(item),
@@ -112,6 +115,7 @@
       item.groundSpeed ?? "",
       item.heading ?? ""
     ].join(":"))
+    .concat(`count:${aircraft.length}`)
     .join("|");
   const noPositionListSignature = (aircraft) => aircraft
     .map((item) => [
@@ -219,6 +223,32 @@
     });
   }
 
+  function aircraftDotStyle() {
+    return {
+      renderer: aircraftCanvasRenderer,
+      radius: 4,
+      weight: 1,
+      color: "#ffe18d",
+      opacity: 0.9,
+      fillColor: "#ffcf28",
+      fillOpacity: 0.86,
+      interactive: true
+    };
+  }
+
+  function createAircraftLayer(aircraft, itemLabel, denseMode) {
+    const latLng = liveLatLng(aircraft) || [aircraft.latitude, aircraft.longitude];
+    const layer = denseMode
+      ? window.L.circleMarker(latLng, aircraftDotStyle())
+      : window.L.marker(latLng, { icon: aircraftIcon(aircraft), title: itemLabel, riseOnHover: true });
+
+    layer.addTo(map);
+    layer.bindTooltip(itemLabel, { direction: "top", offset: [0, -18], className: "aircraft-label", opacity: 0.95 });
+    layer.bindPopup(popup(aircraft));
+
+    return layer;
+  }
+
   function popup(aircraft) {
     const sourceName = text(aircraft.stationName, feedSourceLabels[aircraft.source] || "Live feed");
     return `<div class="aircraft-popup"><strong>${escapeHtml(callsign(aircraft))}</strong><span>${escapeHtml(aircraft.hex)}</span><dl><div><dt>Source</dt><dd>${escapeHtml(sourceName)}</dd></div><div><dt>Altitude</dt><dd>${format(aircraft.altitude, " ft")}</dd></div><div><dt>Speed</dt><dd>${format(aircraft.groundSpeed, " kt")}</dd></div><div><dt>Heading</dt><dd>${format(aircraft.heading, " deg")}</dd></div><div><dt>Last seen</dt><dd>${formatTime(aircraft.lastSeen)}</dd></div></dl></div>`;
@@ -247,6 +277,7 @@
 
   function initMap() {
     map = window.L.map("live-map", { zoomControl: true, worldCopyJump: true }).setView([20, 0], 2);
+    aircraftCanvasRenderer = window.L.canvas({ padding: 0.35 });
     Object.entries(mapLayerConfigs).forEach(([type, config]) => {
       baseLayers.set(type, window.L.tileLayer(config.url, config.options));
     });
@@ -277,25 +308,34 @@
 
   function renderMarkers(aircraft) {
     const liveHexes = new Set();
+    const denseMode = aircraft.length > denseMarkerThreshold;
     aircraft.forEach((item) => {
       liveHexes.add(item.hex);
       const latLng = [item.latitude, item.longitude];
       const itemLabel = label(item);
       const itemHeadingBucket = headingBucket(item);
       let marker = markers.get(item.hex);
+      let renderState = markerRenderStates.get(item.hex) || {};
+      const desiredMarkerType = denseMode ? "dot" : "plane";
+
+      if (marker && renderState.type !== desiredMarkerType) {
+        markerStates.delete(item.hex);
+        marker.remove();
+        markers.delete(item.hex);
+        marker = null;
+        renderState = {};
+      }
+
       if (!marker) {
-        marker = window.L.marker(liveLatLng(item) || latLng, { icon: aircraftIcon(item), title: itemLabel, riseOnHover: true }).addTo(map);
-        marker.bindTooltip(itemLabel, { direction: "top", offset: [0, -18], className: "aircraft-label", opacity: 0.95 });
-        marker.bindPopup(popup(item));
+        marker = createAircraftLayer(item, itemLabel, denseMode);
         markers.set(item.hex, marker);
         markerRenderStates.set(item.hex, {
+          type: desiredMarkerType,
           label: itemLabel,
           headingBucket: itemHeadingBucket
         });
       } else {
-        const renderState = markerRenderStates.get(item.hex) || {};
-
-        if (renderState.headingBucket !== itemHeadingBucket) {
+        if (!denseMode && renderState.headingBucket !== itemHeadingBucket) {
           marker.setIcon(aircraftIcon(item));
           renderState.headingBucket = itemHeadingBucket;
         }
@@ -311,7 +351,12 @@
         }
 
         markerRenderStates.set(item.hex, renderState);
-        moveMarker(item.hex, marker, item);
+
+        if (denseMode) {
+          marker.setLatLng(liveLatLng(item) || latLng);
+        } else {
+          moveMarker(item.hex, marker, item);
+        }
       }
     });
     markers.forEach((marker, hex) => {
@@ -335,12 +380,17 @@
       map.setView(liveLatLng(aircraft[0]) || [aircraft[0].latitude, aircraft[0].longitude], 8);
       return;
     }
-    map.fitBounds(aircraft.map((item) => liveLatLng(item) || [item.latitude, item.longitude]), { padding: [48, 48], maxZoom: 8 });
+    const bounds = window.L.latLngBounds();
+    aircraft.forEach((item) => bounds.extend(liveLatLng(item) || [item.latitude, item.longitude]));
+    map.fitBounds(bounds, { padding: [48, 48], maxZoom: 8 });
   }
 
   function renderPositionList(aircraft) {
+    const visibleAircraft = aircraft.slice(0, panelAircraftRowLimit);
     $("#aircraft-count").textContent = aircraft.length.toLocaleString();
-    $("#aircraft-list").innerHTML = aircraft.length ? aircraft.map((item) => `<button class="aircraft-row" type="button" data-hex="${escapeHtml(item.hex)}"><span class="row-icon">AC</span><span><strong>${escapeHtml(callsign(item))}</strong><small>${escapeHtml(item.hex)} - ${format(item.altitude, " ft")} - ${format(item.groundSpeed, " kt")}</small></span><span class="row-heading">${format(item.heading, " deg")}</span></button>`).join("") : `<div class="empty-state"><span>AC</span><strong>No positions yet</strong><p>The receiver is connected, but no ADS-B messages with coordinates have arrived in this map view.</p></div>`;
+    $("#aircraft-list").innerHTML = aircraft.length
+      ? visibleAircraft.map((item) => `<button class="aircraft-row" type="button" data-hex="${escapeHtml(item.hex)}"><span class="row-icon">AC</span><span><strong>${escapeHtml(callsign(item))}</strong><small>${escapeHtml(item.hex)} - ${format(item.altitude, " ft")} - ${format(item.groundSpeed, " kt")}</small></span><span class="row-heading">${format(item.heading, " deg")}</span></button>`).join("") + (aircraft.length > visibleAircraft.length ? `<div class="empty-state compact"><strong>Panel shortened</strong><p>Showing ${visibleAircraft.length.toLocaleString()} most recent rows. All ${aircraft.length.toLocaleString()} aircraft remain on the map.</p></div>` : "")
+      : `<div class="empty-state"><span>AC</span><strong>No positions yet</strong><p>The receiver is connected, but no ADS-B messages with coordinates have arrived in this map view.</p></div>`;
     $("#aircraft-list").querySelectorAll("[data-hex]").forEach((button) => button.addEventListener("click", () => {
       const marker = markers.get(button.dataset.hex);
       if (marker) {
@@ -444,7 +494,6 @@
     try {
       const query = new URLSearchParams({
         source: requestedSource,
-        limit: String(maximumAircraft),
         noPositionLimit: String(maximumNoPositionAircraft)
       });
       // The first load intentionally has no viewport filter. This makes the

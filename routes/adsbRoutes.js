@@ -121,7 +121,11 @@ const initialAltitudeGraceExpired = new Set();
 const pendingAltitudeAircraft = new Map();
 
 function startInitialAltitudeGrace(match) {
-    const hexCode = match.hexCode;
+    const hexCode = normalizeHexCode(match.hexCode);
+
+    if (!hexCode) {
+        return;
+    }
 
     // Grace period already expired.
     // Never start another grace timer.
@@ -157,7 +161,9 @@ function startInitialAltitudeGrace(match) {
     initialAltitudeTimers.set(hexCode, timer);
 }
 function hasAltitudeGraceExpired(hexCode) {
-    return initialAltitudeGraceExpired.has(hexCode);
+    const normalizedHexCode = normalizeHexCode(hexCode);
+
+    return normalizedHexCode ? initialAltitudeGraceExpired.has(normalizedHexCode) : false;
 }
 
 // function cancelInitialAltitudeGrace(hexCode) {
@@ -178,26 +184,38 @@ function hasAltitudeGraceExpired(hexCode) {
 // }
 
 function cancelInitialAltitudeGrace(hexCode) {
-    const timer = initialAltitudeTimers.get(hexCode);
+    const normalizedHexCode = normalizeHexCode(hexCode);
+
+    if (!normalizedHexCode) {
+        return;
+    }
+
+    const timer = initialAltitudeTimers.get(normalizedHexCode);
 
     if (timer) {
         clearTimeout(timer);
-        initialAltitudeTimers.delete(hexCode);
+        initialAltitudeTimers.delete(normalizedHexCode);
     }
 
-    initialAltitudeGraceExpired.delete(hexCode);
+    initialAltitudeGraceExpired.delete(normalizedHexCode);
 
     // Aircraft no longer needs disappearance handling.
-    pendingAltitudeAircraft.delete(hexCode);
+    pendingAltitudeAircraft.delete(normalizedHexCode);
 
     console.log(
-        `[ALTITUDE] ${hexCode} altitude arrived - cancelled grace timer`
+        `[ALTITUDE] ${normalizedHexCode} altitude arrived - cancelled grace timer`
     );
 }
 
 
 async function shouldTriggerCall(hexCode, phoneNumber) {
-    const key = `flight-alert:call:${hexCode}:${phoneNumber}`;
+    const normalizedHexCode = normalizeHexCode(hexCode);
+
+    if (!normalizedHexCode || !phoneNumber) {
+        return false;
+    }
+
+    const key = `flight-alert:call:${normalizedHexCode}:${phoneNumber}`;
 
     const result = await redisClient.set(
         key,
@@ -211,7 +229,13 @@ async function shouldTriggerCall(hexCode, phoneNumber) {
 }
 
 async function shouldTriggerEmail(hexCode, email) {
-    const key = `flight-alert:email:${hexCode}:${email}`;
+    const normalizedHexCode = normalizeHexCode(hexCode);
+
+    if (!normalizedHexCode || !email) {
+        return false;
+    }
+
+    const key = `flight-alert:email:${normalizedHexCode}:${email}`;
 
     const result = await redisClient.set(
         key,
@@ -225,7 +249,13 @@ async function shouldTriggerEmail(hexCode, email) {
 }
 
 async function shouldTriggerAntiEmail(hexCode, email) {
-    const key = `flight-alert:anti-email:${hexCode}:${email}`;
+    const normalizedHexCode = normalizeHexCode(hexCode);
+
+    if (!normalizedHexCode || !email) {
+        return false;
+    }
+
+    const key = `flight-alert:anti-email:${normalizedHexCode}:${email}`;
 
     const result = await redisClient.set(
         key,
@@ -443,7 +473,7 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
 
             // console.log(JSON.stringify(adsbAircraft, null, 2));
             const match = {
-                hexCode: adsbAircraft.hex ?? iafAircraft.HexCode,
+                hexCode: icao,
 
                 registration:
                     adsbAircraft.r ??
@@ -830,22 +860,23 @@ const fetchAircrafts = async () => {
     );
 
     for (const [hexCode, match] of pendingAltitudeAircraft.entries()) {
+        const normalizedHexCode = normalizeHexCode(hexCode);
 
-        if (!currentAircraftHexes.has(hexCode)) {
+        if (!normalizedHexCode || !currentAircraftHexes.has(normalizedHexCode)) {
 
             console.log(
-                `[ALTITUDE] ${match.registration} (${hexCode}) disappeared ` +
+                `[ALTITUDE] ${match.registration} (${normalizedHexCode || hexCode}) disappeared ` +
                 `before grace period ended - triggering CALL`
             );
 
-            const timer = initialAltitudeTimers.get(hexCode);
+            const timer = initialAltitudeTimers.get(normalizedHexCode);
 
             if (timer) {
                 clearTimeout(timer);
-                initialAltitudeTimers.delete(hexCode);
+                initialAltitudeTimers.delete(normalizedHexCode);
             }
 
-            initialAltitudeGraceExpired.delete(hexCode);
+            initialAltitudeGraceExpired.delete(normalizedHexCode);
             pendingAltitudeAircraft.delete(hexCode);
 
             await triggerCallAlert(match);

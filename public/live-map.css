@@ -660,6 +660,10 @@ button { cursor: pointer; }
   line-height: 1.5;
 }
 
+.empty-state.compact {
+  padding: 18px 14px;
+}
+
 .map-note {
   bottom: 18px;
   left: 18px;
