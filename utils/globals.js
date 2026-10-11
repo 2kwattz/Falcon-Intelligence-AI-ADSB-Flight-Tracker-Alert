@@ -10,9 +10,15 @@ const ADSB_URL = `http://${BASE_DOMAIN}:${ADSB_PORT}/`
 // const ADSB_FLIGHT_JSON_URL = `${ADSB_URL}/VirtualRadar/AircraftList.json`
 
 
-const ADSB_FLIGHT_JSON_URL = process.env.ADSB_FLIGHT_JSON_URL || `http://127.0.0.1/data/aircraft.json`
-const READSB_AIRCRAFT_JSON_PATH = process.env.READSB_AIRCRAFT_JSON_PATH || "/run/readsb/aircraft.json"
+// const ADSB_FLIGHT_JSON_URL = process.env.ADSB_FLIGHT_JSON_URL || `http://127.0.0.1/data/aircraft.json`
+// const READSB_AIRCRAFT_JSON_PATH = process.env.READSB_AIRCRAFT_JSON_PATH || "/run/readsb/aircraft.json"
+
+
 // const ADSB_FLIGHT_JSON_URL = `http://localhost:3001/dummyAircraftData.json`
+
+
+const ADSB_FLIGHT_JSON_URL = 'http://localhost:3001/dummyAircraftData.json'
+const READSB_AIRCRAFT_JSON_PATH = "http://localhost:3001/dummyAircraftData.json"
 
 module.exports = {
     BASE_DOMAIN,

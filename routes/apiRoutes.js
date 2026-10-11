@@ -38,6 +38,7 @@ const CITY_ALERT_INTERVAL_MS = 1000;
 const CITY_ALERT_EXPIRY_SECONDS = 20 * 60;
 const EARTH_RADIUS_MILES = 3958.7613;
 const CITY_CALL_ALERT_MAX_ALTITUDE_FEET = 20000;
+const TWILIO_CALL_TIMEOUT_SECONDS = Number(process.env.TWILIO_CALL_TIMEOUT_SECONDS) || 15;
 const TWILIO_CALLER_ID = process.env.TWILIO_CALLER_ID || "+12792392187";
 const BANGALORE_AIRSPACE_CALLER_ID =
     process.env.BANGALORE_AIRSPACE_NUMBER || TWILIO_CALLER_ID;
@@ -467,7 +468,8 @@ async function triggerCityCallAlert(config, match) {
             await twilioClient.calls.create({
                 to: phoneNumber,
                 from: config.callFrom,
-                twiml: response.toString()
+                twiml: response.toString(),
+                timeout: TWILIO_CALL_TIMEOUT_SECONDS
             });
         }
         catch (error) {

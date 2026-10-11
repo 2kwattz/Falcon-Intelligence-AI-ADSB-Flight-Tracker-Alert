@@ -28,6 +28,7 @@ const numbersToCall = [
 
 const ALERT_EXPIRY_SECONDS = 20 * 60;
 const ALTITUDE_GRACE_PERIOD_SECONDS = 120;
+const TWILIO_CALL_TIMEOUT_SECONDS = Number(process.env.TWILIO_CALL_TIMEOUT_SECONDS) || 15;
 
 const AIRCRAFT_METADATA_WAIT_SECONDS = 10;
 
@@ -352,7 +353,8 @@ async function triggerCallAlert(match) {
             await client.calls.create({
                 to: number,
                 from: "+12792392187",
-                twiml: response.toString()
+                twiml: response.toString(),
+                timeout: TWILIO_CALL_TIMEOUT_SECONDS
             });
 
         } catch (err) {
