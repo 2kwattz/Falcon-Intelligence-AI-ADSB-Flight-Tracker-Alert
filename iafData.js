@@ -315,7 +315,7 @@ const iafData = {
                 "Registration": "K2412",
                 "AircraftType": "Boeing 737-2A8",
                 "TypeCode": "B732",
-                "AircraftOperator": "IndianAirForce",
+                "AircraftOperator": "ARC/RAW Disguised under Indian Air Force",
                 "HexCode": "800078"
             },
             {
@@ -676,23 +676,6 @@ const iafData = {
                 "AircraftOperator": "IndianAirForce",
                 "HexCode": null
             },
-        ],
-
-        "ARC/RAW": [
-            {
-                "Registration": "K2412",
-                "AircraftType": "Boeing 737-2A8(A)",
-                "TypeCode": "B732",
-                "AircraftOperator": "IndianAirForce",
-                "HexCode": "800078"
-            },
-            {
-                "Registration": "K2413",
-                "AircraftType": "Boeing 737-2A8(A)",
-                "TypeCode": "B732",
-                "AircraftOperator": "IndianAirForce",
-                "HexCode": "800079"
-            }
         ],
 
 

@@ -21,9 +21,10 @@ const client = twilio(
 
 const numbersToCall = [
     process.env.ROSHAN_BHAI_PHONE,
-    process.env.RISHI_BHAI_PHONE,
-    process.env.ANMOL_BHAI_PHONE,
-    process.env.ISHAN_BHAI_PHONE,
+    process.env.MEET_BHAI_PHONE,
+    // process.env.RISHI_BHAI_PHONE,
+    // process.env.ANMOL_BHAI_PHONE,
+    // process.env.ISHAN_BHAI_PHONE,
 ];
 
 const ALERT_EXPIRY_SECONDS = 20 * 60;
@@ -352,7 +353,7 @@ async function triggerCallAlert(match) {
 
             await client.calls.create({
                 to: number,
-                from: "+12792392187",
+                from: "+12296653927",
                 twiml: response.toString(),
                 timeout: TWILIO_CALL_TIMEOUT_SECONDS
             });
@@ -689,11 +690,11 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
             const emailsToSend = [
                 "prakashbhatia1970@gmail.com",
                 "roshan.bhatia.blueera@gmail.com",
-                "anmolv2472000@gmail.com",
-                "thehighroller46@gmail.com",
-                "ishaangangulydpsv@gmail.com",
-                "anmol.saevit@gmail.com",
                 "sutharmeet04@gmail.com"
+                // "anmolv2472000@gmail.com",
+                // "thehighroller46@gmail.com",
+                // "ishaangangulydpsv@gmail.com",
+                // "anmol.saevit@gmail.com"
 
             ];
 
