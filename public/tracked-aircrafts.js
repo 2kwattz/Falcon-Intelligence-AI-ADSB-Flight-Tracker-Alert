@@ -47,6 +47,7 @@
   const formatNumber = (value, suffix = "") => value === null ? "—" : `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value)}${suffix}`;
   const formatDate = (date, options) => Number.isNaN(date.getTime()) ? "Unknown date" : new Intl.DateTimeFormat("en-GB", options).format(date);
   const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" })[char]);
+  const isIcaoHex = (value) => /^[0-9a-f]{6}$/i.test(String(value || "").trim());
 
   function selectOptions(id, values, label) {
     const select = $(id); const saved = select.value;
@@ -138,7 +139,31 @@
     window.L.marker([latitude, longitude], { icon, title: label }).addTo(detailMap).bindTooltip(label, { direction: "top", offset: [0, -16] }).openTooltip();
     setTimeout(() => detailMap && detailMap.invalidateSize(), 0);
   }
-  function showDetails(aircraft) { if (!aircraft) return; const dialog = $("#aircraft-dialog"); const latitude = finite(field(aircraft, "lat", "latitude")); const longitude = finite(field(aircraft, "lon", "longitude")); const heading = finite(field(aircraft, "track", "heading")); const hasPosition = latitude !== null && longitude !== null && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180; const label = `${callsign(aircraft)} · ${display(aircraft.hex)}`; $("#dialog-title").textContent = label; const raw = Object.entries(aircraft).sort(([a],[b]) => a.localeCompare(b)); const location = hasPosition ? `<section class="location-section"><div class="location-heading"><div class="location-title"><span class="location-aircraft-icon" aria-hidden="true">✈</span><h3 class="detail-section-title">Last reported position</h3></div><a href="https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=12/${latitude}/${longitude}" target="_blank" rel="noreferrer">Open in OpenStreetMap ↗</a></div><div class="aircraft-location-map" id="aircraft-location-map" aria-label="Satellite map centered on the last reported aircraft position"></div><p class="location-note">Satellite mosaic centred at ${latitude.toFixed(4)}°, ${longitude.toFixed(4)}°. The marker shows the last position supplied by the tracking feed.</p></section>` : ""; $("#dialog-content").innerHTML = `<div class="detail-content"><p class="lede">Full retained payload for this aircraft. Values not transmitted by the feed are omitted.</p>${location}<h3 class="detail-section-title">All available fields (${raw.length})</h3><div class="detail-grid">${raw.map(([key,value]) => `<div class="detail-item"><div class="detail-key">${escapeHtml(key.replace(/_/g," "))}</div><div class="detail-value">${escapeHtml(typeof value === "object" ? JSON.stringify(value) : display(value))}</div></div>`).join("")}</div></div>`; dialog.showModal(); if (hasPosition) showSatelliteMap(latitude, longitude, label, heading); }
+  function renderPredictionResult(container, aircraft) {
+    const fields = [["Registration", aircraft.registration], ["Aircraft type", aircraft.typeCode], ["Model", aircraft.model], ["Manufacturer", aircraft.manufacturer], ["Owner / operator", aircraft.registeredOwner], ["Operator code", aircraft.operatorCode]].filter(([, value]) => value);
+    container.innerHTML = `<div class="prediction-result" role="status"><p class="prediction-result-heading">Registry match found</p><div class="prediction-grid">${fields.map(([key,value]) => `<div><span>${escapeHtml(key)}</span><strong>${escapeHtml(value)}</strong></div>`).join("") || "<p>No additional registry fields were available.</p>"}</div><p class="prediction-source">Source: ${escapeHtml(aircraft.source || "HexDB")} · Registry data can be incomplete or out of date.</p></div>`;
+  }
+  async function predictAircraft(button) {
+    const hex = button.dataset.hex;
+    const output = $("#prediction-output");
+    if (!hex || !output) return;
+    button.disabled = true;
+    button.textContent = "Searching registry…";
+    output.innerHTML = "<p class=\"prediction-status\" role=\"status\">Looking up the ICAO/Mode-S hex code…</p>";
+    try {
+      const response = await fetch(`/aircraft-lookup/${encodeURIComponent(hex)}`, { headers: { Accept: "application/json" }, cache: "no-store" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.status) throw new Error(payload.message || "No aircraft registry record was found.");
+      renderPredictionResult(output, payload.aircraft || {});
+    } catch (error) {
+      output.innerHTML = `<p class="prediction-status prediction-status-error" role="alert">${escapeHtml(error.message || "Could not look up this aircraft.")}</p>`;
+      button.disabled = false;
+      button.textContent = "Try again";
+      return;
+    }
+    button.textContent = "Aircraft identified";
+  }
+  function showDetails(aircraft) { if (!aircraft) return; const dialog = $("#aircraft-dialog"); const latitude = finite(field(aircraft, "lat", "latitude")); const longitude = finite(field(aircraft, "lon", "longitude")); const heading = finite(field(aircraft, "track", "heading")); const hasPosition = latitude !== null && longitude !== null && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180; const hex = String(field(aircraft, "hex") || "").trim().toUpperCase(); const canPredict = isIcaoHex(hex); const label = `${callsign(aircraft)} · ${display(aircraft.hex)}`; $("#dialog-title").textContent = label; const raw = Object.entries(aircraft).sort(([a],[b]) => a.localeCompare(b)); const location = hasPosition ? `<section class="location-section"><div class="location-heading"><div class="location-title"><span class="location-aircraft-icon" aria-hidden="true">✈</span><h3 class="detail-section-title">Last reported position</h3></div><a href="https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=12/${latitude}/${longitude}" target="_blank" rel="noreferrer">Open in OpenStreetMap ↗</a></div><div class="aircraft-location-map" id="aircraft-location-map" aria-label="Satellite map centered on the last reported aircraft position"></div><p class="location-note">Satellite mosaic centred at ${latitude.toFixed(4)}°, ${longitude.toFixed(4)}°. The marker shows the last position supplied by the tracking feed.</p></section>` : ""; const prediction = `<section class="prediction-section" aria-labelledby="prediction-title"><div><h3 class="detail-section-title" id="prediction-title">Missing aircraft details?</h3><p>Search the public ICAO/Mode-S registry for registration, model, manufacturer and owner information.</p></div>${canPredict ? `<button class="button prediction-button" type="button" id="predict-aircraft" data-hex="${escapeHtml(hex)}">Predict Aircraft</button>` : "<p class=\"prediction-unavailable\">A valid six-character ICAO/Mode-S hex code is required to identify this aircraft.</p>"}<div id="prediction-output" aria-live="polite"></div></section>`; $("#dialog-content").innerHTML = `<div class="detail-content"><p class="lede">Full retained payload for this aircraft. Values not transmitted by the feed are omitted.</p>${prediction}${location}<h3 class="detail-section-title">All available fields (${raw.length})</h3><div class="detail-grid">${raw.map(([key,value]) => `<div class="detail-item"><div class="detail-key">${escapeHtml(key.replace(/_/g," "))}</div><div class="detail-value">${escapeHtml(typeof value === "object" ? JSON.stringify(value) : display(value))}</div></div>`).join("")}</div></div>`; const predictButton = $("#predict-aircraft"); if (predictButton) predictButton.addEventListener("click", () => predictAircraft(predictButton)); dialog.showModal(); if (hasPosition) showSatelliteMap(latitude, longitude, label, heading); }
   function clearFilters() { fields.forEach((id) => { if (id !== "sort-by") $("#" + id).value = ""; }); renderResults(); }
   function normalizeLiveAircraft(aircraft, view) {
     const lastSeen = finite(field(aircraft, "lastSeen", "positionSeen")) || Date.now();
