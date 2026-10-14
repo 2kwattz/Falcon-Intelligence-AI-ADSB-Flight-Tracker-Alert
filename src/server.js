@@ -153,6 +153,7 @@ async function startServer() {
         app.get("/bangalore-status", (req, res) => res.sendFile(path.join(__dirname, "../public/bangalore-status.html")));
         app.get("/banglore-status", (req, res) => res.redirect(301, "/bangalore-status"));
         app.get("/delhi-status", (req, res) => res.sendFile(path.join(__dirname, "../public/delhi-status.html")));
+        app.get("/hyderabad-status", (req, res) => res.sendFile(path.join(__dirname, "../public/hyderabad-status.html")));
 
         app.get("/errorTest", (req, res, next) => {
             const simulatedError = new Error("Manual Error Testing");

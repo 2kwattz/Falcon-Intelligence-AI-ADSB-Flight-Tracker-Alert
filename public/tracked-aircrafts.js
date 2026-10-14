@@ -16,6 +16,12 @@
       endpoint: "/api/adsbhub-tcp/nearby/28.6139/77.2090/100?limit=500",
       mode: "live",
       hint: "Live aircraft inside the Delhi radius"
+    },
+    hyderabad: {
+      label: "Hyderabad Airspace (Live Only)",
+      endpoint: "/api/adsbhub-tcp/nearby/17.3850/78.4867/100?limit=500",
+      mode: "live",
+      hint: "Live aircraft inside the Hyderabad radius"
     }
   };
   const state = { aircraft: [], filtered: [], lastLoadedAt: null, airspace: "vadodara" };

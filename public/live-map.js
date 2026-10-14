@@ -68,7 +68,8 @@
     { id: "vadodara", latitude: 22.3072, longitude: 73.1812 },
     { id: "lucknow", latitude: 26.8467, longitude: 80.9462 },
     { id: "delhi", latitude: 28.6139, longitude: 77.2090 },
-    { id: "bengaluru", latitude: 12.9716, longitude: 77.5946 }
+    { id: "bengaluru", latitude: 12.9716, longitude: 77.5946 },
+    { id: "hyderabad", latitude: 17.3850, longitude: 78.4867 }
   ];
 
   const $ = (selector) => document.querySelector(selector);

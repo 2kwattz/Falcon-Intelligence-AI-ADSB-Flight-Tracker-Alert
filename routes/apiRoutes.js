@@ -10,6 +10,7 @@ const { getLiveAircraft, getConnectionStatus } = require("../feedPartners/adsbHu
 const { STATION_ID, STATION_NAME, getLocalSdrAircraft } = require("../services/localSdrAircraftFeed");
 const bangaloreIafData = require("../iafDataBangalore");
 const delhiIafData = require("../iafDataDelhi");
+const hyderabadIafData = require("../iafDataHyderabad");
 const flightAlertTemplate = require("../templates/flightAlertTemplate");
 const sendEmail = require("../services/sendEmail");
 const twilio = require("twilio");
@@ -31,6 +32,10 @@ const DELHI_CENTER = {
     latitude: 28.6139,
     longitude: 77.2090
 };
+const HYDERABAD_CENTER = {
+    latitude: 17.3850,
+    longitude: 78.4867
+};
 const ADSBHUB_SOURCE_ID = "adsbhub-tcp";
 const ADSBHUB_SOURCE_NAME = "ADSBHub TCP";
 const CITY_ALERT_RADIUS_MILES = 100;
@@ -42,6 +47,8 @@ const TWILIO_CALL_TIMEOUT_SECONDS = Number(process.env.TWILIO_CALL_TIMEOUT_SECON
 const TWILIO_CALLER_ID = process.env.TWILIO_CALLER_ID || "+12792392187";
 const BANGALORE_AIRSPACE_CALLER_ID =
     process.env.BANGALORE_AIRSPACE_NUMBER || TWILIO_CALLER_ID;
+const HYDERABAD_AIRSPACE_CALLER_ID =
+    process.env.HYDERABAD_AIRSPACE_NUMBER || TWILIO_CALLER_ID;
 
 const twilioClient = twilio(
     process.env.TWILIO_ACCOUNT_SID,
@@ -59,11 +66,23 @@ const delhiAlertEmails = [
     "prakashbhatia1970@gmail.com"
 ];
 
+const hyderabadAlertEmails = [
+    "roshan.bhatia.blueera@gmail.com",
+    "prakashbhatia1970@gmail.com"
+];
+
 const bangaloreAlertPhoneNumbers = [
     process.env.BANGALORE_ALERT_PHONE_1,
     process.env.BANGALORE_ALERT_PHONE_2,
     process.env.BANGALORE_ALERT_PHONE_3,
     process.env.BANGALORE_ALERT_PHONE_4
+].filter(Boolean);
+
+const hyderabadAlertPhoneNumbers = [
+    process.env.HYDERABAD_ALERT_PHONE_1,
+    process.env.HYDERABAD_ALERT_PHONE_2,
+    process.env.HYDERABAD_ALERT_PHONE_3,
+    process.env.HYDERABAD_ALERT_PHONE_4
 ].filter(Boolean);
 
 const razorpay = RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET
@@ -305,6 +324,21 @@ const cityAlertConfigs = [
         cacheMatchedAircraft: false,
         iafData: delhiIafData,
         distanceField: "distanceFromDelhiMiles"
+    },
+    {
+        id: "hyderabad",
+        label: "Hyderabad",
+        center: HYDERABAD_CENTER,
+        radiusMiles: CITY_ALERT_RADIUS_MILES,
+        intervalMs: CITY_ALERT_INTERVAL_MS,
+        expirySeconds: CITY_ALERT_EXPIRY_SECONDS,
+        emails: hyderabadAlertEmails,
+        callPhones: hyderabadAlertPhoneNumbers,
+        callFrom: HYDERABAD_AIRSPACE_CALLER_ID,
+        enableCallAlerts: true,
+        cacheMatchedAircraft: true,
+        iafData: hyderabadIafData,
+        distanceField: "distanceFromHyderabadMiles"
     }
 ].map((config) => ({
     ...config,
@@ -655,6 +689,7 @@ async function buildServerHealthStatus() {
     }
 
     const bangaloreConfig = cityAlertConfigById.get("bangalore");
+    const hyderabadConfig = cityAlertConfigById.get("hyderabad");
 
     return {
         status: true,
@@ -689,6 +724,23 @@ async function buildServerHealthStatus() {
             emailRecipients: bangaloreConfig.emails.length,
             callRecipients: bangaloreConfig.callPhones.length,
             callAlertsEnabled: bangaloreConfig.enableCallAlerts
+        },
+        hyderabadAirspace: {
+            status: !hyderabadConfig.state.lastError,
+            state: hyderabadConfig.state.isRunning
+                ? "polling"
+                : hyderabadConfig.state.lastError
+                    ? "error"
+                    : hyderabadConfig.state.lastRunAt
+                        ? "ready"
+                        : "starting",
+            radiusMiles: hyderabadConfig.radiusMiles,
+            lastRunAt: hyderabadConfig.state.lastRunAt,
+            lastError: hyderabadConfig.state.lastError,
+            lastMatches: hyderabadConfig.state.lastMatches.length,
+            emailRecipients: hyderabadConfig.emails.length,
+            callRecipients: hyderabadConfig.callPhones.length,
+            callAlertsEnabled: hyderabadConfig.enableCallAlerts
         }
     };
 }
@@ -699,6 +751,10 @@ router.get("/bangalore-iaf-alert-status", function(req, res) {
 
 router.get("/delhi-iaf-alert-status", function(req, res) {
     return res.status(200).json(buildCityAlertStatus(cityAlertConfigById.get("delhi")));
+});
+
+router.get("/hyderabad-iaf-alert-status", function(req, res) {
+    return res.status(200).json(buildCityAlertStatus(cityAlertConfigById.get("hyderabad")));
 });
 
 router.get("/server-health", async function(req, res) {

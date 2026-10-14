@@ -89,6 +89,12 @@
         detail: `${formatNumber(payload.bangaloreAirspace?.lastMatches)} latest matches, last poll ${formatTime(payload.bangaloreAirspace?.lastRunAt)}`
       }),
       healthCard({
+        title: "Hyderabad Airspace",
+        ok: payload.hyderabadAirspace?.status,
+        state: payload.hyderabadAirspace?.state || "unknown",
+        detail: `${formatNumber(payload.hyderabadAirspace?.lastMatches)} latest matches, last poll ${formatTime(payload.hyderabadAirspace?.lastRunAt)}`
+      }),
+      healthCard({
         title: "ADSB TCP Connection",
         ok: payload.adsbTcpConnection?.status,
         state: payload.adsbTcpConnection?.state || "unknown",
