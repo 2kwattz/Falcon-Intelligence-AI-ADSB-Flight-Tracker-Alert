@@ -51,6 +51,7 @@ const watchlistRoutes = require("../routes/watchlistRoutes.js");
 const liveMapRoutes = require("../routes/liveMapRoutes.js");
 const apiRoutes = require("../routes/apiRoutes.js");
 const exploreRoutes = require("../routes/exploreRoutes.js");
+const aiVideoGenerationRoutes = require("../routes/aiVideoGenerationRoutes.js");
 
 require("../db/conn"); // MySQL Connection
 
@@ -86,6 +87,7 @@ async function startServer() {
                     "img-src": [
                         "'self'",
                         "data:",
+                        "blob:",
                         "https://tiles.maps.eox.at",
                         "https://*.tile.openstreetmap.org",
                         "https://*.tile.openstreetmap.fr",
@@ -168,6 +170,7 @@ async function startServer() {
         app.use("/admin", adminRoutes) // Admin Router
         app.use("/adsb", adsbRoutes) // Adsb Router
         app.use("/api",apiRoutes) // ADSBLOL, AIRCRAFTS.LIVE & AIRNAVRADAR REST Endpoints
+        app.use("/", aiVideoGenerationRoutes); // Falcon Video Generator page and image uploads
         app.use("/live-map", liveMapRoutes); // Independent ADSBHub TCP map pipeline
         app.use("/", exploreRoutes); // Aircraft callsign search page
         app.use("/", watchlistRoutes); // Landing-page watchlist requests

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Create a Falcon video generation request from a prompt and optional image references.">
+  <title>Falcon Video Generator | Falcon Intelligence</title>
+  <link rel="stylesheet" href="/falcon-video-generator.css">
+</head>
+<body>
+  <a class="skip-link" href="#video-generator">Skip to video generator</a>
+  <div class="app-shell">
+    <header class="site-header">
+      <nav class="video-nav" aria-label="Main navigation">
+        <a class="brand" href="/" aria-label="Falcon Intelligence home"><span class="brand-mark"><i class="laser-eye left" aria-hidden="true"></i><i class="laser-eye right" aria-hidden="true"></i><img src="/assets/falcon-laser-logo.png" alt=""></span><span><strong>FALCON</strong><small>INTELLIGENCE</small></span></a>
+        <button class="menu-button" type="button" id="video-menu-button" aria-label="Open menu" aria-expanded="false">☰</button>
+        <div class="nav-links" id="video-nav-links">
+          <a href="/">Home</a>
+          <a href="/tracked-aircrafts">Intelligence Archive</a>
+          <a href="/live-map">Live Map</a>
+          <a href="/explore">Explore</a>
+          <a href="/about">About</a>
+        </div>
+        <a class="nav-cta" href="/login">Login</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="page-heading">
+        <p class="eyebrow">Creative intelligence</p>
+        <h1>Falcon Video Generator</h1>
+        <p class="lede">Describe the scene you need, select a generation profile, and upload reference images to prepare a video request.</p>
+      </section>
+
+      <section class="generator-card" id="video-generator" aria-labelledby="generator-title">
+        <div class="generator-intro">
+          <p class="eyebrow">New generation</p>
+          <h2 id="generator-title">Build your video brief</h2>
+          <p>Reference images are stored privately on this server while they are prepared for generation.</p>
+          <dl class="generator-notes">
+            <div><dt>Image types</dt><dd>JPG, PNG, WebP, GIF</dd></div>
+            <div><dt>File limit</dt><dd>20 MB per image</dd></div>
+            <div><dt>Reference limit</dt><dd>Up to 5 images</dd></div>
+          </dl>
+        </div>
+
+        <form id="video-generator-form" class="generator-form" novalidate>
+          <div class="form-field">
+            <label for="video-prompt">Video prompt</label>
+            <textarea id="video-prompt" name="prompt" rows="7" maxlength="2000" placeholder="Describe the scene, subject, movement, camera framing, light, and mood…" required></textarea>
+            <div class="field-meta"><span>Be specific about action and camera movement.</span><span id="prompt-count">0 / 2000</span></div>
+          </div>
+
+          <div class="form-field">
+            <label for="video-model">Generation model</label>
+            <select id="video-model" name="model" required>
+              <option value="wan-2-2-ti2v-5b">Wan 2.2 TI2V-5B</option>
+            </select>
+          </div>
+
+          <div class="form-field">
+            <div class="field-label-row">
+              <label for="reference-images">Reference images <span>(optional)</span></label>
+              <span class="upload-limit" id="upload-limit">0 / 5 added</span>
+            </div>
+            <input id="reference-images" name="referenceImages" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple class="visually-hidden">
+            <label class="upload-dropzone" for="reference-images" id="upload-dropzone">
+              <span class="upload-icon" aria-hidden="true">↑</span>
+              <span><strong>Add reference images</strong><small>JPG, PNG, WebP, or GIF · max 20 MB each</small></span>
+            </label>
+            <p class="upload-help">Images upload as soon as you choose them. You can preview an uploaded image at any time.</p>
+            <div class="upload-list" id="upload-list" aria-live="polite"></div>
+          </div>
+
+          <p class="form-status" id="video-form-status" role="status" aria-live="polite">Add a prompt to start your video brief.</p>
+          <button class="generate-button" id="generate-video-button" type="submit">Generate video <span aria-hidden="true">→</span></button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <dialog class="image-preview-dialog" id="image-preview-dialog" aria-labelledby="image-preview-title">
+    <div class="dialog-heading"><h2 id="image-preview-title">Reference image preview</h2><button class="dialog-close" id="image-preview-close" type="button" aria-label="Close preview">×</button></div>
+    <img id="image-preview" alt="Selected reference image preview">
+  </dialog>
+
+  <dialog class="passcode-dialog" id="passcode-dialog" aria-labelledby="passcode-title">
+    <div class="dialog-heading"><h2 id="passcode-title">Authorize video generation</h2><button class="dialog-close" id="passcode-close" type="button" aria-label="Close passcode prompt">×</button></div>
+    <form class="passcode-form" id="passcode-form" novalidate>
+      <p>Enter the generation passcode to authorize this request.</p>
+      <label for="generation-passcode">Passcode</label>
+      <input id="generation-passcode" name="passcode" type="password" autocomplete="current-password" required>
+      <p class="passcode-status" id="passcode-status" role="status" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button class="dialog-cancel" id="passcode-cancel" type="button">Cancel</button>
+        <button class="passcode-submit" id="passcode-submit" type="submit">Authorize &amp; generate</button>
+      </div>
+    </form>
+  </dialog>
+
+  <footer class="site-footer">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
+  <script src="/falcon-video-generator.js" defer></script>
+</body>
+</html>
