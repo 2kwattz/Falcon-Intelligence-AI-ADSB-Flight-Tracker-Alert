@@ -76,6 +76,10 @@ function altitudeFilteredFlightAlertTemplate(match) {
         callsign: formatValue(match.callsign),
         altitude: formatValue(match.altitude, "ft"),
         hexCode: formatValue(match.hexCode),
+        monitoringZone: match.alertLocation || "Vadodara",
+        monitoringRadius: (
+            match.alertRadiusMiles ? `${match.alertRadiusMiles} MI` : "100 KM"
+        ),
         time: escapeHtml(formatIndianStandardTime())
     };
 
@@ -242,8 +246,8 @@ function altitudeFilteredFlightAlertTemplate(match) {
                 ${row("Callsign / Flight ID", match.callsign)}
                 ${row("Barometric Altitude", match.altitude, "ft")}
                 ${row("Mode-S / Hex", match.hexCode)}
-                ${row("Monitoring Zone", "Vadodara")}
-                ${row("Monitoring Radius", "100 KM")}
+                ${row("Monitoring Zone", data.monitoringZone)}
+                ${row("Monitoring Radius", data.monitoringRadius)}
                 ${row("Source", "ADS-B")}
                 ${row("Decision", "CALL ALERT SUPPRESSED")}
 

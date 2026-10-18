@@ -299,7 +299,7 @@ const hyderabadIafData = {
                 "AircraftType": "Boeing 737",
                 "TypeCode": "B737",
                 "AircraftOperator": "IndianAirForce",
-                "HexCode": "8002F6"
+                "HexCode": "801659"
             },
 
             {
@@ -658,16 +658,7 @@ const hyderabadIafData = {
                 "HexCode": "800331"
             }
         ],
-        "B777": [
-            {
-                "Registration": "INDIA1",
-                "AircraftType": "B777",
-                "TypeCode": "B777",
-                "AircraftOperator": "IndianAirForce",
-                "HexCode": "800585"
-            },
-        ],
-
+    
         "Mirage2000": [
             {
                 "Registration": "KF123",
@@ -675,7 +666,7 @@ const hyderabadIafData = {
                 "TypeCode": "MIR2",
                 "AircraftOperator": "IndianAirForce",
                 "HexCode": null
-            },
+            }
         ],
 
 

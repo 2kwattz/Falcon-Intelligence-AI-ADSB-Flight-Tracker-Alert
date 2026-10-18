@@ -12,8 +12,16 @@ const bangaloreIafData = require("../iafDataBangalore");
 const delhiIafData = require("../iafDataDelhi");
 const hyderabadIafData = require("../iafDataHyderabad");
 const flightAlertTemplate = require("../templates/flightAlertTemplate");
+const antiAlertTemplate = require("../templates/antiAlertTemplate");
 const sendEmail = require("../services/sendEmail");
 const twilio = require("twilio");
+const nodemailer = require("nodemailer");
+const {
+    CITY_ALERT_NOTIFICATION_TIME_ZONE,
+    CITY_ALERT_NOTIFICATION_START_HOUR,
+    CITY_ALERT_NOTIFICATION_END_HOUR,
+    areCityAlertNotificationsEnabled
+} = require("../utils/cityAlertNotificationWindow");
 
 const cleanXSS = require("../utils/xssCleaner");
 
@@ -55,6 +63,13 @@ const twilioClient = twilio(
     process.env.TWILIO_AUTH_TOKEN
 );
 const VoiceResponse = twilio.twiml.VoiceResponse;
+const gmailTransporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+        user: process.env.GMAIL_SMTP,
+        pass: process.env.GMAIL_SMTP_PASSWORD
+    }
+});
 
 const bangaloreAlertEmails = [
     "roshan.bhatia.blueera@gmail.com",
@@ -68,7 +83,8 @@ const delhiAlertEmails = [
 
 const hyderabadAlertEmails = [
     "roshan.bhatia.blueera@gmail.com",
-    "prakashbhatia1970@gmail.com"
+    "prakashbhatia1970@gmail.com",
+    "lokeshvarma211@gmail.com"
 ];
 
 const bangaloreAlertPhoneNumbers = [
@@ -337,6 +353,8 @@ const cityAlertConfigs = [
         callFrom: HYDERABAD_AIRSPACE_CALLER_ID,
         enableCallAlerts: true,
         cacheMatchedAircraft: true,
+        emailProvider: "gmail",
+        sendAntiAlertForHighAltitude: true,
         iafData: hyderabadIafData,
         distanceField: "distanceFromHyderabadMiles"
     }
@@ -347,7 +365,8 @@ const cityAlertConfigs = [
         isRunning: false,
         lastRunAt: null,
         lastError: null,
-        lastMatches: []
+            lastMatches: [],
+            notificationsEnabled: null
     }
 }));
 
@@ -355,6 +374,20 @@ const cityAlertConfigById = new Map(cityAlertConfigs.map((config) => [config.id,
 
 async function shouldTriggerCityEmail(config, hexCode, email) {
     const key = `${config.id}-flight-alert:email:${hexCode}:${email}`;
+
+    const result = await redisClient.set(
+        key,
+        Date.now(),
+        "EX",
+        config.expirySeconds,
+        "NX"
+    );
+
+    return result === "OK";
+}
+
+async function shouldTriggerCityAntiEmail(config, hexCode, email) {
+    const key = `${config.id}-anti-alert:email:${hexCode}:${email}`;
 
     const result = await redisClient.set(
         key,
@@ -441,22 +474,45 @@ function toCityAlertMatch(config, adsbAircraft, iafAircraft, distanceMilesFromCe
 }
 
 async function sendCityAlertEmails(config, match) {
+    const isHighAltitudeAntiAlert =
+        config.sendAntiAlertForHighAltitude &&
+        !shouldAllowCityCallForAltitude(match);
+
     for (const email of config.emails) {
         try {
-            const shouldEmail = await shouldTriggerCityEmail(config, match.hexCode, email);
+            const shouldEmail = isHighAltitudeAntiAlert
+                ? await shouldTriggerCityAntiEmail(config, match.hexCode, email)
+                : await shouldTriggerCityEmail(config, match.hexCode, email);
 
             if (!shouldEmail) {
-                console.log(`[${config.id.toUpperCase()} EMAIL] Skipping ${email} for ${match.hexCode}`);
+                const alertType = isHighAltitudeAntiAlert ? "ANTI EMAIL" : "EMAIL";
+                console.log(`[${config.id.toUpperCase()} ${alertType}] Skipping ${email} for ${match.hexCode}`);
                 continue;
             }
 
-            await sendEmail(
-                email,
-                `Falcon Intelligence ${config.label} Alert | ${match.registration} (${match.aircraftType}) within ${config.radiusMiles} miles`,
-                flightAlertTemplate(match)
-            );
+            const subject = isHighAltitudeAntiAlert
+                ? `Falcon Intelligence | No Call Alert | ${match.registration} above ${CITY_CALL_ALERT_MAX_ALTITUDE_FEET.toLocaleString()} ft`
+                : `Falcon Intelligence ${config.label} Alert | ${match.registration} (${match.aircraftType}) within ${config.radiusMiles} miles`;
+            const html = isHighAltitudeAntiAlert
+                ? antiAlertTemplate(match)
+                : flightAlertTemplate(match);
 
-            console.log(`[${config.id.toUpperCase()} EMAIL] Sent to ${email} for ${match.hexCode}`);
+            if (config.emailProvider === "gmail") {
+                await gmailTransporter.sendMail({
+                    from: `Falcon Intelligence <${process.env.GMAIL_SMTP}>`,
+                    to: email,
+                    subject,
+                    html
+                });
+            } else {
+                await sendEmail(email, subject, html);
+            }
+
+            console.log(
+                `[${config.id.toUpperCase()} ${isHighAltitudeAntiAlert ? "ANTI EMAIL" : "EMAIL"}] ` +
+                `Sent via ${config.emailProvider || "resend"} ` +
+                `to ${email} for ${match.hexCode}`
+            );
         }
         catch (error) {
             console.error(`[${config.id.toUpperCase()} EMAIL ERROR]`, error.message || error);
@@ -520,6 +576,8 @@ async function pollCityIafAlerts(config) {
     config.state.isRunning = true;
 
     try {
+        const notificationsEnabled = areCityAlertNotificationsEnabled();
+        config.state.notificationsEnabled = notificationsEnabled;
         const aircraft = getNearbyAdsbHubAircraft({
             latitude: config.center.latitude,
             longitude: config.center.longitude,
@@ -547,8 +605,11 @@ async function pollCityIafAlerts(config) {
 
                 matches.push(match);
                 await cacheCityMatchedAircraft(config, match);
-                await sendCityAlertEmails(config, match);
-                await triggerCityCallAlert(config, match);
+
+                if (notificationsEnabled) {
+                    await sendCityAlertEmails(config, match);
+                    await triggerCityCallAlert(config, match);
+                }
             }
         }
 
@@ -648,6 +709,12 @@ function buildCityAlertStatus(config) {
         emailRecipients: config.emails.length,
         callRecipients: config.callPhones.length,
         callAlertsEnabled: config.enableCallAlerts,
+        notificationWindow: {
+            timeZone: CITY_ALERT_NOTIFICATION_TIME_ZONE,
+            startTime: `${String(CITY_ALERT_NOTIFICATION_START_HOUR).padStart(2, "0")}:00`,
+            endTime: `${String(CITY_ALERT_NOTIFICATION_END_HOUR).padStart(2, "0")}:00`
+        },
+        notificationsEnabled: areCityAlertNotificationsEnabled(),
         callAltitudeLimitFeet: CITY_CALL_ALERT_MAX_ALTITUDE_FEET,
         matchedAircraftCacheEnabled: config.cacheMatchedAircraft,
         matchedAircraftCacheSeconds: config.cacheMatchedAircraft ? config.expirySeconds : 0,
@@ -723,7 +790,8 @@ async function buildServerHealthStatus() {
             lastMatches: bangaloreConfig.state.lastMatches.length,
             emailRecipients: bangaloreConfig.emails.length,
             callRecipients: bangaloreConfig.callPhones.length,
-            callAlertsEnabled: bangaloreConfig.enableCallAlerts
+            callAlertsEnabled: bangaloreConfig.enableCallAlerts,
+            notificationsEnabled: areCityAlertNotificationsEnabled()
         },
         hyderabadAirspace: {
             status: !hyderabadConfig.state.lastError,
@@ -740,7 +808,8 @@ async function buildServerHealthStatus() {
             lastMatches: hyderabadConfig.state.lastMatches.length,
             emailRecipients: hyderabadConfig.emails.length,
             callRecipients: hyderabadConfig.callPhones.length,
-            callAlertsEnabled: hyderabadConfig.enableCallAlerts
+            callAlertsEnabled: hyderabadConfig.enableCallAlerts,
+            notificationsEnabled: areCityAlertNotificationsEnabled()
         }
     };
 }
