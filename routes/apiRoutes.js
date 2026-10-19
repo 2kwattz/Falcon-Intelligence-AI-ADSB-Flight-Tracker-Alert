@@ -52,7 +52,7 @@ const CITY_ALERT_EXPIRY_SECONDS = 20 * 60;
 const EARTH_RADIUS_MILES = 3958.7613;
 const CITY_CALL_ALERT_MAX_ALTITUDE_FEET = 20000;
 const TWILIO_CALL_TIMEOUT_SECONDS = Number(process.env.TWILIO_CALL_TIMEOUT_SECONDS) || 15;
-const TWILIO_CALLER_ID = process.env.TWILIO_CALLER_ID || "+12792392187";
+const TWILIO_CALLER_ID = process.env.TWILIO_CALLER_ID || "+12296653927";
 const BANGALORE_AIRSPACE_CALLER_ID =
     process.env.BANGALORE_AIRSPACE_NUMBER || TWILIO_CALLER_ID;
 const HYDERABAD_AIRSPACE_CALLER_ID =
@@ -95,10 +95,7 @@ const bangaloreAlertPhoneNumbers = [
 ].filter(Boolean);
 
 const hyderabadAlertPhoneNumbers = [
-    process.env.HYDERABAD_ALERT_PHONE_1,
-    process.env.HYDERABAD_ALERT_PHONE_2,
-    process.env.HYDERABAD_ALERT_PHONE_3,
-    process.env.HYDERABAD_ALERT_PHONE_4
+    process.env.LOKESH_BHAI_PHONE
 ].filter(Boolean);
 
 const razorpay = RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET

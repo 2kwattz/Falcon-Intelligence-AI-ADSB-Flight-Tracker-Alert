@@ -30,18 +30,18 @@
       <section class="page-heading">
         <p class="eyebrow">Creative intelligence</p>
         <h1>Falcon Video Generator</h1>
-        <p class="lede">Describe the scene you need, select a generation profile, and upload reference images to prepare a video request.</p>
+        <p class="lede">Describe the scene you need and generate it with Wan 2.2. Optionally provide one start image to guide the opening frame.</p>
       </section>
 
       <section class="generator-card" id="video-generator" aria-labelledby="generator-title">
         <div class="generator-intro">
           <p class="eyebrow">New generation</p>
           <h2 id="generator-title">Build your video brief</h2>
-          <p>Reference images are stored privately on this server while they are prepared for generation.</p>
+          <p>Your optional start image is stored privately on this server while it is prepared for generation.</p>
           <dl class="generator-notes">
             <div><dt>Image types</dt><dd>JPG, PNG, WebP, GIF</dd></div>
             <div><dt>File limit</dt><dd>20 MB per image</dd></div>
-            <div><dt>Reference limit</dt><dd>Up to 5 images</dd></div>
+            <div><dt>Start image</dt><dd>One optional image</dd></div>
           </dl>
         </div>
 
@@ -61,21 +61,32 @@
 
           <div class="form-field">
             <div class="field-label-row">
-              <label for="reference-images">Reference images <span>(optional)</span></label>
-              <span class="upload-limit" id="upload-limit">0 / 5 added</span>
+              <label for="reference-images">Start image <span>(optional)</span></label>
+              <span class="upload-limit" id="upload-limit">0 / 1 added</span>
             </div>
-            <input id="reference-images" name="referenceImages" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple class="visually-hidden">
+            <input id="reference-images" name="referenceImages" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="visually-hidden">
             <label class="upload-dropzone" for="reference-images" id="upload-dropzone">
               <span class="upload-icon" aria-hidden="true">↑</span>
-              <span><strong>Add reference images</strong><small>JPG, PNG, WebP, or GIF · max 20 MB each</small></span>
+              <span><strong>Add a start image</strong><small>JPG, PNG, WebP, or GIF · max 20 MB</small></span>
             </label>
-            <p class="upload-help">Images upload as soon as you choose them. You can preview an uploaded image at any time.</p>
+            <p class="upload-help">The image uploads as soon as you choose it and guides the first frame. You can preview it at any time.</p>
             <div class="upload-list" id="upload-list" aria-live="polite"></div>
           </div>
 
           <p class="form-status" id="video-form-status" role="status" aria-live="polite">Add a prompt to start your video brief.</p>
+          <div class="generation-progress" id="generation-progress" hidden role="status" aria-live="polite">
+            <div class="generation-progress-heading"><span id="generation-progress-label">Preparing generation…</span><span id="generation-progress-state">Queued</span></div>
+            <div class="generation-progress-track" aria-hidden="true"><span></span></div>
+          </div>
           <button class="generate-button" id="generate-video-button" type="submit">Generate video <span aria-hidden="true">→</span></button>
         </form>
+      </section>
+
+      <section class="generated-output" id="generated-output" hidden aria-live="polite">
+        <p class="eyebrow">Generation complete</p>
+        <h2>Your Wan 2.2 video</h2>
+        <video id="generated-video" controls playsinline></video>
+        <a class="video-download" id="generated-download" download="falcon-wan22-video.webm">Download video</a>
       </section>
     </main>
   </div>

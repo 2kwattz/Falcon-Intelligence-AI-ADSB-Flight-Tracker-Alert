@@ -1,6 +1,6 @@
 (() => {
   const maxFileSize = 20 * 1024 * 1024;
-  const maxFiles = 5;
+  const maxFiles = 1;
   const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
   const $ = (selector) => document.querySelector(selector);
   const fileInput = $("#reference-images");
@@ -11,9 +11,20 @@
   const prompt = $("#video-prompt");
   const promptCount = $("#prompt-count");
   const form = $("#video-generator-form");
-  const generateButton = $("#generate-video-button");
   const previewDialog = $("#image-preview-dialog");
   const previewImage = $("#image-preview");
+  const passcodeDialog = $("#passcode-dialog");
+  const passcodeForm = $("#passcode-form");
+  const passcodeInput = $("#generation-passcode");
+  const passcodeStatus = $("#passcode-status");
+  const passcodeSubmit = $("#passcode-submit");
+  const generateButton = $("#generate-video-button");
+  const generatedOutput = $("#generated-output");
+  const generatedVideo = $("#generated-video");
+  const generatedDownload = $("#generated-download");
+  const generationProgress = $("#generation-progress");
+  const generationProgressLabel = $("#generation-progress-label");
+  const generationProgressState = $("#generation-progress-state");
   const uploadedItems = [];
   let activeUploads = 0;
 
@@ -24,6 +35,63 @@
   function setStatus(message, tone = "") {
     formStatus.textContent = message;
     formStatus.className = `form-status${tone ? ` ${tone}` : ""}`;
+  }
+
+  function setPasscodeStatus(message, tone = "") {
+    passcodeStatus.textContent = message;
+    passcodeStatus.className = `passcode-status${tone ? ` ${tone}` : ""}`;
+  }
+
+  function setGenerationProgress(state) {
+    const progressCopy = {
+      queued: ["Your video is waiting for ComfyUI…", "Queued"],
+      running: ["Wan 2.2 is generating your video…", "Generating"],
+      complete: ["Video generation complete.", "Ready"],
+      failed: ["Video generation stopped.", "Failed"]
+    };
+    const [label, stateLabel] = progressCopy[state];
+    generationProgress.hidden = false;
+    generationProgress.className = `generation-progress ${state}`;
+    generationProgressLabel.textContent = label;
+    generationProgressState.textContent = stateLabel;
+  }
+
+  const wait = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+
+  async function monitorVideoJob(jobId) {
+    for (;;) {
+      const response = await fetch(`/api/ai-video/jobs/${encodeURIComponent(jobId)}`, {
+        headers: { Accept: "application/json" },
+        cache: "no-store"
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.status || !payload.job) {
+        throw new Error(payload.message || "Could not read the video generation status.");
+      }
+
+      if (payload.job.state === "completed") {
+        const outputUrl = payload.job.outputUrl;
+        generatedVideo.src = outputUrl;
+        generatedDownload.href = outputUrl;
+        generatedOutput.hidden = false;
+        generatedOutput.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        setGenerationProgress("complete");
+        setStatus("Your Wan 2.2 video is ready.", "success");
+        generateButton.disabled = false;
+        return;
+      }
+
+      if (payload.job.state === "failed") {
+        setGenerationProgress("failed");
+        throw new Error(payload.job.error || "ComfyUI could not produce a video.");
+      }
+
+      setGenerationProgress(payload.job.state === "queued" ? "queued" : "running");
+      setStatus(payload.job.state === "queued"
+        ? "Wan 2.2 video is queued…"
+        : "Wan 2.2 is generating your video…");
+      await wait(3000);
+    }
   }
 
   function updateUploadLimit() {
@@ -113,10 +181,6 @@
         headers: { Accept: "application/json" }
       });
       const payload = await response.json().catch(() => ({}));
-      if (response.status === 401) {
-        window.location.assign("/login");
-        return;
-      }
       if (!response.ok || !payload.status) throw new Error(payload.message || "Could not remove the image.");
 
       removeItemFromList(item);
@@ -141,12 +205,6 @@
       });
       request.addEventListener("load", () => {
         const response = request.response || {};
-        if (request.status === 401) {
-          window.location.assign("/login");
-          markItem(item, "failed", "Sign in is required to upload images");
-          resolve();
-          return;
-        }
         if (request.status >= 200 && request.status < 300 && response.status) {
           const uploadedFile = response.files && response.files[0];
           if (uploadedFile && uploadedFile.filename) {
@@ -193,12 +251,12 @@
     });
     updateUploadLimit();
     activeUploads += items.length;
-    if (items.length) setStatus("Uploading reference image…");
+    if (items.length) setStatus("Uploading start image…");
     await Promise.all(items.map(uploadFile));
     activeUploads -= items.length;
     const failed = items.filter((item) => item.state === "failed").length;
     if (failed) setStatus(`${failed} image upload${failed === 1 ? "" : "s"} failed. Choose those images again to retry.`, "error");
-    else if (items.length) setStatus("Reference images uploaded. Add your prompt when you are ready.", "success");
+    else if (items.length) setStatus("Start image uploaded. Add your prompt when you are ready.", "success");
   }
 
   prompt.addEventListener("input", () => {
@@ -225,7 +283,14 @@
     if (event.target === previewDialog) previewDialog.close();
   });
 
-  form.addEventListener("submit", async (event) => {
+  function openPasscodeDialog() {
+    passcodeInput.value = "";
+    setPasscodeStatus("");
+    passcodeDialog.showModal();
+    requestAnimationFrame(() => passcodeInput.focus());
+  }
+
+  form.addEventListener("submit", (event) => {
     event.preventDefault();
     if (!prompt.value.trim()) {
       setStatus("Add a video prompt before generating.", "error");
@@ -233,7 +298,7 @@
       return;
     }
     if (activeUploads) {
-      setStatus("Please wait for the reference images to finish uploading.", "error");
+      setStatus("Please wait for the start image to finish uploading.", "error");
       return;
     }
     if (uploadedItems.some((item) => item.state === "removing")) {
@@ -241,11 +306,27 @@
       return;
     }
     if (uploadedItems.some((item) => item.state === "failed")) {
-      setStatus("Upload the failed reference images again before generating.", "error");
+      setStatus("Upload the failed start image again before generating.", "error");
       return;
     }
-    generateButton.disabled = true;
-    setStatus("Authorizing video request…");
+    openPasscodeDialog();
+  });
+
+  $("#passcode-close").addEventListener("click", () => passcodeDialog.close());
+  $("#passcode-cancel").addEventListener("click", () => passcodeDialog.close());
+  passcodeDialog.addEventListener("click", (event) => {
+    if (event.target === passcodeDialog) passcodeDialog.close();
+  });
+  passcodeForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!passcodeInput.value) {
+      setPasscodeStatus("Enter the generation passcode.", "error");
+      passcodeInput.focus();
+      return;
+    }
+
+    passcodeSubmit.disabled = true;
+    setPasscodeStatus("Authorizing request…");
     try {
       const referenceImages = uploadedItems
         .filter((item) => item.state === "complete" && item.serverFilename)
@@ -253,25 +334,36 @@
       const response = await fetch("/api/ai-video/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           prompt: prompt.value.trim(),
           model: $("#video-model").value,
+          passcode: passcodeInput.value,
           referenceImages
         })
       });
       const payload = await response.json().catch(() => ({}));
-      if (response.status === 401) {
-        window.location.assign("/login");
-        return;
-      }
       if (!response.ok || !payload.status) throw new Error(payload.message || "Could not authorize the video request.");
 
+      passcodeDialog.close();
+      passcodeInput.value = "";
+      generateButton.disabled = true;
+      generatedVideo.removeAttribute("src");
+      generatedDownload.removeAttribute("href");
+      generatedOutput.hidden = true;
+      setGenerationProgress("queued");
       setStatus(payload.message, "success");
+      await monitorVideoJob(payload.job.id);
     } catch (error) {
-      setStatus(error.message, "error");
-    } finally {
       generateButton.disabled = false;
+      if (passcodeDialog.open) {
+        setPasscodeStatus(error.message, "error");
+        passcodeInput.select();
+      } else {
+        setGenerationProgress("failed");
+        setStatus(error.message, "error");
+      }
+    } finally {
+      passcodeSubmit.disabled = false;
     }
   });
 
