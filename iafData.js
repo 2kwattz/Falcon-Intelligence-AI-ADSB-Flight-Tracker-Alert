@@ -595,6 +595,26 @@ const iafData = {
                 "HexCode": "8000D6"
             }
         ],
+
+         "NonIL78Refuelers": [
+            {
+                "Registration": "N604MA",
+                "AircraftType": "Boeing C-135FR Stratolifter",
+                "TypeCode": "K35R",
+                "AircraftOperator": "Indian Air Force",
+                "HexCode": "A7D72F"
+            },
+
+              {
+                "Registration": "N679MA",
+                "AircraftType": "Boeing C-135FR Stratolifter",
+                "TypeCode": "K35R",
+                "AircraftOperator": "Indian Air Force",
+                "HexCode": "A8FE3B"
+            }
+        ],
+
+
         "AWACS": [
             {
                 "Registration": "VUAUM",
@@ -857,7 +877,7 @@ const iafData = {
                 "TypeCode": "Unknown",
                 "AircraftOperator": "Unknown",
                 "HexCode": "1BA9BD",
-                "PredictedReg": "Unknown",
+                "PredictedReg": "LT5205",
                 "PredictedAircraftType": "LCA Twin Seater",
                 "PredictedType": "LCA",
                 "PredictedAircraftOperator": "Indian Air Force" 
