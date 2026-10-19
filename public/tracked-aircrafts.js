@@ -24,8 +24,10 @@
       hint: "Live aircraft inside the Hyderabad radius"
     }
   };
-  const state = { aircraft: [], filtered: [], lastLoadedAt: null, airspace: "vadodara" };
+  const PAGE_SIZE = 50;
+  const state = { aircraft: [], filtered: [], lastLoadedAt: null, airspace: "vadodara", page: 1 };
   let detailMap = null;
+  let leafletLoader = null;
   const $ = (selector) => document.querySelector(selector);
   const fields = ["search-input", "date-from", "date-to", "type-filter", "registration-filter", "operator-filter", "source-filter", "emergency-filter", "min-altitude", "max-altitude", "min-speed", "max-age", "field-filter", "field-value", "sort-by"];
   const display = (value, fallback = "—") => value === undefined || value === null || value === "" ? fallback : String(value).trim() || fallback;
@@ -112,14 +114,71 @@
     const lat = latitude(aircraft); const lon = longitude(aircraft);
     return `<tr><td><span class="primary-cell">${escapeHtml(callsign(aircraft))}</span><span class="secondary">${escapeHtml(registration(aircraft))}</span></td><td><span class="primary-cell">${escapeHtml(display(aircraft.hex))}</span><span class="secondary">${escapeHtml(display(aircraft.type))}</span></td><td><span class="badge">${escapeHtml(type(aircraft))}</span><span class="secondary">${escapeHtml(display(field(aircraft,"description","desc")))}</span></td><td>${escapeHtml(operator(aircraft))}</td><td>${formatNumber(altitude(aircraft), " ft")}</td><td>${formatNumber(speed(aircraft), " kt")}</td><td>${lat !== null && lon !== null ? `${lat.toFixed(4)}, ${lon.toFixed(4)}` : "—"}</td><td><span class="badge${emergency !== "none" ? " alert" : ""}">${escapeHtml(emergency)}</span></td><td>${formatDate(time,{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</td><td><button class="details-button" type="button" data-aircraft="${escapeHtml(display(aircraft.hex,"record"))}">View details →</button></td></tr>`;
   }
+  function renderPagination(totalRecords) {
+    const pagination = $("#archive-pagination");
+    const totalPages = Math.ceil(totalRecords / PAGE_SIZE);
+    if (totalPages < 2) {
+      pagination.replaceChildren();
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    const previous = document.createElement("button");
+    previous.type = "button";
+    previous.className = "button button-secondary";
+    previous.textContent = "Previous";
+    previous.disabled = state.page === 1;
+    previous.addEventListener("click", () => {
+      state.page -= 1;
+      renderResults();
+    });
+    fragment.append(previous);
+
+    const status = document.createElement("span");
+    status.textContent = `Page ${state.page} of ${totalPages}`;
+    status.setAttribute("aria-live", "polite");
+    fragment.append(status);
+
+    const next = document.createElement("button");
+    next.type = "button";
+    next.className = "button button-secondary";
+    next.textContent = "Next";
+    next.disabled = state.page === totalPages;
+    next.addEventListener("click", () => {
+      state.page += 1;
+      renderResults();
+    });
+    fragment.append(next);
+    pagination.replaceChildren(fragment);
+  }
   function renderResults() {
     const filters = currentFilters(); state.filtered = sortRecords(state.aircraft.filter((a) => recordMatches(a, filters)), filters["sort-by"]); renderMetrics(); renderChips(filters);
-    $("#result-summary").textContent = `${state.filtered.length.toLocaleString()} of ${state.aircraft.length.toLocaleString()} aircraft`;
+    const totalPages = Math.max(1, Math.ceil(state.filtered.length / PAGE_SIZE));
+    state.page = Math.min(Math.max(state.page, 1), totalPages);
+    const pageStart = (state.page - 1) * PAGE_SIZE;
+    const pageRecords = state.filtered.slice(pageStart, pageStart + PAGE_SIZE);
+    const visibleStart = state.filtered.length ? pageStart + 1 : 0;
+    const visibleEnd = pageStart + pageRecords.length;
+    $("#result-summary").textContent = `${state.filtered.length.toLocaleString()} of ${state.aircraft.length.toLocaleString()} aircraft${state.filtered.length ? ` · showing ${visibleStart.toLocaleString()}–${visibleEnd.toLocaleString()}` : ""}`;
     const container = $("#aircraft-results"); container.replaceChildren();
-    if (!state.filtered.length) { const empty = $("#empty-template").content.cloneNode(true); empty.querySelector("button").addEventListener("click", clearFilters); container.append(empty); return; }
-    const groups = new Map(); state.filtered.forEach((a) => { const d = observedAt(a); const key = Number.isNaN(d) ? "Unknown date" : d.toISOString().slice(0,10); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(a); });
+    if (!state.filtered.length) { const empty = $("#empty-template").content.cloneNode(true); empty.querySelector("button").addEventListener("click", clearFilters); container.append(empty); renderPagination(0); return; }
+    const groups = new Map(); pageRecords.forEach((a) => { const d = observedAt(a); const key = Number.isNaN(d) ? "Unknown date" : d.toISOString().slice(0,10); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(a); });
     groups.forEach((records, key) => { const date = key === "Unknown date" ? null : new Date(`${key}T12:00:00`); const section = document.createElement("section"); section.className = "date-group"; section.innerHTML = `<div class="date-heading"><h2>${date ? formatDate(date,{weekday:"long",day:"numeric",month:"long",year:"numeric"}) : key}</h2><span>${records.length} aircraft</span></div><div class="table-scroll"><table><thead><tr><th>Identity</th><th>ICAO / source</th><th>Aircraft</th><th>Operator</th><th>Altitude</th><th>Ground speed</th><th>Position</th><th>Status</th><th>Observed</th><th></th></tr></thead><tbody>${records.map(row).join("")}</tbody></table></div>`; container.append(section); });
     container.querySelectorAll("[data-aircraft]").forEach((button) => button.addEventListener("click", () => showDetails(state.filtered.find((a) => display(a.hex,"record") === button.dataset.aircraft))));
+    renderPagination(state.filtered.length);
+  }
+  function loadLeaflet() {
+    if (window.L) return Promise.resolve();
+    if (leafletLoader) return leafletLoader;
+    leafletLoader = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "/vendor/leaflet/leaflet.js";
+      script.async = true;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error("Map library could not be loaded."));
+      document.head.append(script);
+    });
+    return leafletLoader;
   }
   function showSatelliteMap(latitude, longitude, label, heading) {
     const container = $("#aircraft-location-map");
@@ -169,8 +228,8 @@
     }
     button.textContent = "Aircraft identified";
   }
-  function showDetails(aircraft) { if (!aircraft) return; const dialog = $("#aircraft-dialog"); const latitude = finite(field(aircraft, "lat", "latitude")); const longitude = finite(field(aircraft, "lon", "longitude")); const heading = finite(field(aircraft, "track", "heading")); const hasPosition = latitude !== null && longitude !== null && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180; const hex = String(field(aircraft, "hex") || "").trim().toUpperCase(); const canPredict = isIcaoHex(hex); const label = `${callsign(aircraft)} · ${display(aircraft.hex)}`; $("#dialog-title").textContent = label; const raw = Object.entries(aircraft).sort(([a],[b]) => a.localeCompare(b)); const location = hasPosition ? `<section class="location-section"><div class="location-heading"><div class="location-title"><span class="location-aircraft-icon" aria-hidden="true">✈</span><h3 class="detail-section-title">Last reported position</h3></div><a href="https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=12/${latitude}/${longitude}" target="_blank" rel="noreferrer">Open in OpenStreetMap ↗</a></div><div class="aircraft-location-map" id="aircraft-location-map" aria-label="Satellite map centered on the last reported aircraft position"></div><p class="location-note">Satellite mosaic centred at ${latitude.toFixed(4)}°, ${longitude.toFixed(4)}°. The marker shows the last position supplied by the tracking feed.</p></section>` : ""; const prediction = `<section class="prediction-section" aria-labelledby="prediction-title"><div><h3 class="detail-section-title" id="prediction-title">Missing aircraft details?</h3><p>Search the public ICAO/Mode-S registry for registration, model, manufacturer and owner information.</p></div>${canPredict ? `<button class="button prediction-button" type="button" id="predict-aircraft" data-hex="${escapeHtml(hex)}">Predict Aircraft</button>` : "<p class=\"prediction-unavailable\">A valid six-character ICAO/Mode-S hex code is required to identify this aircraft.</p>"}<div id="prediction-output" aria-live="polite"></div></section>`; $("#dialog-content").innerHTML = `<div class="detail-content"><p class="lede">Full retained payload for this aircraft. Values not transmitted by the feed are omitted.</p>${prediction}${location}<h3 class="detail-section-title">All available fields (${raw.length})</h3><div class="detail-grid">${raw.map(([key,value]) => `<div class="detail-item"><div class="detail-key">${escapeHtml(key.replace(/_/g," "))}</div><div class="detail-value">${escapeHtml(typeof value === "object" ? JSON.stringify(value) : display(value))}</div></div>`).join("")}</div></div>`; const predictButton = $("#predict-aircraft"); if (predictButton) predictButton.addEventListener("click", () => predictAircraft(predictButton)); dialog.showModal(); if (hasPosition) showSatelliteMap(latitude, longitude, label, heading); }
-  function clearFilters() { fields.forEach((id) => { if (id !== "sort-by") $("#" + id).value = ""; }); renderResults(); }
+  function showDetails(aircraft) { if (!aircraft) return; const dialog = $("#aircraft-dialog"); const latitude = finite(field(aircraft, "lat", "latitude")); const longitude = finite(field(aircraft, "lon", "longitude")); const heading = finite(field(aircraft, "track", "heading")); const hasPosition = latitude !== null && longitude !== null && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180; const hex = String(field(aircraft, "hex") || "").trim().toUpperCase(); const canPredict = isIcaoHex(hex); const label = `${callsign(aircraft)} · ${display(aircraft.hex)}`; $("#dialog-title").textContent = label; const raw = Object.entries(aircraft).sort(([a],[b]) => a.localeCompare(b)); const location = hasPosition ? `<section class="location-section"><div class="location-heading"><div class="location-title"><span class="location-aircraft-icon" aria-hidden="true">✈</span><h3 class="detail-section-title">Last reported position</h3></div><a href="https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=12/${latitude}/${longitude}" target="_blank" rel="noreferrer">Open in OpenStreetMap ↗</a></div><div class="aircraft-location-map" id="aircraft-location-map" aria-label="Satellite map centered on the last reported aircraft position"></div><p class="location-note">Satellite mosaic centred at ${latitude.toFixed(4)}°, ${longitude.toFixed(4)}°. The marker shows the last position supplied by the tracking feed.</p></section>` : ""; const prediction = `<section class="prediction-section" aria-labelledby="prediction-title"><div><h3 class="detail-section-title" id="prediction-title">Missing aircraft details?</h3><p>Search the public ICAO/Mode-S registry for registration, model, manufacturer and owner information.</p></div>${canPredict ? `<button class="button prediction-button" type="button" id="predict-aircraft" data-hex="${escapeHtml(hex)}">Predict Aircraft</button>` : "<p class=\"prediction-unavailable\">A valid six-character ICAO/Mode-S hex code is required to identify this aircraft.</p>"}<div id="prediction-output" aria-live="polite"></div></section>`; $("#dialog-content").innerHTML = `<div class="detail-content"><p class="lede">Full retained payload for this aircraft. Values not transmitted by the feed are omitted.</p>${prediction}${location}<h3 class="detail-section-title">All available fields (${raw.length})</h3><div class="detail-grid">${raw.map(([key,value]) => `<div class="detail-item"><div class="detail-key">${escapeHtml(key.replace(/_/g," "))}</div><div class="detail-value">${escapeHtml(typeof value === "object" ? JSON.stringify(value) : display(value))}</div></div>`).join("")}</div></div>`; const predictButton = $("#predict-aircraft"); if (predictButton) predictButton.addEventListener("click", () => predictAircraft(predictButton)); dialog.showModal(); if (hasPosition) loadLeaflet().then(() => showSatelliteMap(latitude, longitude, label, heading)).catch(() => { const map = $("#aircraft-location-map"); if (map) map.textContent = "Map could not be loaded."; }); }
+  function clearFilters() { fields.forEach((id) => { if (id !== "sort-by") $("#" + id).value = ""; }); state.page = 1; renderResults(); }
   function normalizeLiveAircraft(aircraft, view) {
     const lastSeen = finite(field(aircraft, "lastSeen", "positionSeen")) || Date.now();
 
@@ -206,6 +265,7 @@
       if (!response.ok) throw new Error(`Server returned ${response.status}`);
       const payload = await response.json();
       state.aircraft = recordsFromPayload(payload, view);
+      state.page = 1;
       state.lastLoadedAt = new Date();
       $("#metric-total-label").textContent = view.mode === "live" ? "Live aircraft" : "Aircraft in archive";
       populateFilters();
@@ -223,7 +283,16 @@
       $("#aircraft-results").innerHTML = `<div class="empty-state"><span aria-hidden="true">!</span><h2>Could not load ${escapeHtml(view.label)}</h2><p>${escapeHtml(error.message)}. Check that the Falcon Intelligence API is running, then refresh.</p></div>`;
     }
   }
-  fields.forEach((id) => $("#" + id).addEventListener(id === "search-input" ? "input" : "change", renderResults));
+  let searchDebounce;
+  fields.forEach((id) => $("#" + id).addEventListener(id === "search-input" || id === "field-value" ? "input" : "change", () => {
+    state.page = 1;
+    if (id === "search-input" || id === "field-value") {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(renderResults, 120);
+      return;
+    }
+    renderResults();
+  }));
   $("#airspace-select").addEventListener("change", (event) => { state.airspace = event.target.value; clearFilters(); loadAircraft(); });
   $("#clear-filters").addEventListener("click", clearFilters); $("#refresh-button").addEventListener("click", loadAircraft); $("#close-dialog").addEventListener("click", () => $("#aircraft-dialog").close()); $("#aircraft-dialog").addEventListener("click", (event) => { if (event.target === event.currentTarget) event.currentTarget.close(); });
   const menuButton = $("#archive-menu-button"); const navLinks = $("#archive-nav-links"); menuButton.addEventListener("click", () => { const open = navLinks.classList.toggle("open"); menuButton.setAttribute("aria-expanded", String(open)); menuButton.textContent = open ? "×" : "☰"; }); navLinks.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => { navLinks.classList.remove("open"); menuButton.setAttribute("aria-expanded", "false"); menuButton.textContent = "☰"; }));

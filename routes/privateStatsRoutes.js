@@ -1,5 +1,6 @@
 const os = require("node:os");
 const fs = require("node:fs/promises");
+const path = require("node:path");
 const { execFile } = require("node:child_process");
 const { promisify } = require("node:util");
 const axios = require("axios");
@@ -18,6 +19,7 @@ const {
     STATION_NAME,
     getLocalSdrAircraft
 } = require("../services/localSdrAircraftFeed");
+const { ADSB_FLIGHT_JSON_URL, READSB_AIRCRAFT_JSON_PATH } = require("../utils/globals");
 
 const router = express.Router();
 const execFileAsync = promisify(execFile);
@@ -317,6 +319,33 @@ const ADSBLOL_RE_API_CIRCLE = process.env.ADSBLOL_RE_API_CIRCLE || "22.3072,73.1
 const ADSBLOL_RE_API_TIMEOUT_MS = Number(process.env.ADSBLOL_RE_API_TIMEOUT_MS || 5000);
 const FEEDER_COMMAND_TIMEOUT_MS = Number(process.env.FEEDER_COMMAND_TIMEOUT_MS || 2000);
 const DASHBOARD_SERVER_NAME = (process.env.DASHBOARD_SERVER_NAME || "Main server").trim() || "Main server";
+const READSB_STATS_JSON_PATH = process.env.READSB_STATS_JSON_PATH
+    || path.join(path.dirname(READSB_AIRCRAFT_JSON_PATH), "stats.json");
+const READSB_RECEIVER_JSON_PATH = process.env.READSB_RECEIVER_JSON_PATH
+    || path.join(path.dirname(READSB_AIRCRAFT_JSON_PATH), "receiver.json");
+const READSB_STATS_URL = process.env.READSB_STATS_URL || new URL("stats.json", ADSB_FLIGHT_JSON_URL).toString();
+const READSB_RECEIVER_URL = process.env.READSB_RECEIVER_URL || new URL("receiver.json", ADSB_FLIGHT_JSON_URL).toString();
+const READSB_LOG_PATH = (process.env.READSB_LOG_PATH || "").trim();
+const READSB_LOG_LINES = Math.max(5, Math.min(Number(process.env.READSB_LOG_LINES) || 24, 100));
+const READSB_HEALTHY_MESSAGE_RATE = Math.max(1, Number(process.env.READSB_HEALTHY_MESSAGE_RATE) || 1);
+const configuredBadMessageRate = Number(process.env.READSB_MAX_BAD_MESSAGE_RATE);
+const READSB_MAX_BAD_MESSAGE_RATE = Math.max(0, Math.min(
+    Number.isFinite(configuredBadMessageRate) ? configuredBadMessageRate : 75,
+    100
+));
+const READSB_FRESH_MESSAGE_SECONDS = Math.max(5, Number(process.env.READSB_FRESH_MESSAGE_SECONDS) || 30);
+const READSB_MAX_MANUAL_GAIN_DB = 59.6;
+const READSB_GAIN_CONTROL_COMMAND = process.env.READSB_GAIN_CONTROL_COMMAND || "/usr/local/sbin/falcon-set-readsb-gain";
+const GRAPHS1090_OUTPUT_DIR = process.env.GRAPHS1090_OUTPUT_DIR || "/run/graphs1090";
+const GRAPHS1090_PERIOD = (process.env.GRAPHS1090_PERIOD || "24h").trim();
+const graphs1090Metrics = [
+    { id: "aircraft_message_rate", label: "Message rate" },
+    { id: "local_rate", label: "Local decode rate" },
+    { id: "signal", label: "Signal and noise" },
+    { id: "aircraft", label: "Aircraft" },
+    { id: "range", label: "Range" },
+    { id: "tracks", label: "Tracks" }
+];
 
 const feederClients = [
     {
@@ -440,9 +469,301 @@ async function getVadodaraStation() {
     }
 }
 
+function finiteMetric(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+}
+
+function firstFiniteMetric(...values) {
+    for (const value of values) {
+        const number = finiteMetric(value);
+        if (number !== null) return number;
+    }
+
+    return null;
+}
+
+async function readReadsbJson({ filePath, url }) {
+    try {
+        return JSON.parse(await fs.readFile(filePath, "utf8"));
+    } catch {
+        // The HTTP endpoint is useful when readsb writes its JSON files in a
+        // directory the application user cannot read.
+        const response = await axios.get(url, {
+            timeout: numberFromEnvironment(FEEDER_COMMAND_TIMEOUT_MS, 2000),
+            headers: { Accept: "application/json" },
+            validateStatus: (status) => status >= 200 && status < 300
+        });
+        return response.data;
+    }
+}
+
+function readsbWindow(stats) {
+    return stats?.last1min || stats?.latest || stats?.total || stats || {};
+}
+
+async function getReadsbGainConfiguration() {
+    try {
+        const { stdout } = await execFileAsync("pgrep", ["-xo", "readsb"], {
+            timeout: numberFromEnvironment(FEEDER_COMMAND_TIMEOUT_MS, 2000),
+            maxBuffer: 1024,
+            windowsHide: true
+        });
+        const pid = stdout.trim();
+
+        if (!/^\d+$/.test(pid)) throw new Error("readsb process not found");
+
+        const argumentsList = (await fs.readFile(`/proc/${pid}/cmdline`))
+            .toString("utf8")
+            .split("\0")
+            .filter(Boolean);
+        const gainIndex = argumentsList.findIndex((argument) => argument === "--gain" || argument.startsWith("--gain="));
+
+        if (gainIndex === -1) {
+            return { available: true, mode: "unknown", configuredGainDb: null };
+        }
+
+        const gainValue = argumentsList[gainIndex] === "--gain"
+            ? argumentsList[gainIndex + 1]
+            : argumentsList[gainIndex].slice("--gain=".length);
+        const normalizedGain = String(gainValue || "").trim().toLowerCase();
+
+        if (["auto", "automatic"].includes(normalizedGain)) {
+            return { available: true, mode: "automatic", configuredGainDb: null };
+        }
+
+        const configuredGainDb = finiteMetric(gainValue);
+        return {
+            available: true,
+            mode: configuredGainDb === null ? "unknown" : "manual",
+            configuredGainDb
+        };
+    } catch {
+        return { available: false, mode: "unknown", configuredGainDb: null };
+    }
+}
+
+function getReadsbMetrics(stats, receiver) {
+    const window = readsbWindow(stats);
+    const receivedMessages = firstFiniteMetric(window.messages, window.received, stats?.messages);
+    const badMessages = firstFiniteMetric(window.local?.bad, window.bad, window.bad_messages, stats?.bad);
+    const detectedModeSMessages = firstFiniteMetric(window.local?.modes, window.modes, window.messages_valid);
+    const fallbackFrameCount = receivedMessages !== null && badMessages !== null
+        ? receivedMessages + badMessages
+        : null;
+    const badMessageRateDenominator = detectedModeSMessages && detectedModeSMessages > 0
+        ? detectedModeSMessages
+        : fallbackFrameCount && fallbackFrameCount > 0
+            ? fallbackFrameCount
+            : null;
+    const gainDb = firstFiniteMetric(
+        receiver?.gain_db,
+        receiver?.gain,
+        stats?.gain_db,
+        stats?.gain,
+        stats?.latest?.gain_db,
+        stats?.latest?.gain
+    );
+    const badMessageRate = badMessageRateDenominator !== null && badMessages !== null
+        ? roundMetric((badMessages / badMessageRateDenominator) * 100, 2)
+        : null;
+
+    return {
+        receivedMessages,
+        badMessages,
+        badMessageRate,
+        badMessageRateBasis: detectedModeSMessages && detectedModeSMessages > 0
+            ? "detected Mode-S frames"
+            : fallbackFrameCount && fallbackFrameCount > 0
+                ? "decoded and rejected frames"
+                : null,
+        gainDb
+    };
+}
+
+function graphs1090FileName(fileName) {
+    return typeof fileName === "string"
+        && /^(?:dump1090|readsb)-[A-Za-z0-9._-]+-(?:aircraft_message_rate|local_rate|signal|aircraft|range|tracks)-(?:2h|8h|24h|48h|7d|30d|90d|180d|365d|730d|1095d|1825d|3650d)\.png$/.test(fileName);
+}
+
+async function getGraphs1090Stats() {
+    try {
+        const fileNames = (await fs.readdir(GRAPHS1090_OUTPUT_DIR)).filter(graphs1090FileName);
+        const graphs = await Promise.all(graphs1090Metrics.map(async (metric) => {
+            const suffix = `-${metric.id}-${GRAPHS1090_PERIOD}.png`;
+            const fileName = fileNames.find((name) => name.endsWith(suffix));
+            if (!fileName) return null;
+
+            const fileStats = await fs.stat(path.join(GRAPHS1090_OUTPUT_DIR, fileName));
+            return {
+                id: metric.id,
+                label: metric.label,
+                fileName,
+                updatedAt: fileStats.mtime.toISOString()
+            };
+        }));
+
+        return {
+            available: true,
+            period: GRAPHS1090_PERIOD,
+            graphs: graphs.filter(Boolean)
+        };
+    } catch {
+        return { available: false, period: GRAPHS1090_PERIOD, graphs: [] };
+    }
+}
+
+async function getReadsbLog() {
+    const commandOptions = {
+        timeout: numberFromEnvironment(FEEDER_COMMAND_TIMEOUT_MS, 2000),
+        maxBuffer: 64 * 1024,
+        windowsHide: true
+    };
+
+    try {
+        if (READSB_LOG_PATH) {
+            const { stdout } = await execFileAsync("tail", ["-n", String(READSB_LOG_LINES), READSB_LOG_PATH], commandOptions);
+            return {
+                available: true,
+                source: READSB_LOG_PATH,
+                lines: stdout.trim().split(/\r?\n/).filter(Boolean)
+            };
+        }
+
+        const { stdout } = await execFileAsync("journalctl", [
+            "--no-pager",
+            "--output=short-iso",
+            "--lines", String(READSB_LOG_LINES),
+            "--unit", "readsb"
+        ], commandOptions);
+        const lines = stdout.trim().split(/\r?\n/).filter(Boolean);
+
+        return {
+            available: lines.length > 0,
+            source: "journalctl -u readsb",
+            lines
+        };
+    } catch {
+        return {
+            available: false,
+            source: READSB_LOG_PATH || "journalctl -u readsb",
+            lines: []
+        };
+    }
+}
+
+function receiverHealth({ station, metrics, statsAvailable }) {
+    const lastMessageAt = station.lastMessageAt ? new Date(station.lastMessageAt).getTime() : null;
+    const messageAgeSeconds = Number.isFinite(lastMessageAt)
+        ? Math.max(0, Math.round((Date.now() - lastMessageAt) / 1000))
+        : null;
+    const fresh = messageAgeSeconds !== null && messageAgeSeconds <= READSB_FRESH_MESSAGE_SECONDS;
+    const active = metrics.receivedMessages !== null && metrics.receivedMessages >= READSB_HEALTHY_MESSAGE_RATE;
+    const clean = metrics.badMessageRate !== null && metrics.badMessageRate <= READSB_MAX_BAD_MESSAGE_RATE;
+    const criteria = {
+        maximumMessageAgeSeconds: READSB_FRESH_MESSAGE_SECONDS,
+        minimumMessagesPerMinute: READSB_HEALTHY_MESSAGE_RATE,
+        maximumBadMessageRate: READSB_MAX_BAD_MESSAGE_RATE
+    };
+
+    if (!station.connected || !fresh) {
+        return {
+            state: "unhealthy",
+            label: "No recent ADS-B reception",
+            detail: "The receiver has not produced a recent aircraft update.",
+            messageAgeSeconds,
+            criteria
+        };
+    }
+
+    if (!statsAvailable || metrics.receivedMessages === null || metrics.badMessageRate === null) {
+        return {
+            state: "warning",
+            label: "Receiving; decoder metrics unavailable",
+            detail: "Aircraft data is current, but readsb statistics are not available to verify decode quality.",
+            messageAgeSeconds,
+            criteria
+        };
+    }
+
+    if (!active || !clean) {
+        return {
+            state: "warning",
+            label: "Reception needs attention",
+            detail: !active
+                ? "The receiver is current but decoded too few messages in the last minute."
+                : "The bad-message rate is above the configured healthy threshold.",
+            messageAgeSeconds,
+            criteria
+        };
+    }
+
+    return {
+        state: "healthy",
+        label: "Healthy reception",
+        detail: "Recent aircraft data and decoder quality are within the configured healthy thresholds.",
+        messageAgeSeconds,
+        criteria
+    };
+}
+
+async function getAdsbReceiverStatus(station) {
+    const [statsResult, receiverResult, log, gainConfiguration] = await Promise.all([
+        readReadsbJson({ filePath: READSB_STATS_JSON_PATH, url: READSB_STATS_URL })
+            .then((data) => ({ available: true, data }))
+            .catch(() => ({ available: false, data: null })),
+        readReadsbJson({ filePath: READSB_RECEIVER_JSON_PATH, url: READSB_RECEIVER_URL })
+            .then((data) => ({ available: true, data }))
+            .catch(() => ({ available: false, data: null })),
+        getReadsbLog(),
+        getReadsbGainConfiguration()
+    ]);
+    const metrics = getReadsbMetrics(statsResult.data, receiverResult.data);
+
+    return {
+        stationName: station.name,
+        source: station.source,
+        connected: station.connected,
+        aircraftCount: station.aircraftCount,
+        lastMessageAt: station.lastMessageAt,
+        statsAvailable: statsResult.available,
+        receiverInfoAvailable: receiverResult.available,
+        gainConfiguration,
+        ...metrics,
+        health: receiverHealth({ station, metrics, statsAvailable: statsResult.available }),
+        log
+    };
+}
+
 function numberFromEnvironment(value, fallback) {
     const number = Number(value);
     return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+
+function requestedReadsbGain(body) {
+    const mode = String(body?.mode || "").trim().toLowerCase();
+
+    if (mode === "automatic" || mode === "auto" || mode === "default") {
+        return { mode: "automatic", value: "auto" };
+    }
+
+    if (mode !== "manual") return null;
+
+    const gain = Number(body?.gainDb);
+    if (!Number.isFinite(gain) || gain < 0 || gain > READSB_MAX_MANUAL_GAIN_DB) return null;
+
+    return {
+        mode: "manual",
+        value: String(Math.round(gain * 10) / 10)
+    };
+}
+
+async function applyReadsbGain(setting) {
+    await execFileAsync("sudo", ["-n", READSB_GAIN_CONTROL_COMMAND, setting.value], {
+        timeout: 15_000,
+        maxBuffer: 4096,
+        windowsHide: true
+    });
 }
 
 function reApiAircraftCount(payload) {
@@ -577,7 +898,11 @@ async function buildDashboardStats(user) {
         getServerOperatingSystem(),
         getServerHealth()
     ]);
-    const adsbHub = getConnectionStatus();
+    const [adsbReceiver, adsbHub, graphs1090] = await Promise.all([
+        getAdsbReceiverStatus(vadodaraStation),
+        Promise.resolve(getConnectionStatus()),
+        getGraphs1090Stats()
+    ]);
 
     const receivingData = [
         {
@@ -612,6 +937,8 @@ async function buildDashboardStats(user) {
             health
         },
         stations: [vadodaraStation],
+        adsbReceiver,
+        graphs1090,
         receivingData,
         feedingData,
         alertPhoneNumbers: phoneNumbersForDashboard()
@@ -671,11 +998,72 @@ async function updateVisitorLoggingSettings(req, res) {
     }
 }
 
+async function updateReadsbGain(req, res) {
+    const setting = requestedReadsbGain(req.body);
+
+    if (!setting) {
+        return res.status(400).json({
+            success: false,
+            message: `Choose automatic gain or a manual gain between 0 and ${READSB_MAX_MANUAL_GAIN_DB} dB.`
+        });
+    }
+
+    try {
+        await applyReadsbGain(setting);
+        res.set("Cache-Control", "no-store");
+        return res.status(200).json({
+            success: true,
+            gainConfiguration: {
+                mode: setting.mode,
+                configuredGainDb: setting.mode === "manual" ? Number(setting.value) : null
+            },
+            message: setting.mode === "automatic"
+                ? "Automatic gain has been enabled and readsb restarted."
+                : `Manual gain was set to ${setting.value} dB and readsb restarted.`
+        });
+    } catch (error) {
+        console.error("Readsb gain update failed:", error.message);
+        return res.status(503).json({
+            success: false,
+            message: "Receiver gain could not be updated. Install the restricted falcon-set-readsb-gain helper and allow the dashboard service account to run it with sudo without a password."
+        });
+    }
+}
+
+async function sendGraphs1090Image(req, res) {
+    const fileName = req.params.fileName;
+
+    if (!graphs1090FileName(fileName)) {
+        return res.status(404).json({ success: false, message: "Graphs1090 image not found" });
+    }
+
+    const outputDirectory = path.resolve(GRAPHS1090_OUTPUT_DIR);
+    const imagePath = path.resolve(outputDirectory, fileName);
+
+    if (path.dirname(imagePath) !== outputDirectory) {
+        return res.status(404).json({ success: false, message: "Graphs1090 image not found" });
+    }
+
+    try {
+        await fs.access(imagePath);
+        res.set("Cache-Control", "no-store");
+        return res.type("png").sendFile(imagePath, { dotfiles: "deny" }, (error) => {
+            if (error && !res.headersSent) {
+                res.status(error.statusCode || 404).json({ success: false, message: "Graphs1090 image not found" });
+            }
+        });
+    } catch {
+        return res.status(404).json({ success: false, message: "Graphs1090 image not found" });
+    }
+}
+
 // Login is now the only access check. The old private-stats password/session
 // endpoints are intentionally removed.
 router.get("/api/dashboard/stats", mongodbAuthMiddleware, sendDashboardStats);
 router.get("/api/private-stats", mongodbAuthMiddleware, sendDashboardStats);
+router.get("/api/dashboard/graphs1090/:fileName", mongodbAuthMiddleware, sendGraphs1090Image);
 router.get("/api/dashboard/visitor-logs", mongodbAuthMiddleware, sendVisitorLogs);
 router.put("/api/dashboard/visitor-logs/settings", mongodbAuthMiddleware, updateVisitorLoggingSettings);
+router.put("/api/dashboard/readsb/gain", mongodbAuthMiddleware, updateReadsbGain);
 
 module.exports = router;

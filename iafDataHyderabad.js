@@ -297,7 +297,7 @@ const hyderabadIafData = {
             {
                 "Registration": "K5012",
                 "AircraftType": "Boeing 737",
-                "TypeCode": "B737",
+                "TypeCode": "B737",  
                 "AircraftOperator": "IndianAirForce",
                 "HexCode": "8002F6"
             },

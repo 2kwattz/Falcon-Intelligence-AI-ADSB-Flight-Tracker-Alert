@@ -7,15 +7,40 @@
   const feedingFeedGrid = $("#feeding-feed-grid");
   const healthGrid = $("#health-grid");
   const phoneGrid = $("#phone-grid");
+  const adsbReceiverSummary = $("#adsb-receiver-summary");
+  const adsbHealthOverview = $("#adsb-health-overview");
+  const adsbMetricsGrid = $("#adsb-metrics-grid");
+  const adsbHealthGuide = $("#adsb-health-guide");
+  const adsbLogSource = $("#adsb-log-source");
+  const adsbLogOutput = $("#adsb-log-output");
+  const gainControlForm = $("#gain-control-form");
+  const gainModeAutomatic = $("#gain-mode-automatic");
+  const gainModeManual = $("#gain-mode-manual");
+  const gainManualInput = $("#gain-value");
+  const gainControlSubmit = $("#gain-control-submit");
+  const gainControlStatus = $("#gain-control-status");
+  const graphs1090Status = $("#graphs1090-status");
+  const graphs1090Grid = $("#graphs1090-grid");
   const refreshButton = $("#refresh-button");
   const overviewPanel = $("#dashboard-overview");
+  const serverHealthPanel = $("#server-health-panel");
+  const sdrHealthPanel = $("#sdr-health-panel");
+  const feedClientsPanel = $("#feed-clients-panel");
   const visitorLogsPanel = $("#visitor-logs-panel");
   const visitorLogsGrid = $("#visitor-log-grid");
   const visitorLogsSummary = $("#visitor-log-summary");
   const visitorLogsNote = $("#visitor-log-note");
   const visitorLoggingToggle = $("#visitor-log-enabled");
   const dashboardTabs = document.querySelectorAll("[data-dashboard-tab]");
+  const dashboardPanels = {
+    overview: overviewPanel,
+    "server-health": serverHealthPanel,
+    "sdr-health": sdrHealthPanel,
+    "feed-clients": feedClientsPanel,
+    "visitor-logs": visitorLogsPanel
+  };
   let activeDashboardTab = "overview";
+  let latestGraphs1090 = null;
   let visitorLogsLoaded = false;
   let visitorLogsLoading = false;
 
@@ -48,6 +73,12 @@
   const formatPercent = (value) => {
     const number = Number(value);
     return Number.isFinite(number) ? `${number.toFixed(number % 1 ? 1 : 0)}%` : "Unavailable";
+  };
+
+  const formatMetricNumber = (value) => {
+    if (value === null || value === undefined || value === "") return "Unavailable";
+    const number = Number(value);
+    return Number.isFinite(number) ? formatNumber(number) : "Unavailable";
   };
 
   const formatUptime = (seconds) => {
@@ -102,6 +133,95 @@
     const state = entry.state || "unknown";
     const displayMetric = metric || `${formatNumber(entry.aircraftCount)} aircraft`;
     return `<article class="${kind}-card"><div class="card-header"><h3>${escapeHtml(entry.name)}</h3><span class="state ${stateClass(state, entry.connected)}">${escapeHtml(state)}</span></div><p class="metric">${escapeHtml(displayMetric)}</p><p class="card-detail">${escapeHtml(entry.detail || "No additional feed detail")}</p><div class="card-meta"><span>${escapeHtml(entry.source || entry.id || "Feed")}</span><span>${escapeHtml(formatDateTime(entry.lastMessageAt))}</span></div></article>`;
+  };
+
+  const adsbMetricCard = (label, value, detail) => `<article class="adsb-metric-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><p>${escapeHtml(detail)}</p></article>`;
+
+  const selectedGainMode = () => gainModeAutomatic.checked ? "automatic" : "manual";
+
+  const setGainControlMode = () => {
+    const automatic = selectedGainMode() === "automatic";
+    gainManualInput.disabled = automatic;
+    gainManualInput.required = !automatic;
+  };
+
+  const syncGainControl = (receiver = {}) => {
+    const gainConfiguration = receiver.gainConfiguration || {};
+    const configuredGain = gainConfiguration.configuredGainDb === null || gainConfiguration.configuredGainDb === undefined
+      ? NaN
+      : Number(gainConfiguration.configuredGainDb);
+
+    gainModeAutomatic.checked = gainConfiguration.mode === "automatic";
+    gainModeManual.checked = gainConfiguration.mode !== "automatic";
+    if (gainConfiguration.mode === "manual" && Number.isFinite(configuredGain)) {
+      gainManualInput.value = String(configuredGain);
+    }
+    setGainControlMode();
+  };
+
+  const renderAdsbReceiver = (receiver = {}) => {
+    const health = receiver.health || {};
+    const criteria = health.criteria || {};
+    const healthState = health.state || "warning";
+    const healthLabel = health.label || "Receiver status unavailable";
+    const messageAge = health.messageAgeSeconds === null || health.messageAgeSeconds === undefined ? NaN : Number(health.messageAgeSeconds);
+    const log = receiver.log || {};
+    const logLines = Array.isArray(log.lines) ? log.lines : [];
+    const badRate = receiver.badMessageRate === null || receiver.badMessageRate === undefined ? NaN : Number(receiver.badMessageRate);
+    const gain = receiver.gainDb === null || receiver.gainDb === undefined ? NaN : Number(receiver.gainDb);
+    const gainConfiguration = receiver.gainConfiguration || {};
+    const configuredGain = gainConfiguration.configuredGainDb === null || gainConfiguration.configuredGainDb === undefined
+      ? NaN
+      : Number(gainConfiguration.configuredGainDb);
+    const gainMode = gainConfiguration.mode || "unknown";
+    const gainModeValue = gainMode === "automatic"
+      ? "Automatic"
+      : gainMode === "manual"
+        ? "Manual"
+        : "Unknown";
+    const gainModeDetail = gainMode === "automatic"
+      ? "readsb was started with automatic gain control."
+      : gainMode === "manual"
+        ? Number.isFinite(configuredGain)
+          ? `readsb was started with --gain ${configuredGain.toFixed(configuredGain % 1 ? 1 : 0)}.`
+          : "readsb has a non-automatic gain setting."
+        : "The readsb launch setting could not be confirmed.";
+    const observedGainValue = Number.isFinite(gain) ? `${gain.toFixed(gain % 1 ? 1 : 0)} dB` : "Unavailable";
+
+    adsbReceiverSummary.textContent = health.detail || "The local ADS-B receiver could not be inspected.";
+    adsbHealthOverview.innerHTML = `<div class="adsb-health-state ${escapeHtml(healthState)}"><span class="state ${escapeHtml(healthState === "healthy" ? "good" : healthState === "unhealthy" ? "bad" : "warning")}">${escapeHtml(healthLabel)}</span><strong>${escapeHtml(receiver.stationName || "Local receiver")}</strong><p>${escapeHtml(health.detail || "No health assessment is available.")}</p></div>`;
+    adsbMetricsGrid.innerHTML = [
+      adsbMetricCard("Gain mode", gainModeValue, gainModeDetail),
+      adsbMetricCard("Current gain", observedGainValue, Number.isFinite(gain) ? "Live gain reported by readsb in stats.json." : "readsb is not reporting a live gain value."),
+      adsbMetricCard("Received messages", formatMetricNumber(receiver.receivedMessages), receiver.statsAvailable ? "Decoder messages in the latest one-minute statistics window." : "stats.json is unavailable."),
+      adsbMetricCard("Bad messages", formatMetricNumber(receiver.badMessages), Number.isFinite(badRate) ? `${formatPercent(badRate)} of ${receiver.badMessageRateBasis || "decoder frames"}.` : "Bad-message rate is unavailable."),
+      adsbMetricCard("Last aircraft update", Number.isFinite(messageAge) ? `${messageAge}s ago` : "Unavailable", Number.isFinite(messageAge) ? `${formatMetricNumber(receiver.aircraftCount)} aircraft currently visible.` : "No current aircraft timestamp is available.")
+    ].join("");
+    syncGainControl(receiver);
+    adsbHealthGuide.innerHTML = `<h3>What healthy reception means</h3><p>Healthy means an aircraft update arrived within <strong>${escapeHtml(formatMetricNumber(criteria.maximumMessageAgeSeconds))} seconds</strong>, readsb decoded at least <strong>${escapeHtml(formatMetricNumber(criteria.minimumMessagesPerMinute))} message${Number(criteria.minimumMessagesPerMinute) === 1 ? "" : "s"} in the latest minute</strong>, and bad decoder frames are at or below <strong>${escapeHtml(formatPercent(criteria.maximumBadMessageRate))}</strong> of detected Mode-S frames. These thresholds can be adjusted on the server with the <code>READSB_HEALTHY_MESSAGE_RATE</code>, <code>READSB_MAX_BAD_MESSAGE_RATE</code>, and <code>READSB_FRESH_MESSAGE_SECONDS</code> environment variables.</p>`;
+    adsbLogSource.textContent = log.available ? (log.source || "readsb log") : "Log unavailable";
+    adsbLogOutput.textContent = logLines.length
+      ? logLines.join("\n")
+      : "No readsb log entries are available. Configure READSB_LOG_PATH or ensure the readsb systemd service writes to journald.";
+  };
+
+  const renderGraphs1090 = (graphs1090 = {}) => {
+    const graphs = Array.isArray(graphs1090.graphs) ? graphs1090.graphs : [];
+    const period = graphs1090.period || "selected";
+
+    if (!graphs1090.available) {
+      graphs1090Status.textContent = "Graphs1090 output is unavailable on this server.";
+      graphs1090Grid.innerHTML = '<p class="empty-state">No Graphs1090 statistics could be read from the local output directory.</p>';
+      return;
+    }
+
+    graphs1090Status.textContent = graphs.length
+      ? `${formatNumber(graphs.length)} Graphs1090 ${period} statistic${graphs.length === 1 ? "" : "s"}. Select a graph to open it at full size.`
+      : `No ${period} Graphs1090 statistics are currently available.`;
+    graphs1090Grid.innerHTML = graphs.map((graph) => {
+      const imageUrl = `/api/dashboard/graphs1090/${encodeURIComponent(graph.fileName)}?updated=${encodeURIComponent(graph.updatedAt || "")}`;
+      return `<article class="graphs1090-card"><a href="${escapeHtml(imageUrl)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(`${graph.label || "Graphs1090"} graph for the last ${period}`)}" loading="lazy"></a><div><h3>${escapeHtml(graph.label || "Graphs1090 statistic")}</h3><span>Updated ${escapeHtml(formatDateTime(graph.updatedAt))}</span></div></article>`;
+    }).join("") || '<p class="empty-state">No Graphs1090 graph images are available for this period.</p>';
   };
 
   const visitorLogCard = (visitor) => {
@@ -177,6 +297,9 @@
       healthCard("Node process memory", formatBytes(health.processRssBytes), "Resident memory used by the dashboard backend")
     ].join("");
     stationGrid.innerHTML = (data.stations || []).map((station) => statsCard(station, "station")).join("") || '<p class="empty-state">No stations are configured.</p>';
+    renderAdsbReceiver(data.adsbReceiver);
+    latestGraphs1090 = data.graphs1090;
+    if (activeDashboardTab === "sdr-health") renderGraphs1090(latestGraphs1090);
     receivingFeedGrid.innerHTML = receivingData.map((feed) => statsCard(feed, "feed")).join("") || '<p class="empty-state">No receiving sources are configured.</p>';
     feedingFeedGrid.innerHTML = feedingData.map((feed) => statsCard(feed, "feed", feed.metric)).join("") || '<p class="empty-state">No feeder clients are configured.</p>';
     phoneGrid.innerHTML = phones.map((phone) => `<article class="phone-card"><span>${escapeHtml(phone.label)}</span><strong>${escapeHtml(phone.number)}</strong><small>${escapeHtml(phone.variable)}</small></article>`).join("") || '<p class="empty-state">No alert phone numbers are configured.</p>';
@@ -229,12 +352,52 @@
     }
   };
 
-  const setDashboardTab = (tab) => {
-    activeDashboardTab = tab === "visitor-logs" ? "visitor-logs" : "overview";
-    const showingVisitors = activeDashboardTab === "visitor-logs";
+  const updateReadsbGain = async (event) => {
+    event.preventDefault();
+    const mode = selectedGainMode();
+    const gainDb = Number(gainManualInput.value);
 
-    overviewPanel.hidden = showingVisitors;
-    visitorLogsPanel.hidden = !showingVisitors;
+    if (mode === "manual" && (!Number.isFinite(gainDb) || gainDb < 0 || gainDb > 59.6)) {
+      gainControlStatus.textContent = "Enter a manual gain from 0 to 59.6 dB.";
+      gainManualInput.focus();
+      return;
+    }
+
+    gainControlSubmit.disabled = true;
+    gainModeAutomatic.disabled = true;
+    gainModeManual.disabled = true;
+    gainManualInput.disabled = true;
+    gainControlStatus.textContent = "Applying gain setting and restarting readsb…";
+    try {
+      const response = await fetch("/api/dashboard/readsb/gain", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(mode === "automatic" ? { mode } : { mode, gainDb })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        window.location.assign("/login");
+        return;
+      }
+      if (!response.ok || !payload.success) throw new Error(payload.message || "Receiver gain could not be updated.");
+      gainControlStatus.textContent = payload.message || "Gain setting applied.";
+      await loadDashboard();
+    } catch (error) {
+      gainControlStatus.textContent = error.message || "Receiver gain could not be updated.";
+    } finally {
+      gainControlSubmit.disabled = false;
+      gainModeAutomatic.disabled = false;
+      gainModeManual.disabled = false;
+      setGainControlMode();
+    }
+  };
+
+  const setDashboardTab = (tab) => {
+    activeDashboardTab = Object.hasOwn(dashboardPanels, tab) ? tab : "overview";
+    Object.entries(dashboardPanels).forEach(([panelTab, panel]) => {
+      panel.hidden = panelTab !== activeDashboardTab;
+    });
     dashboardTabs.forEach((button) => {
       const active = button.dataset.dashboardTab === activeDashboardTab;
       button.classList.toggle("active", active);
@@ -242,7 +405,8 @@
       button.tabIndex = active ? 0 : -1;
     });
 
-    if (showingVisitors) loadVisitorLogs();
+    if (activeDashboardTab === "sdr-health" && latestGraphs1090) renderGraphs1090(latestGraphs1090);
+    if (activeDashboardTab === "visitor-logs") loadVisitorLogs();
   };
 
   const updateVisitorLoggingSetting = async () => {
@@ -291,8 +455,12 @@
     }
     loadDashboard();
   });
+
   dashboardTabs.forEach((button) => button.addEventListener("click", () => setDashboardTab(button.dataset.dashboardTab)));
   visitorLoggingToggle.addEventListener("change", updateVisitorLoggingSetting);
+  gainModeAutomatic.addEventListener("change", setGainControlMode);
+  gainModeManual.addEventListener("change", setGainControlMode);
+  gainControlForm.addEventListener("submit", updateReadsbGain);
   initMenu();
   loadDashboard();
 })();

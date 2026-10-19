@@ -8,7 +8,8 @@ const path = require("node:path");
 // The existing MySQL authentication system already owns the `token` cookie.
 // A distinct cookie prevents a MongoDB login from replacing its session.
 const TOKEN_COOKIE = "mongoToken";
-const DEFAULT_TOKEN_TTL = "1d";
+const DEFAULT_TOKEN_TTL = "30d";
+const DEFAULT_SESSION_COOKIE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const usernameRegex = /^[a-z0-9_]+$/;
 const profilePictureDirectory = path.resolve(__dirname, "../public/uploads/profile-pictures");
@@ -47,7 +48,7 @@ const publicUser = (user) => ({
   createdAt: user.createdAt
 });
 
-const tokenCookieOptions = () => ({
+const tokenCookieBaseOptions = () => ({
   httpOnly: false,
   secure: process.env.NODE_ENV === "production",
   sameSite: "lax",
@@ -56,10 +57,15 @@ const tokenCookieOptions = () => ({
   path: "/"
 });
 
+const tokenCookieOptions = () => ({
+  ...tokenCookieBaseOptions(),
+  // Without Max-Age/Expires this is a session cookie. Mobile browsers can
+  // remove session cookies when backgrounding or reclaiming the browser.
+  maxAge: Number(process.env.AUTH_SESSION_COOKIE_MAX_AGE_MS) || DEFAULT_SESSION_COOKIE_MAX_AGE_MS
+});
+
 const legacyTokenCookieOptions = () => ({
-  httpOnly: false,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax",
+  ...tokenCookieBaseOptions(),
   path: "/auth/mongo"
 });
 
@@ -292,7 +298,7 @@ exports.login = async (req, res) => {
 
 // LOGOUT USER
 exports.logout = (req, res) => {
-  res.clearCookie(TOKEN_COOKIE, tokenCookieOptions());
+  res.clearCookie(TOKEN_COOKIE, tokenCookieBaseOptions());
   res.clearCookie(TOKEN_COOKIE, legacyTokenCookieOptions());
   return res.status(200).json({ success: true, message: "Logged out" });
 };

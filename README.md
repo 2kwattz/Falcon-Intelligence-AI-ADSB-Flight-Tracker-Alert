@@ -107,6 +107,9 @@ The following integrations are optional and only needed for their corresponding 
 | Razorpay payments | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` |
 | ADSBHub live feed | `ADSBHUB_HOST`, `ADSBHUB_PORT`, `ADSBHUB_NO_DATA_WARNING_MS` |
 | ADSB.lol re-api dashboard probe | `ADSBLOL_RE_API_URL`, `ADSBLOL_RE_API_CIRCLE`, `ADSBLOL_RE_API_TIMEOUT_MS` |
+| Local ADS-B receiver dashboard | `READSB_STATS_JSON_PATH`, `READSB_RECEIVER_JSON_PATH`, `READSB_STATS_URL`, `READSB_RECEIVER_URL`, `READSB_LOG_PATH`, `READSB_LOG_LINES`, `READSB_HEALTHY_MESSAGE_RATE`, `READSB_MAX_BAD_MESSAGE_RATE`, `READSB_FRESH_MESSAGE_SECONDS` |
+| Dashboard receiver-gain control | `READSB_GAIN_CONTROL_COMMAND` (defaults to `/usr/local/sbin/falcon-set-readsb-gain`) |
+| Graphs1090 dashboard graphs | `GRAPHS1090_OUTPUT_DIR` (defaults to `/run/graphs1090`) and `GRAPHS1090_PERIOD` (defaults to `24h`) |
 | Ubuntu feeder dashboard checks | `FEEDER_COMMAND_TIMEOUT_MS` |
 | Dashboard server label | `DASHBOARD_SERVER_NAME` (defaults to `Main server`) |
 | Mongo login protection | Redis-backed: 10 attempts per 1 hour for each email/username and IP pair |
@@ -115,6 +118,23 @@ The following integrations are optional and only needed for their corresponding 
 | IP lookup | `IPINFO_API_KEY` |
 
 Do not commit `.env` files or API credentials.
+
+### Allowing dashboard gain changes
+
+The dashboard can set a validated manual gain (0–59.6 dB) or `auto`, then briefly restart `readsb`. This requires a root-owned, restricted helper; the Node process deliberately does not receive broad sudo access. On the receiver server, install the helper and allow only that exact command for the account that runs the Falcon Node service:
+
+```bash
+sudo install -o root -g root -m 0750 scripts/falcon-set-readsb-gain /usr/local/sbin/falcon-set-readsb-gain
+sudo visudo -f /etc/sudoers.d/falcon-readsb-gain
+```
+
+Add this sudoers entry, replacing `<app-user>` with the account used by the Node service:
+
+```text
+<app-user> ALL=(root) NOPASSWD: /usr/local/sbin/falcon-set-readsb-gain
+```
+
+Validate it with `sudo visudo -cf /etc/sudoers.d/falcon-readsb-gain`. The helper only accepts `auto` or a gain in the allowed range, updates `RECEIVER_OPTIONS` in `/etc/default/readsb`, creates `/etc/default/readsb.falcon-gain-backup`, and restores the previous setting if `readsb` fails to restart.
 
 ## Key pages and endpoints
 
@@ -142,7 +162,7 @@ Authentication, admin, community, alert, payment, and AI endpoints live under th
 The existing MySQL authentication system is retained under `/auth`. MongoDB/JWT authentication was added in parallel under `/auth/mongo` so the newer dashboard features do not replace existing MySQL users or routes.
 
 - Mongo accounts use bcrypt password hashes, and the JWT middleware validates the expected algorithm, issuer, audience, expiry, and user record.
-- A successful Mongo login sets the separate `mongoToken` cookie. It is currently configured as browser-readable (`httpOnly: false`) to support the requested client-side token access; this is less resistant to XSS than an HttpOnly cookie.
+- A successful Mongo login sets the separate `mongoToken` cookie. It persists for 30 days by default (configurable with `AUTH_SESSION_COOKIE_MAX_AGE_MS`) so mobile browsers do not discard it as a session cookie; set `JWT_EXPIRES_IN` to the same duration. It is currently configured as browser-readable (`httpOnly: false`) to support the requested client-side token access; this is less resistant to XSS than an HttpOnly cookie.
 - Mongo login attempts are Redis-limited to 10 per one-hour window for each normalized email/username and IP pair. Keys use a SHA-256 fingerprint instead of storing the raw email or IP. If Redis is unavailable, login fails closed with HTTP 503 rather than allowing unlimited attempts.
 - `/dashboard`, `/dashboard.html`, `/api/dashboard/stats`, and `/api/private-stats` require a valid Mongo JWT. Dashboard data is collected by the Node/Ubuntu host, not the visitor's device.
 - Browser navigation to a protected page redirects to `/login` when the Mongo JWT is missing or invalid. Protected API requests continue to return JSON `401` responses for client-side handling.

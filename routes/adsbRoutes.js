@@ -31,6 +31,7 @@ const numbersToCall = [
 const ALERT_EXPIRY_SECONDS = 20 * 60;
 const ALTITUDE_GRACE_PERIOD_SECONDS = 120;
 const TWILIO_CALL_TIMEOUT_SECONDS = Number(process.env.TWILIO_CALL_TIMEOUT_SECONDS) || 15;
+const ADSB_DEBUG_LOGS = process.env.ADSB_DEBUG_LOGS === "true";
 
 const AIRCRAFT_METADATA_WAIT_SECONDS = 10;
 
@@ -296,7 +297,10 @@ async function cacheAircraft(redis, aircraft) {
 
 const VoiceResponse = twilio.twiml.VoiceResponse;
 
-const ADSB_TRACKING_INTERVAL_MS = 1000;
+// One-second full-feed scans and cache updates add avoidable pressure to the
+// same Node process that serves the website. Two seconds remains near-real-time
+// for alerting, while deployments that need a different cadence can override it.
+const ADSB_TRACKING_INTERVAL_MS = Math.max(1000, Number(process.env.ADSB_TRACKING_INTERVAL_MS) || 2000);
 let isTrackingPollRunning = false;
 
 const normalizeHexCode = (hexCode) => {
@@ -460,7 +464,9 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
 
         await cacheAircraft(redisClient, adsbAircraft);
 
-        console.log("Cached Aircraft:", adsbAircraft);
+        if (ADSB_DEBUG_LOGS) {
+            console.debug("Cached Aircraft:", adsbAircraft);
+        }
         // const icao = normalizeHexCode(adsbAircraft?.Icao); VRS
 
         if (!icao || !iafAircraftByHexCode.has(icao)) {
@@ -888,14 +894,11 @@ const fetchAircrafts = async () => {
         }
     }
 
-    console.log("Aircraft received:", aircrafts.length);
-
-    // for (const a of aircrafts) {
-    //     console.log(a.Icao, a.Reg);
-    // }
-
-    for (const a of aircrafts) {
-        console.log(a.hex, a.flight?.trim());
+    if (ADSB_DEBUG_LOGS) {
+        console.debug("Aircraft received:", aircrafts.length);
+        for (const aircraft of aircrafts) {
+            console.debug(aircraft.hex, aircraft.flight?.trim());
+        }
     }
 
     if (Array.isArray(aircrafts)) {

@@ -43,6 +43,9 @@
 
     <div class="dashboard-tabs" role="tablist" aria-label="Dashboard views">
       <button class="dashboard-tab active" id="overview-tab" type="button" role="tab" aria-selected="true" aria-controls="dashboard-overview" data-dashboard-tab="overview">Overview</button>
+      <button class="dashboard-tab" id="server-health-tab" type="button" role="tab" aria-selected="false" aria-controls="server-health-panel" data-dashboard-tab="server-health">Server health</button>
+      <button class="dashboard-tab" id="sdr-health-tab" type="button" role="tab" aria-selected="false" aria-controls="sdr-health-panel" data-dashboard-tab="sdr-health">SDR health</button>
+      <button class="dashboard-tab" id="feed-clients-tab" type="button" role="tab" aria-selected="false" aria-controls="feed-clients-panel" data-dashboard-tab="feed-clients">Feed clients</button>
       <button class="dashboard-tab" id="visitor-logs-tab" type="button" role="tab" aria-selected="false" aria-controls="visitor-logs-panel" data-dashboard-tab="visitor-logs">Visitor logs</button>
     </div>
 
@@ -52,7 +55,9 @@
         <article class="summary-card loading"><span>Configured alerts</span><strong>—</strong><p>Loading dashboard data</p></article>
         <article class="summary-card loading"><span>Tracked aircraft</span><strong>—</strong><p>Loading dashboard data</p></article>
       </section>
+    </div>
 
+    <div id="server-health-panel" role="tabpanel" aria-labelledby="server-health-tab" hidden>
       <section class="dashboard-section" aria-labelledby="server-health-title">
         <div class="section-heading">
           <div><p class="eyebrow">Ubuntu main server</p><h2 id="server-health-title">Server health</h2></div>
@@ -61,6 +66,16 @@
         <div class="health-grid" id="health-grid" aria-live="polite"></div>
       </section>
 
+      <section class="dashboard-section" aria-labelledby="alerts-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Current configuration</p><h2 id="alerts-title">Alert phone numbers</h2></div>
+          <p>Only numbers currently configured in the server environment are shown.</p>
+        </div>
+        <div class="phone-grid" id="phone-grid" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <div id="sdr-health-panel" role="tabpanel" aria-labelledby="sdr-health-tab" hidden>
       <section class="dashboard-section" aria-labelledby="stations-title">
         <div class="section-heading">
           <div><p class="eyebrow">Receiver health</p><h2 id="stations-title">Stations</h2></div>
@@ -69,6 +84,48 @@
         <div class="station-grid" id="station-grid" aria-live="polite"></div>
       </section>
 
+      <section class="dashboard-section adsb-receiver-section" aria-labelledby="adsb-receiver-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Local SDR / readsb</p><h2 id="adsb-receiver-title">ADS-B reception status</h2></div>
+          <p id="adsb-receiver-summary">Loading receiver statistics and latest readsb log entries…</p>
+        </div>
+        <div class="adsb-health-overview" id="adsb-health-overview" aria-live="polite"></div>
+        <div class="adsb-metrics-grid" id="adsb-metrics-grid" aria-live="polite"></div>
+        <form class="gain-control" id="gain-control-form">
+          <div>
+            <p class="eyebrow">Receiver configuration</p>
+            <h3>Change SDR gain</h3>
+            <p>Applying a setting updates readsb on the server and restarts the receiver briefly.</p>
+          </div>
+          <fieldset>
+            <legend>Gain mode</legend>
+            <label><input type="radio" name="gain-mode" value="automatic" id="gain-mode-automatic"> Automatic / default</label>
+            <label><input type="radio" name="gain-mode" value="manual" id="gain-mode-manual" checked> Manual</label>
+            <label class="gain-value" for="gain-value">Manual gain (dB)<input id="gain-value" type="number" min="0" max="59.6" step="0.1" inputmode="decimal" required></label>
+          </fieldset>
+          <div class="gain-control-actions">
+            <button class="button" id="gain-control-submit" type="submit">Apply gain setting</button>
+            <p id="gain-control-status" aria-live="polite"></p>
+          </div>
+        </form>
+        <div class="adsb-health-guide" id="adsb-health-guide" aria-live="polite"></div>
+        <div class="adsb-log" aria-labelledby="adsb-log-title">
+          <div class="adsb-log-heading"><h3 id="adsb-log-title">Latest receiver log</h3><span id="adsb-log-source">Loading…</span></div>
+          <pre id="adsb-log-output" aria-live="polite">Loading readsb log…</pre>
+        </div>
+      </section>
+
+      <section class="dashboard-section graphs1090-section" aria-labelledby="graphs1090-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Reception history</p><h2 id="graphs1090-title">Graphs1090</h2></div>
+          <p>Historical decoder, message-rate, aircraft, range, and receiver performance graphs generated by the local Graphs1090 installation.</p>
+        </div>
+        <p class="graphs1090-status" id="graphs1090-status" aria-live="polite">Loading Graphs1090 statistics…</p>
+        <div class="graphs1090-grid" id="graphs1090-grid" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <div id="feed-clients-panel" role="tabpanel" aria-labelledby="feed-clients-tab" hidden>
       <section class="dashboard-section" aria-labelledby="receiving-title">
         <div class="section-heading">
           <div><p class="eyebrow">Ingestion</p><h2 id="receiving-title">Receiving data</h2></div>
@@ -83,14 +140,6 @@
           <p>Ubuntu checks for each feeder's systemd service or process. Refresh runs these checks again; no background interval is used.</p>
         </div>
         <div class="feed-grid" id="feeding-feed-grid" aria-live="polite"></div>
-      </section>
-
-      <section class="dashboard-section" aria-labelledby="alerts-title">
-        <div class="section-heading">
-          <div><p class="eyebrow">Current configuration</p><h2 id="alerts-title">Alert phone numbers</h2></div>
-          <p>Only numbers currently configured in the server environment are shown.</p>
-        </div>
-        <div class="phone-grid" id="phone-grid" aria-live="polite"></div>
       </section>
     </div>
 

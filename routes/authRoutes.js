@@ -55,7 +55,7 @@ const uploadProfilePicture = (req, res, next) => {
 // Register
 router.post("/register", authLimiter, register);
 
-// Login
+// Login. The controller issues the persistent Mongo session cookie.
 router.post("/login", mongoLoginRateLimiter, login);
 
 router.post("/logout", logout);
