@@ -27,7 +27,7 @@
       cache: "no-store",
       ...options
     });
-    const payload = await response.json();
+    const payload = await response.json().catch(() => ({}));
 
     if (!response.ok || !payload.status) throw new Error(payload.message || "Request failed");
 

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Your Falcon Intelligence profile.">
+  <title>My Profile | Falcon Intelligence</title>
+  <link rel="stylesheet" href="/profile.css">
+  <link rel="stylesheet" href="/shared-nav.css">
+</head>
+<body>
+  <a class="skip-link" href="#profile-content">Skip to profile content</a>
+  <header class="site-header">
+    <nav class="nav shell" aria-label="Main navigation">
+      <a class="brand" href="/" aria-label="Falcon Intelligence home"><span class="brand-mark"><i class="laser-eye left" aria-hidden="true"></i><i class="laser-eye right" aria-hidden="true"></i><img src="/assets/falcon-laser-logo.png" alt=""></span><span><strong>FALCON</strong><small>INTELLIGENCE</small></span></a>
+      <button class="menu-button" type="button" aria-label="Open menu" aria-expanded="false">&#9776;</button>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/tracked-aircrafts">Intelligence Archive</a>
+        <a href="/live-map">Live Map</a>
+        <a href="/explore">Explore</a>
+        <a href="/about">About</a>
+        <a href="/contact">Contact</a>
+      </div>
+      <a class="nav-cta" href="/login" data-auth-nav>Login</a>
+    </nav>
+  </header>
+
+  <main class="shell profile-page" id="profile-content">
+    <section class="profile-heading">
+      <p class="eyebrow">Account</p>
+      <h1>My profile</h1>
+      <p class="lede">Your Falcon Intelligence account details.</p>
+    </section>
+
+    <section class="profile-card" aria-labelledby="profile-name">
+      <div class="profile-overview">
+        <div class="profile-avatar" id="profile-avatar" aria-hidden="true">—</div>
+        <div class="profile-summary">
+          <h2 id="profile-name">Loading profile…</h2>
+          <p id="profile-username"></p>
+          <form class="profile-photo-form" id="profile-photo-form" enctype="multipart/form-data">
+            <label class="photo-picker" for="profile-picture-input">
+              <input id="profile-picture-input" name="profilePicture" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp">
+              <span>Choose photo</span>
+            </label>
+            <button class="photo-save-button" id="profile-photo-save" type="submit" disabled>Save photo</button>
+            <p class="profile-photo-status" id="profile-photo-status" aria-live="polite">JPEG, PNG, or WebP · maximum 5 MB</p>
+          </form>
+        </div>
+      </div>
+      <p class="profile-status" id="profile-status" aria-live="polite"></p>
+      <dl class="profile-details" id="profile-details"></dl>
+    </section>
+  </main>
+
+  <footer class="site-footer shell">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
+  <script src="/nav-auth.js" defer></script>
+  <script src="/profile.js" defer></script>
+</body>
+</html>

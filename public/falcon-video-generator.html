@@ -6,6 +6,7 @@
   <meta name="description" content="Create a Falcon video generation request from a prompt and optional image references.">
   <title>Falcon Video Generator | Falcon Intelligence</title>
   <link rel="stylesheet" href="/falcon-video-generator.css">
+  <link rel="stylesheet" href="/shared-nav.css">
 </head>
 <body>
   <a class="skip-link" href="#video-generator">Skip to video generator</a>
@@ -21,7 +22,7 @@
           <a href="/explore">Explore</a>
           <a href="/about">About</a>
         </div>
-        <a class="nav-cta" href="/login">Login</a>
+        <a class="nav-cta" href="/login" data-auth-nav>Login</a>
       </nav>
     </header>
 
@@ -84,21 +85,8 @@
     <img id="image-preview" alt="Selected reference image preview">
   </dialog>
 
-  <dialog class="passcode-dialog" id="passcode-dialog" aria-labelledby="passcode-title">
-    <div class="dialog-heading"><h2 id="passcode-title">Authorize video generation</h2><button class="dialog-close" id="passcode-close" type="button" aria-label="Close passcode prompt">×</button></div>
-    <form class="passcode-form" id="passcode-form" novalidate>
-      <p>Enter the generation passcode to authorize this request.</p>
-      <label for="generation-passcode">Passcode</label>
-      <input id="generation-passcode" name="passcode" type="password" autocomplete="current-password" required>
-      <p class="passcode-status" id="passcode-status" role="status" aria-live="polite"></p>
-      <div class="dialog-actions">
-        <button class="dialog-cancel" id="passcode-cancel" type="button">Cancel</button>
-        <button class="passcode-submit" id="passcode-submit" type="submit">Authorize &amp; generate</button>
-      </div>
-    </form>
-  </dialog>
-
   <footer class="site-footer">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
+  <script src="/nav-auth.js" defer></script>
   <script src="/falcon-video-generator.js" defer></script>
 </body>
 </html>

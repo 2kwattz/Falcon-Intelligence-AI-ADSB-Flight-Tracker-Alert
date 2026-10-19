@@ -1,12 +1,17 @@
 const express = require("express");
+const multer = require("multer");
 const router = express.Router();
 
 const {
   register,
-  login
+  login,
+  logout,
+  getProfile,
+  updateProfilePicture
 } = require("../controllers/authController");
 
-const mongodbAuthMiddleware = require("../middleware/mongodbAuthMiddleware");
+const mongodbAuthMiddleware = require("../middlewares/mongodbAuthMiddleware");
+const { mongoLoginRateLimiter } = require("../middlewares/mongoLoginRateLimiter");
 
 const rateLimit = require("express-rate-limit");
 
@@ -17,32 +22,48 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
   message: {
     success: false,
-    message: "Too many attempts. Try again later."
+    message: "Too many authentication attempts. Try again later."
   }
 });
+
+const profilePictureUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 1
+  }
+});
+
+const uploadProfilePicture = (req, res, next) => {
+  profilePictureUpload.single("profilePicture")(req, res, (error) => {
+    if (!error) return next();
+
+    if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({
+        success: false,
+        message: "Profile photos must be 5 MB or smaller."
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: "Upload one profile photo at a time."
+    });
+  });
+};
 
 // Register
 router.post("/register", authLimiter, register);
 
 // Login
-router.post("/login", authLimiter, login);
+router.post("/login", mongoLoginRateLimiter, login);
 
-// Protected profile route
-router.get("/profile", mongodbAuthMiddleware, (req, res) => {
-  res.status(200).json({
-    success: true,
-    user: {
-      id: req.user._id,
-      firstName: req.user.firstName,
-      lastName: req.user.lastName,
-      username: req.user.username,
-      profilePicture: req.user.profilePicture,
-      dob: req.user.dob,
-      location: req.user.location,
-      email: req.user.email,
-      createdAt: req.user.createdAt
-    }
-  });
-});
+router.post("/logout", logout);
+
+// `/me` is convenient for clients. Keep `/profile` as an alias for the
+// original MongoDB auth draft.
+router.get("/me", mongodbAuthMiddleware, getProfile);
+router.get("/profile", mongodbAuthMiddleware, getProfile);
+router.patch("/profile/picture", mongodbAuthMiddleware, uploadProfilePicture, updateProfilePicture);
 
 module.exports = router;

@@ -207,6 +207,7 @@
       .contact-form button.wide { width: 100%; }
     }
   </style>
+  <link rel="stylesheet" href="/shared-nav.css">
 </head>
 <body>
   <a class="skip-link" href="#home">Skip to content</a>
@@ -222,7 +223,7 @@
         <a href="/about">About</a>
         <a href="/contact">Contact</a>
       </div>
-      <a class="nav-cta" href="/login">Login</a>
+      <a class="nav-cta" href="/login" data-auth-nav>Login</a>
     </nav>
   </header>
 
@@ -315,6 +316,7 @@
   </main>
 
   <footer class="site-footer shell">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
+  <script src="/nav-auth.js" defer></script>
   <script>
     (() => {
       const dots = [...document.querySelectorAll('.dot')];

@@ -68,6 +68,7 @@ dump.rdb
 
 # Uploaded files
 uploads/
+public/uploads/profile-pictures/
 
 # Falcon Video Generator uploads
 /resources/

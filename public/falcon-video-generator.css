@@ -86,20 +86,6 @@ textarea:focus,select:focus { border-color:var(--accent); box-shadow:0 0 0 3px r
 .dialog-heading h2 { margin:0; font-size:1rem; }
 .dialog-close { width:31px; height:31px; border:1px solid #3b596d; border-radius:6px; color:#cadde6; background:transparent; font-size:1.25rem; line-height:1; }
 .image-preview-dialog img { display:block; width:auto; max-width:100%; max-height:calc(100dvh - 105px); margin:0 auto; object-fit:contain; }
-.passcode-dialog { width:min(460px,calc(100vw - 30px)); padding:0; border:1px solid #3b596d; border-radius:12px; color:var(--ink); background:#0b1825; box-shadow:0 24px 80px rgba(0,0,0,.7); }
-.passcode-dialog::backdrop { background:rgba(1,8,14,.78); backdrop-filter:blur(3px); }
-.passcode-form { display:grid; gap:13px; padding:20px; }
-.passcode-form > p:first-child { margin:0; color:#9ab1bd; font-size:.78rem; line-height:1.5; }
-.passcode-form label { color:#a6bac8; font-size:.69rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
-.passcode-form input { min-height:45px; width:100%; padding:0 12px; border:1px solid #426276; border-radius:7px; outline:0; color:var(--ink); background:#091723; }
-.passcode-form input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(86,216,183,.12); }
-.passcode-status { min-height:1.3em; margin:0; color:#9ab1bd; font-size:.72rem; line-height:1.4; }
-.passcode-status.error { color:#ffaaa7; }
-.dialog-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:3px; }
-.dialog-cancel,.passcode-submit { min-height:38px; padding:0 13px; border-radius:7px; font-size:.68rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
-.dialog-cancel { border:1px solid #426276; color:#bbd4de; background:transparent; }
-.passcode-submit { border:1px solid var(--accent); color:#07211e; background:linear-gradient(135deg,#8af4d4,#55debc 48%,#37b9c5); }
-.passcode-submit:disabled { cursor:not-allowed; opacity:.55; }
 .site-footer { width:100%; max-width:1240px; margin:0 auto; padding:28px 28px 36px; color:#71879a; font-size:.7rem; letter-spacing:.06em; text-align:center; }
 @media (max-width:1100px) { .video-nav { gap:16px; } .nav-links { gap:14px; } .nav-links a { font-size:.68rem; } .nav-cta { display:none; } }
 @media (max-width:900px) { .generator-card { grid-template-columns:1fr; gap:22px; } .generator-intro > p:not(.eyebrow) { margin-bottom:18px; } }

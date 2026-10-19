@@ -1,0 +1,298 @@
+(() => {
+  const $ = (selector) => document.querySelector(selector);
+  const status = $("#dashboard-status");
+  const summaryGrid = $("#summary-grid");
+  const stationGrid = $("#station-grid");
+  const receivingFeedGrid = $("#receiving-feed-grid");
+  const feedingFeedGrid = $("#feeding-feed-grid");
+  const healthGrid = $("#health-grid");
+  const phoneGrid = $("#phone-grid");
+  const refreshButton = $("#refresh-button");
+  const overviewPanel = $("#dashboard-overview");
+  const visitorLogsPanel = $("#visitor-logs-panel");
+  const visitorLogsGrid = $("#visitor-log-grid");
+  const visitorLogsSummary = $("#visitor-log-summary");
+  const visitorLogsNote = $("#visitor-log-note");
+  const visitorLoggingToggle = $("#visitor-log-enabled");
+  const dashboardTabs = document.querySelectorAll("[data-dashboard-tab]");
+  let activeDashboardTab = "overview";
+  let visitorLogsLoaded = false;
+  let visitorLogsLoading = false;
+
+  const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", "\"": "&quot;"
+  })[character]);
+
+  const formatNumber = (value) => Number(value || 0).toLocaleString();
+
+  const formatBytes = (value) => {
+    const bytes = Number(value);
+    if (!Number.isFinite(bytes) || bytes < 0) return "Unavailable";
+    if (bytes < 1024) return `${bytes} B`;
+
+    const units = ["KB", "MB", "GB", "TB"];
+    let unitIndex = -1;
+    let formatted = bytes;
+    do {
+      formatted /= 1024;
+      unitIndex += 1;
+    } while (formatted >= 1024 && unitIndex < units.length - 1);
+    return `${formatted.toFixed(formatted >= 10 ? 0 : 1)} ${units[unitIndex]}`;
+  };
+
+  const formatDecimal = (value) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? number.toFixed(2) : "Unavailable";
+  };
+
+  const formatPercent = (value) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? `${number.toFixed(number % 1 ? 1 : 0)}%` : "Unavailable";
+  };
+
+  const formatUptime = (seconds) => {
+    const total = Number(seconds || 0);
+    const days = Math.floor(total / 86_400);
+    const hours = Math.floor((total % 86_400) / 3_600);
+    const minutes = Math.floor((total % 3_600) / 60);
+    return days ? `${days}d ${hours}h` : hours ? `${hours}h ${minutes}m` : `${minutes}m`;
+  };
+
+  const greetingForLocalTime = (date = new Date()) => {
+    const hour = date.getHours();
+    if (hour >= 5 && hour < 12) return "Good Morning";
+    if (hour >= 12 && hour < 17) return "Good Afternoon";
+    return "Good Evening";
+  };
+
+  const dashboardGreeting = (user) => {
+    const name = String(user?.firstName || user?.username || "").trim();
+    return name ? `${greetingForLocalTime()}, ${name}` : greetingForLocalTime();
+  };
+
+  const formatDateTime = (value) => {
+    const date = new Date(value);
+    if (!value || Number.isNaN(date.getTime())) return "No recent data";
+    return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(date);
+  };
+
+  const stateClass = (state, connected) => {
+    if (connected || ["receiving", "connected", "active"].includes(String(state).toLowerCase())) return "good";
+    if (["unavailable", "disconnected", "not-detected"].includes(String(state).toLowerCase())) return "bad";
+    return "warning";
+  };
+
+  const setStatus = (message = "", isError = false) => {
+    status.textContent = message;
+    status.classList.toggle("error", isError);
+  };
+
+  const summaryCard = (title, value, detail) => `<article class="summary-card"><span>${escapeHtml(title)}</span><strong>${escapeHtml(value)}</strong><p>${escapeHtml(detail)}</p></article>`;
+
+  const healthCard = (title, value, detail, usage) => {
+    const usageValue = Number(usage);
+    const boundedUsage = Math.max(0, Math.min(100, usageValue));
+    const meter = Number.isFinite(usageValue)
+      ? `<div class="health-meter" aria-label="${escapeHtml(title)} level ${escapeHtml(formatPercent(usageValue))}"><span style="--usage:${boundedUsage}%"></span></div>`
+      : "";
+    return `<article class="health-card"><span>${escapeHtml(title)}</span><strong>${escapeHtml(value)}</strong><p>${escapeHtml(detail)}</p>${meter}</article>`;
+  };
+
+  const statsCard = (entry, kind, metric) => {
+    const state = entry.state || "unknown";
+    const displayMetric = metric || `${formatNumber(entry.aircraftCount)} aircraft`;
+    return `<article class="${kind}-card"><div class="card-header"><h3>${escapeHtml(entry.name)}</h3><span class="state ${stateClass(state, entry.connected)}">${escapeHtml(state)}</span></div><p class="metric">${escapeHtml(displayMetric)}</p><p class="card-detail">${escapeHtml(entry.detail || "No additional feed detail")}</p><div class="card-meta"><span>${escapeHtml(entry.source || entry.id || "Feed")}</span><span>${escapeHtml(formatDateTime(entry.lastMessageAt))}</span></div></article>`;
+  };
+
+  const visitorLogCard = (visitor) => {
+    const pages = Array.isArray(visitor.pages) ? visitor.pages : [];
+    const pageList = pages.length
+      ? pages.map((page) => `<li>${escapeHtml(page)}</li>`).join("")
+      : "<li>No public page recorded</li>";
+
+    return `<article class="visitor-log-card"><div class="card-header"><h3>${escapeHtml(visitor.ip || "Unknown IP")}</h3><span class="state good">Anonymous</span></div><dl class="visitor-details"><div><dt>Browser</dt><dd>${escapeHtml(visitor.browser || "Unknown")}</dd></div><div><dt>Device</dt><dd>${escapeHtml(visitor.device || "Unknown")}</dd></div><div><dt>OS</dt><dd>${escapeHtml(visitor.operatingSystem || "Unknown")}</dd></div><div><dt>First seen</dt><dd>${escapeHtml(formatDateTime(visitor.firstSeen))}</dd></div><div><dt>Last new page</dt><dd>${escapeHtml(formatDateTime(visitor.lastSeen))}</dd></div></dl><div class="visitor-pages"><span>Unique public pages</span><ul>${pageList}</ul></div></article>`;
+  };
+
+  const renderVisitorLogs = (payload) => {
+    const visitorLogs = payload.visitorLogs || {};
+    const visitors = Array.isArray(visitorLogs.visitors) ? visitorLogs.visitors : [];
+    const available = Boolean(visitorLogs.available);
+    const enabled = visitorLogs.enabled !== false;
+
+    visitorLoggingToggle.checked = enabled;
+    visitorLoggingToggle.disabled = !available;
+    visitorLogsNote.textContent = !available
+      ? "Redis is unavailable, so visitor logging and stored records cannot be accessed."
+      : enabled
+        ? "Collection is active. Turning it off preserves existing records until they expire."
+        : "Collection is paused. Existing records will expire automatically after 24 hours.";
+    visitorLogsSummary.textContent = available
+      ? `${formatNumber(visitorLogs.totalVisitors)} unique anonymous IP address${Number(visitorLogs.totalVisitors) === 1 ? "" : "es"} in the last ${visitorLogs.retentionHours || 24} hours. Showing ${formatNumber(visitors.length)} most recent record${visitors.length === 1 ? "" : "s"}. Each visitor is limited to ${formatNumber(visitorLogs.maxPagesPerVisitor || 0)} unique public pages.`
+      : "Visitor logs are currently unavailable because Redis is disconnected.";
+    visitorLogsGrid.innerHTML = visitors.map(visitorLogCard).join("")
+      || '<p class="empty-state">No anonymous visitor records are currently stored.</p>';
+  };
+
+  const renderDashboard = (data) => {
+    const receivingData = data.receivingData || [];
+    const feedingData = data.feedingData || [];
+    const totalAircraft = receivingData.reduce((total, feed) => total + Number(feed.aircraftCount || 0), 0);
+    const phones = data.alertPhoneNumbers || [];
+    const health = data.system?.health || {};
+    const memory = health.memory || {};
+    const disk = health.disk || {};
+    const cpu = health.cpu || {};
+    const mongodb = health.mongodb || {};
+    const redis = health.redis || {};
+
+    $("#dashboard-title").textContent = dashboardGreeting(data.user);
+    $("#dashboard-welcome").textContent = "Your station, receiving, feeding, and alert-recipient information is ready.";
+    $("#dashboard-updated").textContent = `Updated ${formatDateTime(data.generatedAt)}`;
+    summaryGrid.innerHTML = [
+      summaryCard("Application uptime", formatUptime(data.system?.uptimeSeconds), `${formatNumber(data.system?.cpuCores)} CPU cores · ${formatNumber((data.system?.memoryUsedBytes || 0) / 1_048_576)} MB RSS`),
+      summaryCard(
+        "Server OS",
+        data.system?.operatingSystem?.name || "Unknown",
+        data.system?.operatingSystem?.isUbuntu
+          ? `Ubuntu host confirmed · ${data.system.operatingSystem.architecture || "unknown architecture"}`
+          : `Detected host · ${data.system?.operatingSystem?.architecture || "unknown architecture"}`
+      ),
+      summaryCard(
+        "Data source",
+        data.system?.server?.name || "Main server",
+        data.system?.server?.hostname
+          ? `${data.system.server.hostname} · Collected on the server`
+          : "Collected on the server, never in this browser"
+      ),
+      summaryCard("Configured alerts", formatNumber(phones.length), "Phone numbers currently enabled for alerts"),
+      summaryCard("Aircraft received", formatNumber(totalAircraft), `${receivingData.length} receiving source${receivingData.length === 1 ? "" : "s"}`)
+    ].join("");
+    healthGrid.innerHTML = [
+      healthCard("RAM usage", `${formatBytes(memory.usedBytes)} / ${formatBytes(memory.totalBytes)}`, `${formatPercent(memory.usedPercent)} used · ${formatBytes(memory.availableBytes)} available`, memory.usedPercent),
+      healthCard("CPU load", `${formatDecimal(cpu.oneMinuteLoad)} (1 min)`, `${formatNumber(cpu.cores)} cores · ${formatDecimal(cpu.oneMinuteLoadPerCore)} load per core`, Number(cpu.oneMinuteLoadPerCore) * 100),
+      healthCard("Root disk", disk.available ? `${formatBytes(disk.usedBytes)} / ${formatBytes(disk.totalBytes)}` : "Unavailable", disk.available ? `${formatPercent(disk.usedPercent)} used · ${formatBytes(disk.availableBytes)} free on ${disk.mountPath || "/"}` : "Unable to inspect the main server root filesystem", disk.usedPercent),
+      healthCard("MongoDB", mongodb.connected ? "Connected" : (mongodb.state || "Unavailable"), mongodb.connected ? `Main-server ping succeeded${Number.isFinite(Number(mongodb.latencyMs)) ? ` · ${mongodb.latencyMs} ms` : ""}` : "MongoDB is not available from the main server"),
+      healthCard("Redis", redis.connected ? "Connected" : (redis.state || "Unavailable"), redis.connected ? `Main-server ping succeeded${Number.isFinite(Number(redis.latencyMs)) ? ` · ${redis.latencyMs} ms` : ""}` : "Redis is not available from the main server"),
+      healthCard("System uptime", formatUptime(health.systemUptimeSeconds), "Ubuntu host uptime since its last reboot"),
+      healthCard("Node process memory", formatBytes(health.processRssBytes), "Resident memory used by the dashboard backend")
+    ].join("");
+    stationGrid.innerHTML = (data.stations || []).map((station) => statsCard(station, "station")).join("") || '<p class="empty-state">No stations are configured.</p>';
+    receivingFeedGrid.innerHTML = receivingData.map((feed) => statsCard(feed, "feed")).join("") || '<p class="empty-state">No receiving sources are configured.</p>';
+    feedingFeedGrid.innerHTML = feedingData.map((feed) => statsCard(feed, "feed", feed.metric)).join("") || '<p class="empty-state">No feeder clients are configured.</p>';
+    phoneGrid.innerHTML = phones.map((phone) => `<article class="phone-card"><span>${escapeHtml(phone.label)}</span><strong>${escapeHtml(phone.number)}</strong><small>${escapeHtml(phone.variable)}</small></article>`).join("") || '<p class="empty-state">No alert phone numbers are configured.</p>';
+  };
+
+  const loadDashboard = async () => {
+    refreshButton.disabled = true;
+    setStatus("Refreshing dashboard…");
+    try {
+      const response = await fetch("/api/dashboard/stats", { credentials: "include", cache: "no-store", headers: { Accept: "application/json" } });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        window.location.assign("/login");
+        return;
+      }
+      if (!response.ok || !payload.success) throw new Error(payload.message || "Unable to load dashboard data.");
+      renderDashboard(payload);
+      setStatus("");
+    } catch (error) {
+      setStatus(error.message || "Unable to load dashboard data.", true);
+    } finally {
+      refreshButton.disabled = false;
+    }
+  };
+
+  const loadVisitorLogs = async (force = false) => {
+    if (visitorLogsLoading || (!force && visitorLogsLoaded)) return;
+
+    visitorLogsLoading = true;
+    refreshButton.disabled = true;
+    visitorLogsSummary.textContent = "Refreshing visitor logs…";
+    try {
+      const response = await fetch("/api/dashboard/visitor-logs", { credentials: "include", cache: "no-store", headers: { Accept: "application/json" } });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        window.location.assign("/login");
+        return;
+      }
+      if (!response.ok || !payload.success) throw new Error(payload.message || "Unable to load visitor logs.");
+      renderVisitorLogs(payload);
+      visitorLogsLoaded = true;
+      setStatus("");
+    } catch (error) {
+      visitorLogsSummary.textContent = "Unable to load visitor logs.";
+      visitorLogsGrid.innerHTML = '<p class="empty-state">Visitor logs could not be loaded.</p>';
+      setStatus(error.message || "Unable to load visitor logs.", true);
+    } finally {
+      visitorLogsLoading = false;
+      refreshButton.disabled = false;
+    }
+  };
+
+  const setDashboardTab = (tab) => {
+    activeDashboardTab = tab === "visitor-logs" ? "visitor-logs" : "overview";
+    const showingVisitors = activeDashboardTab === "visitor-logs";
+
+    overviewPanel.hidden = showingVisitors;
+    visitorLogsPanel.hidden = !showingVisitors;
+    dashboardTabs.forEach((button) => {
+      const active = button.dataset.dashboardTab === activeDashboardTab;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+      button.tabIndex = active ? 0 : -1;
+    });
+
+    if (showingVisitors) loadVisitorLogs();
+  };
+
+  const updateVisitorLoggingSetting = async () => {
+    const enabled = visitorLoggingToggle.checked;
+    const previouslyEnabled = !enabled;
+    visitorLoggingToggle.disabled = true;
+    visitorLogsNote.textContent = `${enabled ? "Enabling" : "Disabling"} visitor logging…`;
+
+    try {
+      const response = await fetch("/api/dashboard/visitor-logs/settings", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ enabled })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        window.location.assign("/login");
+        return;
+      }
+      if (!response.ok || !payload.success) throw new Error(payload.message || "Unable to update visitor logging.");
+      visitorLogsLoaded = false;
+      await loadVisitorLogs(true);
+    } catch (error) {
+      visitorLoggingToggle.checked = previouslyEnabled;
+      visitorLoggingToggle.disabled = false;
+      visitorLogsNote.textContent = "Visitor logging setting could not be updated.";
+      setStatus(error.message || "Unable to update visitor logging.", true);
+    }
+  };
+
+  const initMenu = () => {
+    const menu = $(".menu-button");
+    const links = $(".nav-links");
+    menu.addEventListener("click", () => {
+      const open = links.classList.toggle("open");
+      menu.setAttribute("aria-expanded", String(open));
+      menu.textContent = open ? "×" : "☰";
+    });
+  };
+
+  refreshButton.addEventListener("click", () => {
+    if (activeDashboardTab === "visitor-logs") {
+      loadVisitorLogs(true);
+      return;
+    }
+    loadDashboard();
+  });
+  dashboardTabs.forEach((button) => button.addEventListener("click", () => setDashboardTab(button.dataset.dashboardTab)));
+  visitorLoggingToggle.addEventListener("change", updateVisitorLoggingSetting);
+  initMenu();
+  loadDashboard();
+})();

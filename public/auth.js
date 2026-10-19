@@ -42,8 +42,11 @@
         throw new Error(result.message || result.error || "Unable to complete request.");
       }
 
-      if (result.token) localStorage.setItem("falconToken", result.token);
       setStatus(form, successMessage);
+
+      if (endpoint === "/auth/mongo/login") {
+        window.setTimeout(() => window.location.assign("/dashboard"), 300);
+      }
     } catch (error) {
       setStatus(form, error.message || "Unable to complete request.", true);
     } finally {
@@ -76,7 +79,9 @@
     if (loginForm) {
       loginForm.addEventListener("submit", (event) => {
         event.preventDefault();
-        submitAuthForm(loginForm, "/auth/login", "Login successful.");
+        // Accounts created in MongoDB authenticate through the isolated JWT
+        // endpoint. The legacy MySQL login remains available at `/auth/login`.
+        submitAuthForm(loginForm, "/auth/mongo/login", "Login successful.");
       });
     }
 

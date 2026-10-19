@@ -4,6 +4,7 @@ const fs = require("fs");
 const multer = require("multer");
 const path = require("path");
 const aiRateLimiting = require("../middlewares/aiRateLimiting");
+const mongodbAuthMiddleware = require("../middlewares/mongodbAuthMiddleware");
 
 const router = express.Router();
 const clientImagesDirectory = path.resolve(__dirname, "../resources/clientImages");
@@ -15,7 +16,6 @@ const supportedImageTypes = {
     "image/gif": ".gif"
 };
 const videoModel = "wan-2-2-ti2v-5b";
-const videoGeneratorPasscode = process.env.VIDEO_GENERATOR_PASSCODE || "blueera";
 const storedImageFilenamePattern = /^\d{13}-[a-f0-9]{24}\.(jpg|png|webp|gif)$/;
 
 fs.mkdirSync(clientImagesDirectory, { recursive: true });
@@ -43,15 +43,6 @@ const upload = multer({
     }
 });
 
-function hasValidPasscode(passcode) {
-    if (typeof passcode !== "string") return false;
-
-    const supplied = Buffer.from(passcode);
-    const expected = Buffer.from(videoGeneratorPasscode);
-
-    return supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected);
-}
-
 function hasStoredReferenceImage(filename) {
     if (typeof filename !== "string" || !storedImageFilenamePattern.test(filename)) {
         return false;
@@ -60,11 +51,11 @@ function hasStoredReferenceImage(filename) {
     return fs.existsSync(path.join(clientImagesDirectory, filename));
 }
 
-router.get("/falcon-video-generator", (req, res) => {
+router.get("/falcon-video-generator", mongodbAuthMiddleware, (req, res) => {
     return res.sendFile(path.join(__dirname, "../public/falcon-video-generator.html"));
 });
 
-router.post("/api/ai-video/upload", upload.array("referenceImages", 5), (req, res) => {
+router.post("/api/ai-video/upload", mongodbAuthMiddleware, upload.array("referenceImages", 5), (req, res) => {
     const files = (req.files || []).map((file) => ({
         filename: file.filename,
         originalName: path.basename(file.originalname),
@@ -86,7 +77,7 @@ router.post("/api/ai-video/upload", upload.array("referenceImages", 5), (req, re
     });
 });
 
-router.delete("/api/ai-video/upload/:filename", (req, res) => {
+router.delete("/api/ai-video/upload/:filename", mongodbAuthMiddleware, (req, res) => {
     const { filename } = req.params;
     if (typeof filename !== "string" || !storedImageFilenamePattern.test(filename)) {
         return res.status(400).json({
@@ -118,16 +109,8 @@ router.delete("/api/ai-video/upload/:filename", (req, res) => {
     });
 });
 
-router.post("/api/ai-video/generate", aiRateLimiting, (req, res) => {
-    const { passcode, prompt, model, referenceImages = [] } = req.body || {};
-
-    // Do not validate or start handling a generation request until it is authorised.
-    if (!hasValidPasscode(passcode)) {
-        return res.status(403).json({
-            status: false,
-            message: "The passcode is incorrect."
-        });
-    }
+router.post("/api/ai-video/generate", aiRateLimiting, mongodbAuthMiddleware, (req, res) => {
+    const { prompt, model, referenceImages = [] } = req.body || {};
 
     const normalizedPrompt = typeof prompt === "string" ? prompt.trim() : "";
     if (!normalizedPrompt || normalizedPrompt.length > 2000) {
@@ -153,7 +136,7 @@ router.post("/api/ai-video/generate", aiRateLimiting, (req, res) => {
 
     return res.status(202).json({
         status: true,
-        message: "Passcode accepted. Your video request is authorized for processing.",
+        message: "Your video request is authorized for processing.",
         request: {
             id: crypto.randomUUID(),
             model: videoModel,

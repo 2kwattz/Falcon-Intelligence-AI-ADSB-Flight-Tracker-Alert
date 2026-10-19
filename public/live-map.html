@@ -7,6 +7,7 @@
   <title>Live Map | Falcon Intelligence</title>
   <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="/live-map.css">
+  <link rel="stylesheet" href="/shared-nav.css">
 </head>
 <body>
   <a class="skip-link" href="#live-map">Skip to live map</a>
@@ -30,7 +31,7 @@
           <a href="/about">About</a>
           <a href="/contact">Contact</a>
         </div>
-        <a class="nav-cta" href="/login">Login</a>
+        <a class="nav-cta" href="/login" data-auth-nav>Login</a>
       </nav>
     </header>
 
@@ -167,6 +168,7 @@
   </div>
 
   <script src="/vendor/leaflet/leaflet.js" defer></script>
+  <script src="/nav-auth.js" defer></script>
   <script src="/live-map.js" defer></script>
 </body>
 </html>

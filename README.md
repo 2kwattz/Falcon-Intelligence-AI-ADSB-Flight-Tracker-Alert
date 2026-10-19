@@ -21,10 +21,11 @@ Browser (static HTML, CSS, vanilla JavaScript)
                  |
                  v
          Express 5 application
-          |       |        |
-          |       |        +--> Public aircraft registry lookup (HexDB)
-          |       +-----------> MySQL (users, application data)
-          +-------------------> Redis (archive cache and application cache)
+          |       |        |        |
+          |       |        |        +--> Public aircraft registry lookup (HexDB)
+          |       |        +-----------> MongoDB (dashboard account and profile data)
+          |       +--------------------> MySQL (existing account and application data)
+          +----------------------------> Redis (archive cache, application cache, and login limits)
                  ^
                  |
     Local readsb/SDR feed and ADSBHub TCP feed
@@ -42,7 +43,8 @@ The server serves the pages and JSON endpoints from the same origin. The fronten
 | `services/` | Feed readers, SDR utilities, email delivery, signal analysis, and background service helpers. |
 | `feedPartners/` | ADSBHub TCP connection and live-feed state. |
 | `redis/` | Redis clients and the five-day tracked-aircraft archive cache. |
-| `db/` | MySQL connection-pool setup. |
+| `db/` | MySQL and MongoDB connection setup. |
+| `models/` | MongoDB/Mongoose models, including the dashboard user profile. |
 | `middlewares/` | Authentication, rate limiting, security, request filtering, and error handling. |
 | `templates/` | HTML email templates. |
 | `test/` | Documentation and scripts for the separate Kundali public-profile research utility. |
@@ -82,6 +84,9 @@ MYSQL_DATABASE=falcon_intelligence
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 
+# MongoDB is used alongside the existing MySQL database for dashboard users.
+MONGO_URI=mongodb://127.0.0.1:27017/falcon_intelligence
+
 # Optional dedicated Redis database for archive records. Defaults to database 1.
 TRACKED_AIRCRAFTS_REDIS_DB=1
 
@@ -94,12 +99,19 @@ The following integrations are optional and only needed for their corresponding 
 
 | Feature | Relevant environment variables |
 | --- | --- |
-| JWT authentication | `JWT_SECRET_KEY`, `CLIENT_URL` |
+| JWT authentication | `JWT_SECRET` (or `JWT_SECRET_KEY`), `JWT_EXPIRES_IN`, `JWT_ISSUER`, `JWT_AUDIENCE`, `CLIENT_URL` |
+| MongoDB dashboard and profile data | `MONGO_URI` |
 | Resend email delivery | `RESEND_API_KEY`, `EMAIL_FROM` |
 | Gmail SMTP mail delivery | `GMAIL_SMTP`, `GMAIL_SMTP_PASSWORD` |
 | Twilio calls | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_CALLER_ID`, `TWILIO_CALL_TIMEOUT_SECONDS` |
 | Razorpay payments | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` |
 | ADSBHub live feed | `ADSBHUB_HOST`, `ADSBHUB_PORT`, `ADSBHUB_NO_DATA_WARNING_MS` |
+| ADSB.lol re-api dashboard probe | `ADSBLOL_RE_API_URL`, `ADSBLOL_RE_API_CIRCLE`, `ADSBLOL_RE_API_TIMEOUT_MS` |
+| Ubuntu feeder dashboard checks | `FEEDER_COMMAND_TIMEOUT_MS` |
+| Dashboard server label | `DASHBOARD_SERVER_NAME` (defaults to `Main server`) |
+| Mongo login protection | Redis-backed: 10 attempts per 1 hour for each email/username and IP pair |
+| Anonymous visitor logs | Redis-backed: `VISITOR_LOG_MAX_RECORDS` (default `10000`), `VISITOR_LOG_MAX_PAGES` (default `50`), and `VISITOR_LOG_DASHBOARD_LIMIT` (default `100`) |
+| Reverse-proxy client IPs | `TRUST_PROXY_HOPS=1` only when the app is exclusively behind one trusted proxy such as nginx |
 | IP lookup | `IPINFO_API_KEY` |
 
 Do not commit `.env` files or API credentials.
@@ -117,8 +129,41 @@ Do not commit `.env` files or API credentials.
 | `/explore` | Aircraft exploration page. |
 | `/bangalore-status` and `/delhi-status` | City alert-status pages. |
 | `/api/aircraft/nearby` | Nearby-aircraft API; additional compatible ADSBHub TCP paths are available under `/api/adsbhub-tcp`. |
+| `/auth/mongo/login` | MongoDB/JWT login for the protected dashboard and profile. This is separate from the existing MySQL `/auth` flow. |
+| `/dashboard` | Mongo-JWT-protected operations dashboard. Direct `/dashboard.html` access is also protected before static files are served. |
+| `/api/dashboard/stats` | Mongo-JWT-protected main-server station, feed, server-health, and configured alert-recipient data. |
+| `/profile` | Mongo-JWT-protected profile page, including profile-photo updates. |
+| `/falcon-video-generator` | Video-generator page; its upload and generation APIs require Mongo/JWT login. |
 
 Authentication, admin, community, alert, payment, and AI endpoints live under their route prefixes (`/auth`, `/admin`, `/adsb`, `/ai`, and `/api`). Read the matching module in `routes/` before integrating with them, as many require authentication or an external credential.
+
+## Recent authentication and dashboard changes
+
+The existing MySQL authentication system is retained under `/auth`. MongoDB/JWT authentication was added in parallel under `/auth/mongo` so the newer dashboard features do not replace existing MySQL users or routes.
+
+- Mongo accounts use bcrypt password hashes, and the JWT middleware validates the expected algorithm, issuer, audience, expiry, and user record.
+- A successful Mongo login sets the separate `mongoToken` cookie. It is currently configured as browser-readable (`httpOnly: false`) to support the requested client-side token access; this is less resistant to XSS than an HttpOnly cookie.
+- Mongo login attempts are Redis-limited to 10 per one-hour window for each normalized email/username and IP pair. Keys use a SHA-256 fingerprint instead of storing the raw email or IP. If Redis is unavailable, login fails closed with HTTP 503 rather than allowing unlimited attempts.
+- `/dashboard`, `/dashboard.html`, `/api/dashboard/stats`, and `/api/private-stats` require a valid Mongo JWT. Dashboard data is collected by the Node/Ubuntu host, not the visitor's device.
+- Browser navigation to a protected page redirects to `/login` when the Mongo JWT is missing or invalid. Protected API requests continue to return JSON `401` responses for client-side handling.
+- The dashboard shows the authenticated greeting, configured station status, ADSBHub TCP and ADSB.lol re-api receiving data, local Ubuntu feeder checks, alert phone numbers currently configured in the server environment, and a main-server identity label.
+- Main-server health reporting includes Ubuntu OS details, RAM used/available, CPU load, root-disk usage, MongoDB and Redis connection status (each with a bounded ping), system uptime, and Node process RSS memory. RAM uses `/proc/meminfo`; disk reporting uses filesystem metrics with an Ubuntu `df` fallback.
+- The protected Dashboard **Visitor logs** tab shows anonymous public-page visitors grouped by IP address, along with parsed browser, device, operating-system, and unique page-path data. Logged-in sessions, API calls, assets, and protected routes are excluded.
+- Visitor logs use bounded Redis storage: one hash and one unique-page set per IP address, a 24-hour TTL starting with the first recorded visit, a 10,000-record default cap, and a 50-page-per-visitor default cap. Repeated requests to the same page do not add records or pages. The Dashboard switch pauses/resumes future collection; existing records still age out within 24 hours.
+- When deployed behind nginx or another reverse proxy, set `TRUST_PROXY_HOPS=1` only if the Node server is not directly public; this lets Express safely use the proxy-provided client IP for visitor grouping and rate limiting.
+- The profile page allows a signed-in user to replace their JPEG, PNG, or WebP profile photo. Uploads are limited to 5 MB, checked against file signatures, stored with generated names, and old managed photos are removed after a successful replacement.
+- The video generator no longer accepts a separate password. Its upload, delete, and generation APIs require Mongo/JWT login.
+- Shared navigation is applied across the public pages. Logged-in users see a simple profile icon with **My Profile**, **Dashboard**, and **Logout**; Dashboard is intentionally not a primary navigation link.
+
+### Related implementation files
+
+| Area | Main files |
+| --- | --- |
+| Mongo/JWT auth | `controllers/authController.js`, `routes/authRoutes.js`, `middlewares/mongodbAuthMiddleware.js` |
+| Redis Mongo login limiter | `middlewares/mongoLoginRateLimiter.js` |
+| Dashboard and server metrics | `routes/privateStatsRoutes.js`, `public/dashboard.html`, `public/dashboard.js`, `public/dashboard.css` |
+| Profile and photo upload | `public/profile.html`, `public/profile.js`, `public/profile.css` |
+| Shared signed-in navigation | `public/nav-auth.js`, `public/shared-nav.css` |
 
 ## Technical details
 

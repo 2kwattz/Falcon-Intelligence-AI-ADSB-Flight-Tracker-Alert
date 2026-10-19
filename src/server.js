@@ -20,6 +20,8 @@ const winston = require("winston"); // Overall Logger
 // const swaggerUi = require("swagger-ui-express"); // Swagger UI
 // const swaggerSpec = require("../config/swagger"); // Swagger Configuration
 const authMiddleware = require("../middlewares/authMiddleware");
+const mongodbAuthMiddleware = require("../middlewares/mongodbAuthMiddleware");
+const connectDB = require("../db/mongodbConn.js")
 
 const { ADSB_FLIGHT_JSON_URL } = require("../utils/globals.js");
 
@@ -27,6 +29,7 @@ const { ADSB_FLIGHT_JSON_URL } = require("../utils/globals.js");
 // Custom Middlewares
 const errorMiddleware = require("../middlewares/errorMiddleware"); // General Error Middleware
 const generalRateLimiter = require("../middlewares/generalRateLimiter"); // General Rate Limiter
+const anonymousVisitorLogger = require("../middlewares/anonymousVisitorLogger");
 const sqlInjectionGuard = require("../middlewares/sqlInjectionGuard"); // Prevents SQL Injection Attacks
 const fakeServerHeaders = require("../middlewares/spoofHeaders"); // Honeypot for Attackers
 
@@ -40,7 +43,8 @@ const geoLocationTracker = require("../utils/geoLocationTracker");
 // Routes 
 
 // Main '/' Route is temporarily in Auth Routes
-const authRoutes = require("../routes/authRouter.js"); // Auth routes
+const authRoutes = require("../routes/authRouter.js"); // Existing MySQL auth routes
+const mongoAuthRoutes = require("../routes/authRoutes.js"); // MongoDB/JWT auth routes
 const chatroomRoutes = require("../routes/chatroomRoutes"); // Chatroom Routes
 const communityRoutes = require("../routes/communityRouter") // Communities Router
 const aiRoutes = require("../routes/aiRoutes.js") // AI LLM Routes
@@ -52,6 +56,7 @@ const liveMapRoutes = require("../routes/liveMapRoutes.js");
 const apiRoutes = require("../routes/apiRoutes.js");
 const exploreRoutes = require("../routes/exploreRoutes.js");
 const aiVideoGenerationRoutes = require("../routes/aiVideoGenerationRoutes.js");
+const privateStatsRoutes = require("../routes/privateStatsRoutes.js");
 
 require("../db/conn"); // MySQL Connection
 
@@ -59,6 +64,16 @@ const PORT = process.env.PORT || 3001; // Node Port
 
 const app = express(); // Express Server Instance
 const server = http.createServer(app); // Web Socket Server Instance
+const configuredTrustProxyHops = Number.parseInt(process.env.TRUST_PROXY_HOPS, 10);
+
+// Keep direct deployments safe by default. Set TRUST_PROXY_HOPS=1 only when
+// this app is exclusively behind one trusted proxy such as nginx.
+app.set(
+    "trust proxy",
+    Number.isInteger(configuredTrustProxyHops) && configuredTrustProxyHops > 0
+        ? configuredTrustProxyHops
+        : false
+);
 
 // Allowed Origins
 
@@ -104,6 +119,18 @@ async function startServer() {
         app.use(sqlInjectionGuard); // Additional Layer of SQL Injection Defence Mechanism & IP Logger
         app.use(fakeServerHeaders); // Spoof headers. Confuses Attacker
         app.use(hpp()); // Prevents HTTP Parameter Pollution
+        app.use(anonymousVisitorLogger); // Bounded, anonymous public-page visitor logs
+        // These routes must run before express.static below. Otherwise a
+        // visitor could fetch protected HTML files directly and bypass login.
+        app.get(["/dashboard", "/dashboard.html"], mongodbAuthMiddleware, (req, res) => {
+            return res.sendFile(path.join(__dirname, "../public/dashboard.html"));
+        });
+        app.get("/profile.html", mongodbAuthMiddleware, (req, res) => {
+            return res.sendFile(path.join(__dirname, "../public/profile.html"));
+        });
+        app.get("/falcon-video-generator.html", mongodbAuthMiddleware, (req, res) => {
+            return res.sendFile(path.join(__dirname, "../public/falcon-video-generator.html"));
+        });
         // Serve CSS, JavaScript, images, and other public assets from an absolute path.
         // This remains reliable when Node is launched by nginx, systemd, PM2, or nodemon.
         app.use(express.static(path.join(__dirname, "../public"), { index: false }));
@@ -146,12 +173,16 @@ async function startServer() {
             })
         );
 
+        // Connection to Mongodb Database
+        connectDB();
+
         // Main landing page for localhost, a LAN IP, and deployed domains.
         app.get("/", (req, res) => res.sendFile(path.join(__dirname, "../public/index.html")));
         app.get("/about", (req, res) => res.sendFile(path.join(__dirname, "../public/about.html")));
         app.get("/contact", (req, res) => res.sendFile(path.join(__dirname, "../public/contact.html")));
         app.get("/login", (req, res) => res.sendFile(path.join(__dirname, "../public/login.html")));
         app.get("/register", (req, res) => res.sendFile(path.join(__dirname, "../public/register.html")));
+        app.get("/profile", mongodbAuthMiddleware, (req, res) => res.sendFile(path.join(__dirname, "../public/profile.html")));
         app.get("/bangalore-status", (req, res) => res.sendFile(path.join(__dirname, "../public/bangalore-status.html")));
         app.get("/banglore-status", (req, res) => res.redirect(301, "/bangalore-status"));
         app.get("/delhi-status", (req, res) => res.sendFile(path.join(__dirname, "../public/delhi-status.html")));
@@ -165,18 +196,20 @@ async function startServer() {
 
         // Router Middlewares
 
-        app.use("/auth", authRoutes); // Authentication routes
+        // Keep the established MySQL authentication API unchanged. MongoDB
+        // JWT auth lives alongside it under its own namespace.
+        app.use("/auth", authRoutes);
+        app.use("/auth/mongo", mongoAuthRoutes);
         app.use("/ai", aiRoutes); // AI Models Router
         app.use("/admin", adminRoutes) // Admin Router
         app.use("/adsb", adsbRoutes) // Adsb Router
         app.use("/api",apiRoutes) // ADSBLOL, AIRCRAFTS.LIVE & AIRNAVRADAR REST Endpoints
+        app.use("/", privateStatsRoutes); // JWT-protected dashboard stats
         app.use("/", aiVideoGenerationRoutes); // Falcon Video Generator page and image uploads
         app.use("/live-map", liveMapRoutes); // Independent ADSBHub TCP map pipeline
         app.use("/", exploreRoutes); // Aircraft callsign search page
         app.use("/", watchlistRoutes); // Landing-page watchlist requests
         app.use("/", trackedAircraftRoutes) // Tracked aircraft cache endpoint
-        app.set("trust proxy", false);
-
         // XSS Sanitization Eg
         // const clean = xss(
         //    '<img src=x onerror=alert(1)>'

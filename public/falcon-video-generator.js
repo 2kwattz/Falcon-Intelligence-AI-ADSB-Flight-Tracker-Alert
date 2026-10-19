@@ -11,13 +11,9 @@
   const prompt = $("#video-prompt");
   const promptCount = $("#prompt-count");
   const form = $("#video-generator-form");
+  const generateButton = $("#generate-video-button");
   const previewDialog = $("#image-preview-dialog");
   const previewImage = $("#image-preview");
-  const passcodeDialog = $("#passcode-dialog");
-  const passcodeForm = $("#passcode-form");
-  const passcodeInput = $("#generation-passcode");
-  const passcodeStatus = $("#passcode-status");
-  const passcodeSubmit = $("#passcode-submit");
   const uploadedItems = [];
   let activeUploads = 0;
 
@@ -28,11 +24,6 @@
   function setStatus(message, tone = "") {
     formStatus.textContent = message;
     formStatus.className = `form-status${tone ? ` ${tone}` : ""}`;
-  }
-
-  function setPasscodeStatus(message, tone = "") {
-    passcodeStatus.textContent = message;
-    passcodeStatus.className = `passcode-status${tone ? ` ${tone}` : ""}`;
   }
 
   function updateUploadLimit() {
@@ -122,6 +113,10 @@
         headers: { Accept: "application/json" }
       });
       const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        window.location.assign("/login");
+        return;
+      }
       if (!response.ok || !payload.status) throw new Error(payload.message || "Could not remove the image.");
 
       removeItemFromList(item);
@@ -146,6 +141,12 @@
       });
       request.addEventListener("load", () => {
         const response = request.response || {};
+        if (request.status === 401) {
+          window.location.assign("/login");
+          markItem(item, "failed", "Sign in is required to upload images");
+          resolve();
+          return;
+        }
         if (request.status >= 200 && request.status < 300 && response.status) {
           const uploadedFile = response.files && response.files[0];
           if (uploadedFile && uploadedFile.filename) {
@@ -224,14 +225,7 @@
     if (event.target === previewDialog) previewDialog.close();
   });
 
-  function openPasscodeDialog() {
-    passcodeInput.value = "";
-    setPasscodeStatus("");
-    passcodeDialog.showModal();
-    requestAnimationFrame(() => passcodeInput.focus());
-  }
-
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!prompt.value.trim()) {
       setStatus("Add a video prompt before generating.", "error");
@@ -250,24 +244,8 @@
       setStatus("Upload the failed reference images again before generating.", "error");
       return;
     }
-    openPasscodeDialog();
-  });
-
-  $("#passcode-close").addEventListener("click", () => passcodeDialog.close());
-  $("#passcode-cancel").addEventListener("click", () => passcodeDialog.close());
-  passcodeDialog.addEventListener("click", (event) => {
-    if (event.target === passcodeDialog) passcodeDialog.close();
-  });
-  passcodeForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    if (!passcodeInput.value) {
-      setPasscodeStatus("Enter the generation passcode.", "error");
-      passcodeInput.focus();
-      return;
-    }
-
-    passcodeSubmit.disabled = true;
-    setPasscodeStatus("Authorizing request…");
+    generateButton.disabled = true;
+    setStatus("Authorizing video request…");
     try {
       const referenceImages = uploadedItems
         .filter((item) => item.state === "complete" && item.serverFilename)
@@ -275,24 +253,25 @@
       const response = await fetch("/api/ai-video/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           prompt: prompt.value.trim(),
           model: $("#video-model").value,
-          passcode: passcodeInput.value,
           referenceImages
         })
       });
       const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        window.location.assign("/login");
+        return;
+      }
       if (!response.ok || !payload.status) throw new Error(payload.message || "Could not authorize the video request.");
 
-      passcodeDialog.close();
-      passcodeInput.value = "";
       setStatus(payload.message, "success");
     } catch (error) {
-      setPasscodeStatus(error.message, "error");
-      passcodeInput.select();
+      setStatus(error.message, "error");
     } finally {
-      passcodeSubmit.disabled = false;
+      generateButton.disabled = false;
     }
   });
 

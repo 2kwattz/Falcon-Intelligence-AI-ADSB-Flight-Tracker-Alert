@@ -6,6 +6,7 @@
   <meta name="description" content="About Falcon Intelligence and support the project with a donation.">
   <title>About | Falcon Intelligence</title>
   <link rel="stylesheet" href="/about.css">
+  <link rel="stylesheet" href="/shared-nav.css">
 </head>
 <body>
   <a class="skip-link" href="#about-content">Skip to about content</a>
@@ -22,7 +23,7 @@
           <a class="active" href="/about">About</a>
           <a href="/contact">Contact</a>
         </div>
-        <a class="nav-cta" href="/login">Login</a>
+        <a class="nav-cta" href="/login" data-auth-nav>Login</a>
       </nav>
     </header>
 
@@ -70,6 +71,25 @@
         </div>
       </section>
 
+      <section class="private-stats-section" aria-labelledby="private-stats-title">
+        <div class="private-stats-heading">
+          <div>
+            <p class="eyebrow">Operations dashboard</p>
+            <h2 id="private-stats-title">Station &amp; feed stats</h2>
+            <p>Live monitoring details and configured alert recipients are available after you sign in.</p>
+          </div>
+          <span class="private-badge">Login required</span>
+        </div>
+
+        <div class="stats-lock">
+          <div>
+            <h3>Open the dashboard</h3>
+            <p>Your Falcon account now controls access; the separate stats password has been removed.</p>
+          </div>
+          <a class="button" href="/login">Sign in to dashboard</a>
+        </div>
+      </section>
+
       <section class="donation-section" aria-labelledby="donation-title">
         <div class="donation-copy">
           <p class="eyebrow">Support the project</p>
@@ -97,6 +117,7 @@
 
   <footer class="site-footer">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script src="/nav-auth.js" defer></script>
   <script src="/about.js" defer></script>
 </body>
 </html>

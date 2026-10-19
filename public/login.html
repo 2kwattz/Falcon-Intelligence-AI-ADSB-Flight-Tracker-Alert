@@ -6,6 +6,7 @@
   <meta name="description" content="Log in to Falcon Intelligence.">
   <title>Login | Falcon Intelligence</title>
   <link rel="stylesheet" href="/auth.css">
+  <link rel="stylesheet" href="/shared-nav.css">
 </head>
 <body data-auth-page="login">
   <a class="skip-link" href="#login-title">Skip to login form</a>
@@ -21,7 +22,7 @@
         <a href="/about">About</a>
         <a href="/contact">Contact</a>
       </div>
-      <a class="nav-cta" href="/register">Register</a>
+      <a class="nav-cta" href="/register" data-auth-nav>Register</a>
     </nav>
   </header>
 
@@ -52,6 +53,7 @@
   </main>
 
   <footer class="site-footer shell">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
+  <script src="/nav-auth.js" defer></script>
   <script src="/auth.js" defer></script>
 </body>
 </html>

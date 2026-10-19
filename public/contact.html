@@ -63,6 +63,7 @@
     @media (max-width:710px) { .shell { padding:0 17px; } .nav { min-height:70px; } .brand-mark { width:46px; height:46px; flex-basis:46px; } .menu-button { display:block; } .nav-links { position:absolute; top:66px; right:17px; left:17px; z-index:2; display:none; padding:16px; border:1px solid var(--line); border-radius:10px; background:#0b1825; flex-direction:column; align-items:stretch; gap:17px; } .nav-links.open { display:flex; } .nav-links a.active::after { display:none; } main { min-height:calc(100vh - 70px); padding:34px 17px 64px; } }
     @media (max-width:700px) { .contact-card { grid-template-columns:1fr; } .intro { padding:34px 25px; border-right:0; border-bottom:1px solid #294258; } form { padding:30px 25px; } form .button { width:100%; } }
   </style>
+  <link rel="stylesheet" href="/shared-nav.css">
 </head>
 <body>
   <a class="skip-link" href="#contact-title">Skip to contact form</a>
@@ -78,7 +79,7 @@
         <a href="/about">About</a>
         <a class="active" href="/contact">Contact</a>
       </div>
-      <a class="nav-cta" href="/login">Login</a>
+      <a class="nav-cta" href="/login" data-auth-nav>Login</a>
     </nav>
   </header>
   <main class="shell contact-shell">
@@ -94,6 +95,7 @@
     </section>
   </main>
   <footer class="site-footer shell">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
+  <script src="/nav-auth.js" defer></script>
   <script>
     (() => {
       const menu = document.querySelector(".menu-button");

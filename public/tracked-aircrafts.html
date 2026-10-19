@@ -7,6 +7,7 @@
   <title>Tracked Aircraft | Falcon Intelligence</title>
   <link rel="stylesheet" href="/tracked-aircrafts.css">
   <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/shared-nav.css">
 </head>
 <body>
   <a class="skip-link" href="#aircraft-results">Skip to aircraft results</a>
@@ -23,7 +24,7 @@
           <a href="/about">About</a>
           <a href="/contact">Contact</a>
         </div>
-        <a class="nav-cta" href="/login">Login</a>
+        <a class="nav-cta" href="/login" data-auth-nav>Login</a>
         <div class="archive-controls"><div class="connection-status" id="connection-status" aria-live="polite"><span></span> Loading archive</div><button class="button button-secondary" type="button" id="refresh-button">Refresh data</button></div>
       </nav>
     </header>
@@ -113,6 +114,7 @@
   </template>
   <footer class="site-footer">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
   <script src="/vendor/leaflet/leaflet.js" defer></script>
+  <script src="/nav-auth.js" defer></script>
   <script src="/tracked-aircrafts.js" defer></script>
 </body>
 </html>

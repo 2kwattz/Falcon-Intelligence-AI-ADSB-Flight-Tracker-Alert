@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Falcon Intelligence operations dashboard.">
+  <title>Dashboard | Falcon Intelligence</title>
+  <link rel="stylesheet" href="/dashboard.css">
+  <link rel="stylesheet" href="/shared-nav.css">
+</head>
+<body>
+  <a class="skip-link" href="#dashboard-content">Skip to dashboard content</a>
+  <header class="site-header">
+    <nav class="nav shell" aria-label="Main navigation">
+      <a class="brand" href="/" aria-label="Falcon Intelligence home"><span class="brand-mark"><i class="laser-eye left" aria-hidden="true"></i><i class="laser-eye right" aria-hidden="true"></i><img src="/assets/falcon-laser-logo.png" alt=""></span><span><strong>FALCON</strong><small>INTELLIGENCE</small></span></a>
+      <button class="menu-button" type="button" aria-label="Open menu" aria-expanded="false">&#9776;</button>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/tracked-aircrafts">Intelligence Archive</a>
+        <a href="/live-map">Live Map</a>
+        <a href="/explore">Explore</a>
+        <a href="/about">About</a>
+        <a href="/contact">Contact</a>
+      </div>
+      <a class="nav-cta" href="/login" data-auth-nav>Login</a>
+    </nav>
+  </header>
+
+  <main class="shell dashboard" id="dashboard-content">
+    <section class="dashboard-heading" aria-labelledby="dashboard-title">
+      <div>
+        <p class="eyebrow">Authenticated operations</p>
+        <h1 id="dashboard-title">Welcome to your dashboard</h1>
+        <p class="lede" id="dashboard-welcome">Loading your operational view…</p>
+      </div>
+      <div class="dashboard-actions">
+        <time id="dashboard-updated">Loading…</time>
+        <button class="button secondary" id="refresh-button" type="button">Refresh</button>
+      </div>
+    </section>
+
+    <p class="dashboard-status" id="dashboard-status" aria-live="polite"></p>
+
+    <div class="dashboard-tabs" role="tablist" aria-label="Dashboard views">
+      <button class="dashboard-tab active" id="overview-tab" type="button" role="tab" aria-selected="true" aria-controls="dashboard-overview" data-dashboard-tab="overview">Overview</button>
+      <button class="dashboard-tab" id="visitor-logs-tab" type="button" role="tab" aria-selected="false" aria-controls="visitor-logs-panel" data-dashboard-tab="visitor-logs">Visitor logs</button>
+    </div>
+
+    <div id="dashboard-overview" role="tabpanel" aria-labelledby="overview-tab">
+      <section class="summary-grid" id="summary-grid" aria-label="Dashboard summary">
+        <article class="summary-card loading"><span>Application uptime</span><strong>—</strong><p>Loading dashboard data</p></article>
+        <article class="summary-card loading"><span>Configured alerts</span><strong>—</strong><p>Loading dashboard data</p></article>
+        <article class="summary-card loading"><span>Tracked aircraft</span><strong>—</strong><p>Loading dashboard data</p></article>
+      </section>
+
+      <section class="dashboard-section" aria-labelledby="server-health-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Ubuntu main server</p><h2 id="server-health-title">Server health</h2></div>
+          <p>Live RAM, CPU, storage, MongoDB, Redis, uptime, and Node process measurements collected on the backend host.</p>
+        </div>
+        <div class="health-grid" id="health-grid" aria-live="polite"></div>
+      </section>
+
+      <section class="dashboard-section" aria-labelledby="stations-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Receiver health</p><h2 id="stations-title">Stations</h2></div>
+          <p>Current state from each configured station feed.</p>
+        </div>
+        <div class="station-grid" id="station-grid" aria-live="polite"></div>
+      </section>
+
+      <section class="dashboard-section" aria-labelledby="receiving-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Ingestion</p><h2 id="receiving-title">Receiving data</h2></div>
+          <p>ADSBHub is measured from its existing TCP feed. ADSB.lol re-api is checked once when this dashboard loads.</p>
+        </div>
+        <div class="feed-grid" id="receiving-feed-grid" aria-live="polite"></div>
+      </section>
+
+      <section class="dashboard-section" aria-labelledby="feeding-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Distribution</p><h2 id="feeding-title">Feeding data</h2></div>
+          <p>Ubuntu checks for each feeder's systemd service or process. Refresh runs these checks again; no background interval is used.</p>
+        </div>
+        <div class="feed-grid" id="feeding-feed-grid" aria-live="polite"></div>
+      </section>
+
+      <section class="dashboard-section" aria-labelledby="alerts-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Current configuration</p><h2 id="alerts-title">Alert phone numbers</h2></div>
+          <p>Only numbers currently configured in the server environment are shown.</p>
+        </div>
+        <div class="phone-grid" id="phone-grid" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <section class="dashboard-section visitor-logs-panel" id="visitor-logs-panel" role="tabpanel" aria-labelledby="visitor-logs-tab" hidden>
+      <div class="section-heading">
+        <div><p class="eyebrow">Anonymous public traffic</p><h2>Visitor logs</h2></div>
+        <p>One record per IP address. Duplicate page views are ignored; records automatically expire 24 hours after first collection.</p>
+      </div>
+      <div class="visitor-log-controls">
+        <label class="visitor-log-switch" for="visitor-log-enabled">
+          <input id="visitor-log-enabled" type="checkbox" role="switch" aria-describedby="visitor-log-toggle-help">
+          <span class="visitor-log-switch-track" aria-hidden="true"></span>
+          <span><strong>Enable visitor logging</strong><small id="visitor-log-toggle-help">Turn off to stop collecting new anonymous visitor records.</small></span>
+        </label>
+        <p class="visitor-log-note" id="visitor-log-note" aria-live="polite">Loading visitor-log settings…</p>
+      </div>
+      <p class="visitor-log-summary" id="visitor-log-summary" aria-live="polite">Loading visitor logs…</p>
+      <div class="visitor-log-grid" id="visitor-log-grid" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer shell">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
+  <script src="/nav-auth.js" defer></script>
+  <script src="/dashboard.js" defer></script>
+</body>
+</html>

@@ -6,6 +6,7 @@
   <meta name="description" content="Search live aircraft data by callsign across ADS-B providers">
   <title>Explore Aircraft | Falcon Intelligence</title>
   <link rel="stylesheet" href="/explore.css">
+  <link rel="stylesheet" href="/shared-nav.css">
 </head>
 <body>
   <a class="skip-link" href="#search-aircraft">Skip to aircraft search</a>
@@ -22,7 +23,7 @@
           <a href="/about">About</a>
           <a href="/contact">Contact</a>
         </div>
-        <a class="nav-cta" href="/login">Login</a>
+        <a class="nav-cta" href="/login" data-auth-nav>Login</a>
       </nav>
     </header>
 
@@ -79,6 +80,7 @@
     </main>
   </div>
   <footer class="site-footer">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
+  <script src="/nav-auth.js" defer></script>
   <script src="/explore.js" defer></script>
 </body>
 </html>
