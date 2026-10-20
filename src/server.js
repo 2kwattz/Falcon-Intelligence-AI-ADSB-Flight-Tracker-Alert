@@ -22,6 +22,7 @@ const winston = require("winston"); // Overall Logger
 const authMiddleware = require("../middlewares/authMiddleware");
 const mongodbAuthMiddleware = require("../middlewares/mongodbAuthMiddleware");
 const connectDB = require("../db/mongodbConn.js")
+const { hydrateCityAlertSettings } = require("../services/cityAlertSettings");
 
 const { ADSB_FLIGHT_JSON_URL } = require("../utils/globals.js");
 
@@ -174,7 +175,15 @@ async function startServer() {
         );
 
         // Connection to Mongodb Database
-        connectDB();
+        connectDB().then(async (connected) => {
+            if (!connected) return;
+
+            try {
+                await hydrateCityAlertSettings();
+            } catch (error) {
+                console.error("Unable to load saved city alert settings:", error.message);
+            }
+        });
 
         // Main landing page for localhost, a LAN IP, and deployed domains.
         app.get("/", (req, res) => res.sendFile(path.join(__dirname, "../public/index.html")));

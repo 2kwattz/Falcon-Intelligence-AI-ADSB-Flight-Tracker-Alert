@@ -46,6 +46,7 @@
       <button class="dashboard-tab" id="server-health-tab" type="button" role="tab" aria-selected="false" aria-controls="server-health-panel" data-dashboard-tab="server-health">Server health</button>
       <button class="dashboard-tab" id="sdr-health-tab" type="button" role="tab" aria-selected="false" aria-controls="sdr-health-panel" data-dashboard-tab="sdr-health">SDR health</button>
       <button class="dashboard-tab" id="feed-clients-tab" type="button" role="tab" aria-selected="false" aria-controls="feed-clients-panel" data-dashboard-tab="feed-clients">Feed clients</button>
+      <button class="dashboard-tab" id="flight-alerts-tab" type="button" role="tab" aria-selected="false" aria-controls="flight-alerts-panel" data-dashboard-tab="flight-alerts">Flight alerts</button>
       <button class="dashboard-tab" id="visitor-logs-tab" type="button" role="tab" aria-selected="false" aria-controls="visitor-logs-panel" data-dashboard-tab="visitor-logs">Visitor logs</button>
     </div>
 
@@ -140,6 +141,37 @@
           <p>Ubuntu checks for each feeder's systemd service or process. Refresh runs these checks again; no background interval is used.</p>
         </div>
         <div class="feed-grid" id="feeding-feed-grid" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <div id="flight-alerts-panel" role="tabpanel" aria-labelledby="flight-alerts-tab" hidden>
+      <section class="dashboard-section" aria-labelledby="city-alert-radii-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Remote ADS-B alerts</p><h2 id="city-alert-radii-title">City alert radii</h2></div>
+          <p>Changes take effect on the Bangalore, Delhi, and Hyderabad alert loops. Vadodara remains on its local SDR feed.</p>
+        </div>
+        <form class="city-alert-radii-form" id="city-alert-radii-form">
+          <div class="city-alert-radii-grid">
+            <label class="city-alert-radius-field" for="bangalore-alert-radius"><span>Bangalore</span><span class="radius-input"><input id="bangalore-alert-radius" name="bangalore" type="number" min="1" max="1000" step="0.1" inputmode="decimal" required><small>miles</small></span></label>
+            <label class="city-alert-radius-field" for="delhi-alert-radius"><span>Delhi</span><span class="radius-input"><input id="delhi-alert-radius" name="delhi" type="number" min="1" max="1000" step="0.1" inputmode="decimal" required><small>miles</small></span></label>
+            <label class="city-alert-radius-field" for="hyderabad-alert-radius"><span>Hyderabad</span><span class="radius-input"><input id="hyderabad-alert-radius" name="hyderabad" type="number" min="1" max="1000" step="0.1" inputmode="decimal" required><small>miles</small></span></label>
+          </div>
+          <div class="city-alert-radii-actions"><p id="city-alert-radii-note" aria-live="polite">Loading saved radii…</p><button class="button" id="city-alert-radii-save" type="submit">Save radii</button></div>
+        </form>
+      </section>
+
+      <section class="dashboard-section" aria-labelledby="city-alert-emails-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Remote ADS-B alerts</p><h2 id="city-alert-emails-title">City alert email recipients</h2></div>
+          <p>Add or remove the email recipients for each remote city. Changes apply to subsequent alert notifications.</p>
+        </div>
+        <div class="city-alert-recipients-grid" id="city-alert-recipients-grid" aria-live="polite"></div>
+        <form class="city-alert-recipient-form" id="city-alert-recipient-form">
+          <label><span>City</span><select name="cityId" aria-label="Alert city"><option value="bangalore">Bangalore</option><option value="delhi">Delhi</option><option value="hyderabad">Hyderabad</option></select></label>
+          <label class="city-alert-recipient-email"><span>Email address</span><input name="email" type="email" maxlength="254" autocomplete="email" placeholder="name@example.com" required></label>
+          <button class="button" id="city-alert-recipient-add" type="submit">Add email</button>
+        </form>
+        <p class="city-alert-recipient-note" id="city-alert-recipient-note" aria-live="polite">Loading saved recipients…</p>
       </section>
     </div>
 

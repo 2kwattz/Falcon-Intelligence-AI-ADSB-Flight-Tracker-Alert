@@ -7,6 +7,13 @@
   const feedingFeedGrid = $("#feeding-feed-grid");
   const healthGrid = $("#health-grid");
   const phoneGrid = $("#phone-grid");
+  const cityAlertRadiiForm = $("#city-alert-radii-form");
+  const cityAlertRadiiNote = $("#city-alert-radii-note");
+  const cityAlertRadiiSaveButton = $("#city-alert-radii-save");
+  const cityAlertRecipientsGrid = $("#city-alert-recipients-grid");
+  const cityAlertRecipientForm = $("#city-alert-recipient-form");
+  const cityAlertRecipientNote = $("#city-alert-recipient-note");
+  const cityAlertRecipientAddButton = $("#city-alert-recipient-add");
   const adsbReceiverSummary = $("#adsb-receiver-summary");
   const adsbHealthOverview = $("#adsb-health-overview");
   const adsbMetricsGrid = $("#adsb-metrics-grid");
@@ -37,6 +44,7 @@
     "server-health": serverHealthPanel,
     "sdr-health": sdrHealthPanel,
     "feed-clients": feedClientsPanel,
+    "flight-alerts": $("#flight-alerts-panel"),
     "visitor-logs": visitorLogsPanel
   };
   let activeDashboardTab = "overview";
@@ -303,6 +311,36 @@
     receivingFeedGrid.innerHTML = receivingData.map((feed) => statsCard(feed, "feed")).join("") || '<p class="empty-state">No receiving sources are configured.</p>';
     feedingFeedGrid.innerHTML = feedingData.map((feed) => statsCard(feed, "feed", feed.metric)).join("") || '<p class="empty-state">No feeder clients are configured.</p>';
     phoneGrid.innerHTML = phones.map((phone) => `<article class="phone-card"><span>${escapeHtml(phone.label)}</span><strong>${escapeHtml(phone.number)}</strong><small>${escapeHtml(phone.variable)}</small></article>`).join("") || '<p class="empty-state">No alert phone numbers are configured.</p>';
+    renderCityAlertRadii(data.cityAlertRadii);
+    renderCityAlertEmailRecipients(data.cityAlertEmailRecipients);
+  };
+
+  const renderCityAlertRadii = (radii) => {
+    const configuredRadii = radii || {};
+    ["bangalore", "delhi", "hyderabad"].forEach((cityId) => {
+      const input = cityAlertRadiiForm.elements.namedItem(cityId);
+      const radiusMiles = Number(configuredRadii[cityId]);
+      if (input && Number.isFinite(radiusMiles)) input.value = String(radiusMiles);
+    });
+    cityAlertRadiiNote.textContent = "Saved radii are active on the remote city alert loops.";
+  };
+
+  const cityAlertRecipientCard = (cityId, label, recipients) => {
+    const emails = Array.isArray(recipients) ? recipients : [];
+    const recipientList = emails.length
+      ? emails.map((email) => `<li><span>${escapeHtml(email)}</span><button class="city-alert-recipient-remove" type="button" data-city-id="${cityId}" data-email="${encodeURIComponent(email)}" aria-label="Remove ${escapeHtml(email)} from ${label} alerts">Remove</button></li>`).join("")
+      : '<li class="city-alert-recipient-empty">No email recipients configured.</li>';
+    return `<article class="city-alert-recipient-card"><h3>${label}</h3><ul class="city-alert-recipient-list">${recipientList}</ul></article>`;
+  };
+
+  const renderCityAlertEmailRecipients = (recipientsByCity) => {
+    const recipients = recipientsByCity || {};
+    cityAlertRecipientsGrid.innerHTML = [
+      cityAlertRecipientCard("bangalore", "Bangalore", recipients.bangalore),
+      cityAlertRecipientCard("delhi", "Delhi", recipients.delhi),
+      cityAlertRecipientCard("hyderabad", "Hyderabad", recipients.hyderabad)
+    ].join("");
+    cityAlertRecipientNote.textContent = "Saved recipients receive subsequent alerts for their selected city.";
   };
 
   const loadDashboard = async () => {
@@ -393,6 +431,95 @@
     }
   };
 
+  const updateCityAlertRadii = async (event) => {
+    event.preventDefault();
+    if (!cityAlertRadiiForm.reportValidity()) return;
+
+    const radii = Object.fromEntries(
+      ["bangalore", "delhi", "hyderabad"].map((cityId) => [
+        cityId,
+        Number(cityAlertRadiiForm.elements.namedItem(cityId).value)
+      ])
+    );
+    cityAlertRadiiSaveButton.disabled = true;
+    cityAlertRadiiNote.textContent = "Saving radii…";
+
+    try {
+      const response = await fetch("/api/dashboard/city-alert-radii", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ radii })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        window.location.assign("/login");
+        return;
+      }
+      if (!response.ok || !payload.success) throw new Error(payload.message || "Unable to update city alert radii.");
+      renderCityAlertRadii(payload.cityAlertRadii);
+      setStatus("City alert radii saved.");
+    } catch (error) {
+      cityAlertRadiiNote.textContent = "City alert radii could not be updated.";
+      setStatus(error.message || "Unable to update city alert radii.", true);
+    } finally {
+      cityAlertRadiiSaveButton.disabled = false;
+    }
+  };
+
+  const changeCityAlertEmailRecipient = async (method, cityId, email) => {
+    cityAlertRecipientAddButton.disabled = true;
+    cityAlertRecipientNote.textContent = `${method === "DELETE" ? "Removing" : "Adding"} email recipient…`;
+
+    try {
+      const response = await fetch("/api/dashboard/city-alert-email-recipients", {
+        method,
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ cityId, email })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        window.location.assign("/login");
+        return false;
+      }
+      if (!response.ok || !payload.success) throw new Error(payload.message || "Unable to update city alert email recipients.");
+      renderCityAlertEmailRecipients(payload.cityAlertEmailRecipients);
+      setStatus(`City alert email recipient ${method === "DELETE" ? "removed" : "added"}.`);
+      return true;
+    } catch (error) {
+      cityAlertRecipientNote.textContent = "City alert email recipients could not be updated.";
+      setStatus(error.message || "Unable to update city alert email recipients.", true);
+      return false;
+    } finally {
+      cityAlertRecipientAddButton.disabled = false;
+    }
+  };
+
+  const addCityAlertEmailRecipient = async (event) => {
+    event.preventDefault();
+    if (!cityAlertRecipientForm.reportValidity()) return;
+
+    const cityId = cityAlertRecipientForm.elements.namedItem("cityId").value;
+    const emailInput = cityAlertRecipientForm.elements.namedItem("email");
+    const didSave = await changeCityAlertEmailRecipient("POST", cityId, emailInput.value);
+    if (didSave) emailInput.value = "";
+  };
+
+  const removeCityAlertEmailRecipient = async (event) => {
+    const button = event.target.closest(".city-alert-recipient-remove");
+    if (!button) return;
+
+    let email;
+    try {
+      email = decodeURIComponent(button.dataset.email || "");
+    } catch {
+      setStatus("Unable to identify the selected email recipient.", true);
+      return;
+    }
+    await changeCityAlertEmailRecipient("DELETE", button.dataset.cityId, email);
+  };
+
   const setDashboardTab = (tab) => {
     activeDashboardTab = Object.hasOwn(dashboardPanels, tab) ? tab : "overview";
     Object.entries(dashboardPanels).forEach(([panelTab, panel]) => {
@@ -461,6 +588,9 @@
   gainModeAutomatic.addEventListener("change", setGainControlMode);
   gainModeManual.addEventListener("change", setGainControlMode);
   gainControlForm.addEventListener("submit", updateReadsbGain);
+  cityAlertRadiiForm.addEventListener("submit", updateCityAlertRadii);
+  cityAlertRecipientForm.addEventListener("submit", addCityAlertEmailRecipient);
+  cityAlertRecipientsGrid.addEventListener("click", removeCityAlertEmailRecipient);
   initMenu();
   loadDashboard();
 })();

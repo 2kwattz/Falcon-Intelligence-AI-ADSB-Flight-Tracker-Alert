@@ -22,6 +22,10 @@ const {
     CITY_ALERT_NOTIFICATION_END_HOUR,
     areCityAlertNotificationsEnabled
 } = require("../utils/cityAlertNotificationWindow");
+const {
+    getCityAlertSettings,
+    onCityAlertSettingsChange
+} = require("../services/cityAlertSettings");
 
 const cleanXSS = require("../utils/xssCleaner");
 
@@ -46,7 +50,6 @@ const HYDERABAD_CENTER = {
 };
 const ADSBHUB_SOURCE_ID = "adsbhub-tcp";
 const ADSBHUB_SOURCE_NAME = "ADSBHub TCP";
-const CITY_ALERT_RADIUS_MILES = 100;
 const CITY_ALERT_INTERVAL_MS = 1000;
 const CITY_ALERT_EXPIRY_SECONDS = 20 * 60;
 const EARTH_RADIUS_MILES = 3958.7613;
@@ -70,22 +73,6 @@ const gmailTransporter = nodemailer.createTransport({
         pass: process.env.GMAIL_SMTP_PASSWORD
     }
 });
-
-const bangaloreAlertEmails = [
-    "roshan.bhatia.blueera@gmail.com",
-    "prakashbhatia1970@gmail.com"
-];
-
-const delhiAlertEmails = [
-    "roshan.bhatia.blueera@gmail.com",
-    "prakashbhatia1970@gmail.com"
-];
-
-const hyderabadAlertEmails = [
-    "roshan.bhatia.blueera@gmail.com",
-    "prakashbhatia1970@gmail.com",
-    "lokeshvarma211@gmail.com"
-];
 
 const bangaloreAlertPhoneNumbers = [
     process.env.BANGALORE_ALERT_PHONE_1,
@@ -307,15 +294,17 @@ function buildIafAircraftHexLookup(cityIafData) {
     return lookup;
 }
 
+const initialCityAlertSettings = getCityAlertSettings();
+
 const cityAlertConfigs = [
     {
         id: "bangalore",
         label: "Bangalore",
         center: BANGALORE_CENTER,
-        radiusMiles: CITY_ALERT_RADIUS_MILES,
+        radiusMiles: initialCityAlertSettings.radii.bangalore,
         intervalMs: CITY_ALERT_INTERVAL_MS,
         expirySeconds: CITY_ALERT_EXPIRY_SECONDS,
-        emails: bangaloreAlertEmails,
+        emails: initialCityAlertSettings.emailRecipients.bangalore,
         callPhones: bangaloreAlertPhoneNumbers,
         callFrom: BANGALORE_AIRSPACE_CALLER_ID,
         enableCallAlerts: true,
@@ -327,10 +316,10 @@ const cityAlertConfigs = [
         id: "delhi",
         label: "Delhi",
         center: DELHI_CENTER,
-        radiusMiles: CITY_ALERT_RADIUS_MILES,
+        radiusMiles: initialCityAlertSettings.radii.delhi,
         intervalMs: CITY_ALERT_INTERVAL_MS,
         expirySeconds: CITY_ALERT_EXPIRY_SECONDS,
-        emails: delhiAlertEmails,
+        emails: initialCityAlertSettings.emailRecipients.delhi,
         callPhones: [],
         callFrom: TWILIO_CALLER_ID,
         enableCallAlerts: false,
@@ -342,10 +331,10 @@ const cityAlertConfigs = [
         id: "hyderabad",
         label: "Hyderabad",
         center: HYDERABAD_CENTER,
-        radiusMiles: CITY_ALERT_RADIUS_MILES,
+        radiusMiles: initialCityAlertSettings.radii.hyderabad,
         intervalMs: CITY_ALERT_INTERVAL_MS,
         expirySeconds: CITY_ALERT_EXPIRY_SECONDS,
-        emails: hyderabadAlertEmails,
+        emails: initialCityAlertSettings.emailRecipients.hyderabad,
         callPhones: hyderabadAlertPhoneNumbers,
         callFrom: HYDERABAD_AIRSPACE_CALLER_ID,
         enableCallAlerts: true,
@@ -368,6 +357,18 @@ const cityAlertConfigs = [
 }));
 
 const cityAlertConfigById = new Map(cityAlertConfigs.map((config) => [config.id, config]));
+
+// Vadodara remains on its local SDR alert path. Only the ADSBHub-backed
+// Bangalore, Delhi, and Hyderabad loops consume dashboard-managed settings.
+onCityAlertSettingsChange((settings) => {
+    for (const [cityId, radiusMiles] of Object.entries(settings.radii)) {
+        const config = cityAlertConfigById.get(cityId);
+        if (!config) continue;
+
+        config.radiusMiles = radiusMiles;
+        config.emails = settings.emailRecipients[cityId];
+    }
+});
 
 async function shouldTriggerCityEmail(config, hexCode, email) {
     const key = `${config.id}-flight-alert:email:${hexCode}:${email}`;

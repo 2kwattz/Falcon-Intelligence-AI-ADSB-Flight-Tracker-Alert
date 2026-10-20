@@ -19,6 +19,14 @@ const {
     STATION_NAME,
     getLocalSdrAircraft
 } = require("../services/localSdrAircraftFeed");
+const {
+    getCityAlertRadii,
+    getCityAlertEmailRecipients,
+    updateCityAlertRadii,
+    addCityAlertEmailRecipient,
+    removeCityAlertEmailRecipient,
+    CityAlertSettingsError
+} = require("../services/cityAlertSettings");
 const { ADSB_FLIGHT_JSON_URL, READSB_AIRCRAFT_JSON_PATH } = require("../utils/globals");
 
 const router = express.Router();
@@ -941,7 +949,9 @@ async function buildDashboardStats(user) {
         graphs1090,
         receivingData,
         feedingData,
-        alertPhoneNumbers: phoneNumbersForDashboard()
+        alertPhoneNumbers: phoneNumbersForDashboard(),
+        cityAlertRadii: getCityAlertRadii(),
+        cityAlertEmailRecipients: getCityAlertEmailRecipients()
     };
 }
 
@@ -994,6 +1004,42 @@ async function updateVisitorLoggingSettings(req, res) {
         return res.status(503).json({
             success: false,
             message: "Visitor logging settings are unavailable because Redis is disconnected"
+        });
+    }
+}
+
+async function updateCityAlertRadiusSettings(req, res) {
+    try {
+        const cityAlertRadii = await updateCityAlertRadii(req.body?.radii);
+        res.set("Cache-Control", "no-store");
+        return res.status(200).json({ success: true, cityAlertRadii });
+    } catch (error) {
+        const statusCode = error instanceof CityAlertSettingsError ? error.statusCode : 500;
+        if (statusCode === 500) console.error("City alert radius dashboard update error:", error.message);
+        return res.status(statusCode).json({
+            success: false,
+            message: error.message || "Unable to update city alert radii"
+        });
+    }
+}
+
+async function changeCityAlertEmailRecipient(req, res) {
+    try {
+        const { cityId, email } = req.body || {};
+        const settings = req.method === "DELETE"
+            ? await removeCityAlertEmailRecipient(cityId, email)
+            : await addCityAlertEmailRecipient(cityId, email);
+        res.set("Cache-Control", "no-store");
+        return res.status(200).json({
+            success: true,
+            cityAlertEmailRecipients: settings.emailRecipients
+        });
+    } catch (error) {
+        const statusCode = error instanceof CityAlertSettingsError ? error.statusCode : 500;
+        if (statusCode === 500) console.error("City alert email recipient dashboard update error:", error.message);
+        return res.status(statusCode).json({
+            success: false,
+            message: error.message || "Unable to update city alert email recipients"
         });
     }
 }
@@ -1065,5 +1111,8 @@ router.get("/api/dashboard/graphs1090/:fileName", mongodbAuthMiddleware, sendGra
 router.get("/api/dashboard/visitor-logs", mongodbAuthMiddleware, sendVisitorLogs);
 router.put("/api/dashboard/visitor-logs/settings", mongodbAuthMiddleware, updateVisitorLoggingSettings);
 router.put("/api/dashboard/readsb/gain", mongodbAuthMiddleware, updateReadsbGain);
+router.put("/api/dashboard/city-alert-radii", mongodbAuthMiddleware, updateCityAlertRadiusSettings);
+router.post("/api/dashboard/city-alert-email-recipients", mongodbAuthMiddleware, changeCityAlertEmailRecipient);
+router.delete("/api/dashboard/city-alert-email-recipients", mongodbAuthMiddleware, changeCityAlertEmailRecipient);
 
 module.exports = router;
