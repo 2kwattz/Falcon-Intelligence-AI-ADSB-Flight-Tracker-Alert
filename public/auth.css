@@ -113,6 +113,9 @@ h1 { max-width:430px; margin:0 0 16px; font-size:clamp(2.25rem,5vw,3.7rem); line
 .auth-form { display:grid; gap:15px; padding:48px; }
 .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
 label { display:grid; gap:7px; color:var(--muted); font-size:.68rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; }
+/* The generic label rule above otherwise overrides the browser's [hidden]
+   rule, exposing the OTP input before a suspicious-login challenge exists. */
+#login-otp-field[hidden] { display:none; }
 .wide { grid-column:1 / -1; }
 input,select {
   width:100%;

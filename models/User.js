@@ -43,6 +43,27 @@ const userSchema = new mongoose.Schema(
       default: ""
     },
 
+    // Retain only coarse city-level data for anomalous-login checks.
+    lastLoginLocation: {
+      city: { type: String, trim: true, default: "" },
+      region: { type: String, trim: true, default: "" },
+      country: { type: String, trim: true, default: "" },
+      updatedAt: { type: Date, default: null }
+    },
+
+    // This is deliberately excluded from ordinary document queries and APIs.
+    pendingLoginOtp: {
+      challengeId: { type: String, select: false, default: "" },
+      hash: { type: String, select: false, default: "" },
+      expiresAt: { type: Date, select: false, default: null },
+      attempts: { type: Number, select: false, default: 0 },
+      location: {
+        city: { type: String, select: false, default: "" },
+        region: { type: String, select: false, default: "" },
+        country: { type: String, select: false, default: "" }
+      }
+    },
+
     email: {
       type: String,
       required: true,

@@ -1,4 +1,4 @@
-const iafData = {
+const hyderabadAlertAircrafts = {
     "allAircraft": {
         // "Airbus C-295W": [
         //     {
@@ -297,7 +297,7 @@ const iafData = {
             {
                 "Registration": "K5012",
                 "AircraftType": "Boeing 737",
-                "TypeCode": "B737",
+                "TypeCode": "B737",  
                 "AircraftOperator": "IndianAirForce",
                 "HexCode": "8002F6"
             },
@@ -315,7 +315,7 @@ const iafData = {
                 "Registration": "K2412",
                 "AircraftType": "Boeing 737-2A8",
                 "TypeCode": "B732",
-                "AircraftOperator": "IndianAirForce",
+                "AircraftOperator": "ARC/RAW Disguised under Indian Air Force",
                 "HexCode": "800078"
             },
             {
@@ -554,6 +554,17 @@ const iafData = {
                 "HexCode": "83F257"
             }
         ],
+
+           "Refuelers": [
+            {
+                "Registration": "N763MA",
+                "AircraftType": "Boeing KC-135R",
+                "TypeCode": "KC135",
+                "AircraftOperator": "IndianAirForce",
+                "HexCode": "AA4DC1"
+            },
+           
+        ],
         "LCA": [
 
             {
@@ -658,40 +669,14 @@ const iafData = {
                 "HexCode": "800331"
             }
         ],
-        "B777": [
-            {
-                "Registration": "INDIA1",
-                "AircraftType": "B777",
-                "TypeCode": "B777",
-                "AircraftOperator": "IndianAirForce",
-                "HexCode": "800585"
-            },
-        ],
-
+    
         "Mirage2000": [
             {
                 "Registration": "KF123",
                 "AircraftType": "Mirage 2000",
                 "TypeCode": "MIR2",
                 "AircraftOperator": "IndianAirForce",
-                "HexCode": null
-            },
-        ],
-
-        "ARC/RAW": [
-            {
-                "Registration": "K2412",
-                "AircraftType": "Boeing 737-2A8(A)",
-                "TypeCode": "B732",
-                "AircraftOperator": "IndianAirForce",
-                "HexCode": "800078"
-            },
-            {
-                "Registration": "K2413",
-                "AircraftType": "Boeing 737-2A8(A)",
-                "TypeCode": "B732",
-                "AircraftOperator": "IndianAirForce",
-                "HexCode": "800079"
+                "HexCode": "null"
             }
         ],
 
@@ -856,7 +841,7 @@ const iafData = {
                 "PredictedAircraftOperator": "Indian Air Force"
             },
 
-            {
+              {
                 "Registration": "Unknown",
                 "AircraftType": "Unknown",
                 "TypeCode": "Unknown",
@@ -867,18 +852,6 @@ const iafData = {
                 "PredictedType": "MI17",
                 "PredictedAircraftOperator": "Indian Air Force / Indian Army"
             },
-
-            {
-                "Registration": "Unknown",
-                "AircraftType": "Unknown",
-                "TypeCode": "Unknown",
-                "AircraftOperator": "Unknown",
-                "HexCode": "1BA9BD",
-                "PredictedReg": "LT5205",
-                "PredictedAircraftType": "LCA Twin Seater",
-                "PredictedType": "LCA",
-                "PredictedAircraftOperator": "Indian Air Force"
-            }
 
 
         ],
@@ -912,4 +885,4 @@ const iafData = {
     }
 };
 
-module.exports = iafData;
+module.exports = hyderabadAlertAircrafts;

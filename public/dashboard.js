@@ -17,6 +17,18 @@
   const cityAlertRecipientForm = $("#city-alert-recipient-form");
   const cityAlertRecipientNote = $("#city-alert-recipient-note");
   const cityAlertRecipientAddButton = $("#city-alert-recipient-add");
+  const cityAircraftForm = $("#city-aircraft-form");
+  const cityAircraftCatalogueCity = $("#city-aircraft-catalogue-city");
+  const cityAircraftCataloguesElement = $("#city-aircraft-catalogues");
+  const cityAircraftNote = $("#city-aircraft-note");
+  const cityAircraftSaveButton = $("#city-aircraft-save");
+  const cityAircraftCancelButton = $("#city-aircraft-cancel");
+  const masterCategoryFilter = $("#master-category-filter");
+  const masterTypeFilter = $("#master-type-filter");
+  const masterOperatorFilter = $("#master-operator-filter");
+  const masterSearchFilter = $("#master-search-filter");
+  const masterDatasetGroups = $("#master-dataset-groups");
+  const masterDatasetSummary = $("#master-dataset-summary");
   const adsbReceiverSummary = $("#adsb-receiver-summary");
   const adsbHealthOverview = $("#adsb-health-overview");
   const adsbMetricsGrid = $("#adsb-metrics-grid");
@@ -48,12 +60,16 @@
     "sdr-health": sdrHealthPanel,
     "feed-clients": feedClientsPanel,
     "flight-alerts": $("#flight-alerts-panel"),
-    "visitor-logs": visitorLogsPanel
+    "master-dataset": $("#master-dataset-panel"),
+    "visitor-logs": visitorLogsPanel,
+    extras: $("#extras-panel")
   };
   let activeDashboardTab = "overview";
   let latestGraphs1090 = null;
   let visitorLogsLoaded = false;
   let visitorLogsLoading = false;
+  let cityAircraftCatalogues = {};
+  let masterDatasetAircraft = [];
 
   const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", "\"": "&quot;"
@@ -273,6 +289,7 @@
     const memory = health.memory || {};
     const disk = health.disk || {};
     const cpu = health.cpu || {};
+    const cpuTemperature = health.cpuTemperature || {};
     const mongodb = health.mongodb || {};
     const redis = health.redis || {};
 
@@ -301,6 +318,7 @@
     healthGrid.innerHTML = [
       healthCard("RAM usage", `${formatBytes(memory.usedBytes)} / ${formatBytes(memory.totalBytes)}`, `${formatPercent(memory.usedPercent)} used · ${formatBytes(memory.availableBytes)} available`, memory.usedPercent),
       healthCard("CPU load", `${formatDecimal(cpu.oneMinuteLoad)} (1 min)`, `${formatNumber(cpu.cores)} cores · ${formatDecimal(cpu.oneMinuteLoadPerCore)} load per core`, Number(cpu.oneMinuteLoadPerCore) * 100),
+      healthCard("CPU temperature", cpuTemperature.available ? `${formatDecimal(cpuTemperature.celsius)} °C` : "Unavailable", cpuTemperature.available ? `${formatDecimal((Number(cpuTemperature.celsius) * 9 / 5) + 32)} °F · ${cpuTemperature.source || "CPU thermal sensor"}` : "No readable CPU thermal sensor is available to the dashboard service", cpuTemperature.available ? Number(cpuTemperature.celsius) : null),
       healthCard("Root disk", disk.available ? `${formatBytes(disk.usedBytes)} / ${formatBytes(disk.totalBytes)}` : "Unavailable", disk.available ? `${formatPercent(disk.usedPercent)} used · ${formatBytes(disk.availableBytes)} free on ${disk.mountPath || "/"}` : "Unable to inspect the main server root filesystem", disk.usedPercent),
       healthCard("MongoDB", mongodb.connected ? "Connected" : (mongodb.state || "Unavailable"), mongodb.connected ? `Main-server ping succeeded${Number.isFinite(Number(mongodb.latencyMs)) ? ` · ${mongodb.latencyMs} ms` : ""}` : "MongoDB is not available from the main server"),
       healthCard("Redis", redis.connected ? "Connected" : (redis.state || "Unavailable"), redis.connected ? `Main-server ping succeeded${Number.isFinite(Number(redis.latencyMs)) ? ` · ${redis.latencyMs} ms` : ""}` : "Redis is not available from the main server"),
@@ -317,6 +335,8 @@
     renderCityAlertEnabled(data.cityAlertEnabled);
     renderCityAlertRadii(data.cityAlertRadii);
     renderCityAlertEmailRecipients(data.cityAlertEmailRecipients);
+    renderCityAircraftCatalogues(data.cityAircraftCatalogues);
+    renderMasterDataset(data.masterDatasetAircraft);
   };
 
   const renderCityAlertRadii = (radii) => {
@@ -359,6 +379,60 @@
       cityAlertRecipientCard("hyderabad", "Hyderabad", recipients.hyderabad)
     ].join("");
     cityAlertRecipientNote.textContent = "Saved recipients receive subsequent alerts for their selected city.";
+  };
+
+  const renderCityAircraftCatalogues = (catalogues) => {
+    cityAircraftCatalogues = catalogues || {};
+    const cityId = cityAircraftCatalogueCity.value;
+    const catalogue = cityAircraftCatalogues[cityId] || {};
+    const aircraft = Array.isArray(catalogue.aircraft) ? catalogue.aircraft : [];
+    const cityLabel = catalogue.label || cityAircraftCatalogueCity.selectedOptions[0]?.textContent || cityId;
+    const rows = aircraft.map((item) => `<tr><td>${escapeHtml(item.group)}</td><td>${escapeHtml(item.Registration)}</td><td>${escapeHtml(item.AircraftType)}</td><td>${escapeHtml(item.TypeCode)}</td><td>${escapeHtml(item.AircraftOperator)}</td><td>${escapeHtml(item.HexCode)}</td><td><div class="city-aircraft-row-actions"><button type="button" data-aircraft-action="edit" data-city-id="${cityId}" data-hex-code="${escapeHtml(item.HexCode)}" data-registration="${escapeHtml(item.Registration)}">Edit</button><button class="danger" type="button" data-aircraft-action="delete" data-city-id="${cityId}" data-hex-code="${escapeHtml(item.HexCode)}" data-registration="${escapeHtml(item.Registration)}">Remove</button></div></td></tr>`).join("") || '<tr><td colspan="7" class="inactive">No aircraft in this catalogue.</td></tr>';
+    cityAircraftCataloguesElement.innerHTML = `<article class="city-aircraft-city"><h3>${escapeHtml(cityLabel)}<span>${formatNumber(aircraft.length)} aircraft</span></h3><div class="city-aircraft-table-wrap"><table class="city-aircraft-table"><thead><tr><th>Group</th><th>Registration</th><th>Type</th><th>Code</th><th>Operator</th><th>Hex</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div></article>`;
+    cityAircraftNote.textContent = `Showing the active ${cityLabel} aircraft catalogue. Every listed aircraft with a valid ICAO is included in alert matching.`;
+  };
+
+  const setMasterFilterOptions = (select, values, label) => {
+    const selected = select.value || "all";
+    select.innerHTML = `<option value="all">All ${label}</option>${values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}`;
+    select.value = values.includes(selected) ? selected : "all";
+  };
+
+  const masterAircraftType = (aircraft) => aircraft.AircraftType || aircraft.PredictedAircraftType || aircraft.group || "Unknown";
+
+  const applyMasterDatasetFilters = () => {
+    const category = masterCategoryFilter.value;
+    const type = masterTypeFilter.value;
+    const operator = masterOperatorFilter.value;
+    const search = masterSearchFilter.value.trim().toLowerCase();
+    const filtered = masterDatasetAircraft.filter((aircraft) => {
+      const searchable = [aircraft.group, aircraft.Registration, aircraft.AircraftType, aircraft.TypeCode, aircraft.AircraftOperator, aircraft.HexCode, aircraft.PredictedReg, aircraft.PredictedAircraftType].join(" ").toLowerCase();
+      return (category === "all" || aircraft.category === category) &&
+        (type === "all" || masterAircraftType(aircraft) === type) &&
+        (operator === "all" || aircraft.AircraftOperator === operator) &&
+        (!search || searchable.includes(search));
+    });
+    const aircraftByType = filtered.reduce((groups, aircraft) => {
+      const aircraftType = masterAircraftType(aircraft);
+      (groups[aircraftType] ||= []).push(aircraft);
+      return groups;
+    }, {});
+    const filtersApplied = category !== "all" || type !== "all" || operator !== "all" || Boolean(search);
+    masterDatasetGroups.innerHTML = Object.entries(aircraftByType).sort(([firstType], [secondType]) => firstType.localeCompare(secondType)).map(([aircraftType, records]) => {
+      const rows = records.map((aircraft) => {
+        const unconfirmed = aircraft.category === "Unconfirmed";
+        return `<tr class="${unconfirmed ? "inactive" : ""}"><td>${escapeHtml(aircraft.category)}</td><td>${escapeHtml(aircraft.Registration === "Unknown" ? aircraft.PredictedReg || "Unknown" : aircraft.Registration)}</td><td>${escapeHtml(aircraft.TypeCode || aircraft.PredictedType || "—")}</td><td>${escapeHtml(aircraft.AircraftOperator === "Unknown" ? aircraft.PredictedAircraftOperator || "Unknown" : aircraft.AircraftOperator)}</td><td>${escapeHtml(aircraft.HexCode)}</td><td>${unconfirmed ? "Reported / unconfirmed" : "Reference record"}</td></tr>`;
+      }).join("");
+      return `<details class="master-dataset-group"${filtersApplied ? " open" : ""}><summary><span>${escapeHtml(aircraftType)}</span><small>${formatNumber(records.length)} aircraft</small></summary><div class="city-aircraft-table-wrap"><table class="city-aircraft-table master-dataset-table"><thead><tr><th>Category</th><th>Registration</th><th>Type code</th><th>Operator</th><th>ICAO / Mode-S</th><th>Confidence</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+    }).join("") || '<p class="empty-state">No aircraft match these filters.</p>';
+    masterDatasetSummary.textContent = `${formatNumber(filtered.length)} of ${formatNumber(masterDatasetAircraft.length)} reference records shown. Commercial has no records in the current master dataset.`;
+  };
+
+  const renderMasterDataset = (aircraft) => {
+    masterDatasetAircraft = Array.isArray(aircraft) ? aircraft : [];
+    setMasterFilterOptions(masterTypeFilter, [...new Set(masterDatasetAircraft.map(masterAircraftType).filter(Boolean))].sort(), "aircraft types");
+    setMasterFilterOptions(masterOperatorFilter, [...new Set(masterDatasetAircraft.map((item) => item.AircraftOperator).filter(Boolean))].sort(), "operators");
+    applyMasterDatasetFilters();
   };
 
   const loadDashboard = async () => {
@@ -572,6 +646,117 @@
     await changeCityAlertEmailRecipient("DELETE", button.dataset.cityId, email);
   };
 
+  const resetCityAircraftForm = () => {
+    cityAircraftForm.reset();
+    cityAircraftForm.elements.namedItem("originalHexCode").value = "";
+    cityAircraftForm.elements.namedItem("originalRegistration").value = "";
+    cityAircraftForm.elements.namedItem("cityId").disabled = false;
+    cityAircraftSaveButton.textContent = "Add aircraft";
+    cityAircraftCancelButton.hidden = true;
+  };
+
+  const cityAircraftPayload = () => ({
+    cityId: cityAircraftForm.elements.namedItem("cityId").value,
+    group: cityAircraftForm.elements.namedItem("group").value,
+    aircraft: {
+      Registration: cityAircraftForm.elements.namedItem("registration").value,
+      AircraftType: cityAircraftForm.elements.namedItem("aircraftType").value,
+      TypeCode: cityAircraftForm.elements.namedItem("typeCode").value,
+      AircraftOperator: cityAircraftForm.elements.namedItem("operator").value,
+      HexCode: cityAircraftForm.elements.namedItem("hexCode").value
+    }
+  });
+
+  const saveCityAircraft = async (event) => {
+    event.preventDefault();
+    if (!cityAircraftForm.reportValidity()) return;
+    const payload = cityAircraftPayload();
+    const originalHex = cityAircraftForm.elements.namedItem("originalHexCode").value;
+    const originalRegistration = cityAircraftForm.elements.namedItem("originalRegistration").value;
+    const isEditing = Boolean(originalHex);
+    cityAircraftSaveButton.disabled = true;
+    cityAircraftNote.textContent = `${isEditing ? "Saving" : "Adding"} aircraft to the city file…`;
+    try {
+      const response = await fetch(
+        isEditing
+          ? `/api/dashboard/city-aircraft/${encodeURIComponent(payload.cityId)}/${encodeURIComponent(originalHex)}?registration=${encodeURIComponent(originalRegistration)}`
+          : "/api/dashboard/city-aircraft",
+        {
+          method: isEditing ? "PUT" : "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify(payload)
+        }
+      );
+      const result = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        window.location.assign("/login");
+        return;
+      }
+      if (!response.ok || !result.success) throw new Error(result.message || "Unable to update the city aircraft file.");
+      renderCityAircraftCatalogues(result.cityAircraftCatalogues);
+      resetCityAircraftForm();
+      setStatus(`Aircraft ${isEditing ? "updated" : "added"}.`);
+    } catch (error) {
+      cityAircraftNote.textContent = "The city aircraft file could not be updated.";
+      setStatus(error.message || "Unable to update the city aircraft file.", true);
+    } finally {
+      cityAircraftSaveButton.disabled = false;
+    }
+  };
+
+  const manageCityAircraft = async (event) => {
+    const button = event.target.closest("[data-aircraft-action]");
+    if (!button) return;
+    const cityId = button.dataset.cityId;
+    const hexCode = button.dataset.hexCode;
+    const registration = button.dataset.registration;
+    const catalogue = cityAircraftCatalogues[cityId];
+    const record = catalogue?.aircraft?.find((item) => item.HexCode === hexCode && item.Registration === registration);
+    if (!record) {
+      setStatus("The selected aircraft is no longer in this catalogue. Refresh the dashboard and try again.", true);
+      return;
+    }
+    if (button.dataset.aircraftAction === "edit") {
+      cityAircraftForm.elements.namedItem("cityId").value = cityId;
+      cityAircraftForm.elements.namedItem("cityId").disabled = true;
+      cityAircraftForm.elements.namedItem("group").value = record.group || "";
+      cityAircraftForm.elements.namedItem("registration").value = record.Registration || "";
+      cityAircraftForm.elements.namedItem("aircraftType").value = record.AircraftType || "";
+      cityAircraftForm.elements.namedItem("typeCode").value = record.TypeCode || "";
+      cityAircraftForm.elements.namedItem("operator").value = record.AircraftOperator || "";
+      cityAircraftForm.elements.namedItem("hexCode").value = record.HexCode || "";
+      cityAircraftForm.elements.namedItem("originalHexCode").value = record.HexCode || "";
+      cityAircraftForm.elements.namedItem("originalRegistration").value = record.Registration || "";
+      cityAircraftSaveButton.textContent = "Save aircraft";
+      cityAircraftCancelButton.hidden = false;
+      cityAircraftForm.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (!window.confirm(`Remove ${record.Registration || record.HexCode} from the ${catalogue.label || cityId} aircraft file?`)) return;
+    button.disabled = true;
+    cityAircraftNote.textContent = "Removing aircraft from the city file…";
+    try {
+      const response = await fetch(`/api/dashboard/city-aircraft/${encodeURIComponent(cityId)}/${encodeURIComponent(hexCode)}?registration=${encodeURIComponent(registration)}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { Accept: "application/json" }
+      });
+      const result = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        window.location.assign("/login");
+        return;
+      }
+      if (!response.ok || !result.success) throw new Error(result.message || "Unable to remove the aircraft.");
+      renderCityAircraftCatalogues(result.cityAircraftCatalogues);
+      resetCityAircraftForm();
+      setStatus("Aircraft removed.");
+    } catch (error) {
+      cityAircraftNote.textContent = "The aircraft could not be removed from the city file.";
+      setStatus(error.message || "Unable to remove the aircraft.", true);
+    }
+  };
+
   const setDashboardTab = (tab) => {
     activeDashboardTab = Object.hasOwn(dashboardPanels, tab) ? tab : "overview";
     Object.entries(dashboardPanels).forEach(([panelTab, panel]) => {
@@ -644,6 +829,12 @@
   cityAlertEnabledForm.addEventListener("submit", updateCityAlertEnabled);
   cityAlertRecipientForm.addEventListener("submit", addCityAlertEmailRecipient);
   cityAlertRecipientsGrid.addEventListener("click", removeCityAlertEmailRecipient);
+  cityAircraftForm.addEventListener("submit", saveCityAircraft);
+  cityAircraftCancelButton.addEventListener("click", resetCityAircraftForm);
+  cityAircraftCatalogueCity.addEventListener("change", () => renderCityAircraftCatalogues(cityAircraftCatalogues));
+  cityAircraftCataloguesElement.addEventListener("click", manageCityAircraft);
+  [masterCategoryFilter, masterTypeFilter, masterOperatorFilter].forEach((filter) => filter.addEventListener("change", applyMasterDatasetFilters));
+  masterSearchFilter.addEventListener("input", applyMasterDatasetFilters);
   initMenu();
   loadDashboard();
 })();

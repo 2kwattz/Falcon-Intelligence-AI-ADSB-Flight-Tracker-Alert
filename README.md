@@ -44,7 +44,8 @@ The server serves the pages and JSON endpoints from the same origin. The fronten
 | `src/server.js` | Express application bootstrap, middleware, static files, route registration, and Socket.IO setup. |
 | `public/` | Browser pages, stylesheets, client-side JavaScript, image assets, and sample archive data. |
 | `routes/` | Feature routes for ADS-B data, archive records, authentication, alerts, communities, admin, APIs, and pages. |
-| `services/` | Feed readers, SDR utilities, email delivery, signal analysis, and background service helpers. |
+| `aircraftsDataset/` | File-backed per-city alert catalogues for Vadodara, Bangalore, Delhi, and Hyderabad, plus `MasterDataset.js`, a read-only Indian military/government reference catalogue. City catalogues drive alert matching; the master catalogue never does. |
+| `services/` | Feed readers, SDR utilities, email delivery, signal analysis, background service helpers, and the file-backed city-aircraft catalogue manager. |
 | `feedPartners/` | ADSBHub TCP connection and live-feed state. |
 | `redis/` | Redis clients and the five-day tracked-aircraft archive cache. |
 | `db/` | MySQL and MongoDB connection setup. |
@@ -119,7 +120,8 @@ The following integrations are optional and only needed for their corresponding 
 | Mongo login protection | Redis-backed: 10 attempts per 1 hour for each email/username and IP pair |
 | Anonymous visitor logs | Redis-backed: `VISITOR_LOG_MAX_RECORDS` (default `10000`), `VISITOR_LOG_MAX_PAGES` (default `50`), and `VISITOR_LOG_DASHBOARD_LIMIT` (default `100`) |
 | Reverse-proxy client IPs | `TRUST_PROXY_HOPS=1` only when the app is exclusively behind one trusted proxy such as nginx |
-| IP lookup | `IPINFO_API_KEY` |
+| Suspicious-location login verification | Offline `geoip-lite` GeoLite database; no IP lookup API key is required |
+| Suspicious-location login OTP email | `GMAIL_SMTP`, `GMAIL_SMTP_PASSWORD`, and a strong `LOGIN_OTP_SECRET` |
 
 Do not commit `.env` files or API credentials.
 
@@ -253,14 +255,22 @@ No calls are made unless the city is enabled and at least one city phone variabl
 
 Adding a remote city is a code change because the app keeps an explicit allow-list of airspaces. Use this checklist for a city such as `examplecity`:
 
-1. Add `iafDataExamplecity.js`, exporting an `allAircraft` catalog with the aircraft `HexCode`, `Registration`, `AircraftType`, `TypeCode`, and `AircraftOperator` fields.
+1. Add `aircraftsDataset/ExamplecityAlertAircrafts.js`, exporting an `allAircraft` catalogue with the aircraft `HexCode`, `Registration`, `AircraftType`, `TypeCode`, and `AircraftOperator` fields.
 2. Add `examplecity` to `CONFIGURABLE_CITY_IDS`, `DEFAULT_CITY_ALERT_ENABLED`, and `DEFAULT_CITY_ALERT_EMAIL_RECIPIENTS` in `utils/cityAlertDefaults.js`; add matching `radii`, `enabled`, and `emailRecipients` paths to `models/CityAlertSettings.js`.
-3. In `routes/apiRoutes.js`, import the catalog, define the city centre, add its `EXAMPLECITY_ALERT_PHONE_1`–`_4` array and optional `EXAMPLECITY_AIRSPACE_NUMBER`, then add a `cityAlertConfigs` entry. Set its label, radius, email recipients, enabled state, call configuration, cache preference, data catalog, and distance-field name.
+3. In `services/cityAircraftCatalogues.js`, register the city file and label. In `routes/apiRoutes.js`, define the city centre, add its `EXAMPLECITY_ALERT_PHONE_1`–`_4` array and optional `EXAMPLECITY_AIRSPACE_NUMBER`, then add a `cityAlertConfigs` entry. Set its label, radius, email recipients, enabled state, call configuration, cache preference, data catalog, and distance-field name.
 4. Extend the protected dashboard API in `routes/privateStatsRoutes.js` with the city call-number labels. Add a dashboard switch, radius input, recipient card, and recipient selector option in `public/dashboard.html` and `public/dashboard.js`.
 5. If the city needs a public status or archive view, add its status endpoint/view and register it in the tracked-aircraft selector. Add it to the server-health response and this README as appropriate.
 6. Add the new phone variables to the deployment environment, restart the service, configure recipients and radius in the dashboard, enable the city, and verify an alert with a controlled feed record.
 
 Keep local-SDR cities separate from this list unless they should deliberately move to the ADSBHub remote-alert pipeline.
+
+### Managing city aircraft catalogues and the Master Dataset
+
+Authenticated users can open **Dashboard → Flight alerts** to manage the four active city catalogue files. They can add, edit, or remove an aircraft. Every listed record with a valid six-character `HexCode` participates in alert matching. Dashboard changes are written atomically to the corresponding file in `aircraftsDataset/` and refresh the active local/remote alert lookup immediately; no aircraft catalogue data is stored in MongoDB, MySQL, or Redis.
+
+Manual edits to any of the four city files are also detected by the running server and refresh the dashboard and matching lookup shortly afterward. `HexCode` is the only field required for alert matching; the remaining fields provide identity metadata. The deployment user must have write access to `aircraftsDataset/` for dashboard edits to succeed.
+
+**Dashboard → Master dataset** is a read-only browsing view over `aircraftsDataset/MasterDataset.js`. It provides category, aircraft-type, operator, and text filters. The master catalogue includes confirmed reference records, a small set of government aircraft, and clearly labelled reported/unconfirmed records. It is not an alert source: adding a record there does not enable alerts, and no master record is merged automatically into a city catalogue. Every active city-catalogue record is also represented in the master dataset; entries without independently confirmed identity or valid Mode-S data remain marked as unconfirmed.
 
 ### Understanding and changing local-SDR gain
 
@@ -321,6 +331,7 @@ Validate it with `sudo visudo -cf /etc/sudoers.d/falcon-readsb-gain`. The helper
 | `/api/dashboard/stats` | Mongo-JWT-protected main-server station, feed, server-health, and configured alert-recipient data. |
 | `/api/dashboard/city-alert-enabled` | Mongo-JWT-protected `PUT` endpoint for the per-city remote tracking and alert switches. |
 | `/api/dashboard/city-alert-radii` and `/api/dashboard/city-alert-email-recipients` | Mongo-JWT-protected city radius and email-recipient management endpoints. |
+| `/api/dashboard/city-aircraft` | Mongo-JWT-protected file-backed CRUD API for the four active city catalogue files. It does not persist aircraft records to a database. |
 | `/profile` | Mongo-JWT-protected profile page, including profile-photo updates. |
 | `/falcon-video-generator` | Video-generator page; its upload and generation APIs require Mongo/JWT login. |
 
@@ -337,6 +348,8 @@ The existing MySQL authentication system is retained under `/auth`. MongoDB/JWT 
 - Browser navigation to a protected page redirects to `/login` when the Mongo JWT is missing or invalid. Protected API requests continue to return JSON `401` responses for client-side handling.
 - The dashboard shows the authenticated greeting, configured station status, ADSBHub TCP and ADSB.lol re-api receiving data, local Ubuntu feeder checks, alert phone numbers currently configured in the server environment, and a main-server identity label.
 - The Dashboard **Flight alerts** tab independently enables Bangalore, Delhi, and Hyderabad remote-airspace tracking. Disabled cities do not query their ADSBHub nearby-aircraft endpoint, cache matches, or issue email/call alerts. New and legacy settings default to Hyderabad enabled and Bangalore/Delhi disabled; Vadodara remains outside this control because it uses the local SDR feed. Delhi uses the same remote email-and-call pipeline as Bangalore, with `DELHI_ALERT_PHONE_1`–`_4` as its configurable call recipients.
+- The Dashboard **Flight alerts** tab also manages the active Vadodara, Bangalore, Delhi, and Hyderabad aircraft files. Changes are authenticated, file-backed, apply to matching without a Node restart, and do not create MongoDB records. Every listed record with a valid six-character ICAO / Mode-S value can match an alert.
+- The Dashboard **Master dataset** tab is read-only and filters the Indian military/government reference catalogue by category, aircraft type, operator, and free-text search. It is intentionally isolated from alert selection and city-file editing.
 - High-altitude no-call emails are city-aware in both delivery paths: their subject is `Falcon Intelligence [City] | No Call Alert | …`, and their header and body state the monitored city.
 - Main-server health reporting includes Ubuntu OS details, RAM used/available, CPU load, root-disk usage, MongoDB and Redis connection status (each with a bounded ping), system uptime, and Node process RSS memory. RAM uses `/proc/meminfo`; disk reporting uses filesystem metrics with an Ubuntu `df` fallback.
 - The protected Dashboard **Visitor logs** tab shows anonymous public-page visitors grouped by IP address, along with parsed browser, device, operating-system, and unique page-path data. Logged-in sessions, API calls, assets, and protected routes are excluded.
@@ -394,7 +407,7 @@ Remote cities do **not** wait for a missing altitude. A missing/non-numeric alti
 
 1. The local loop polls every two seconds by default (`ADSB_TRACKING_INTERVAL_MS`). It reads `READSB_AIRCRAFT_JSON_PATH` first and falls back to `ADSB_FLIGHT_JSON_URL` only when the file cannot be read. If neither source can be read, the polling error is logged and that iteration sends no local alerts.
 2. Each feed record with a usable hex code is offered to the five-day tracked-aircraft archive before IAF matching is evaluated. The legacy local alert match is by catalogue ICAO/Mode-S hex code. Unlike the remote-city pipeline, it does **not** calculate or enforce a Vadodara radius; location is retained as aircraft telemetry only.
-3. A catalogue match receives identity fallbacks from `iafData.js` when the live feed omits registration, type, description, or operator. Non-catalogue aircraft are archived but do not enter the local notification flow.
+3. A catalogue match receives identity fallbacks from `aircraftsDataset/VadodaraAlertAircrafts.js` when the live feed omits registration, type, description, or operator. Non-catalogue aircraft are archived but do not enter the local notification flow.
 4. The altitude branch is then evaluated as follows:
 
 | Local/Vadodara altitude state | Decision |
@@ -469,7 +482,7 @@ The sample includes ICAO `800E42` (KC3813), which is present in the local IAF ca
    curl http://127.0.0.1:3002/trackedaircrafts
    ```
 
-6. Test the branch required, always using a matching ICAO from `iafData.js` in the disposable file:
+6. Test the branch required, always using a matching ICAO from `aircraftsDataset/VadodaraAlertAircrafts.js` in the disposable file:
 
    | Scenario | Change in `public/dummyAircraftData.alert-test.json` | Expected local/Vadodara behavior |
    | --- | --- | --- |

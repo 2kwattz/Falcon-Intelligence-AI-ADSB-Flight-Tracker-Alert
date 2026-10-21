@@ -367,7 +367,9 @@ router.post("/register", async function (req, res) {
         }
 
         res.cookie("token", token, {
-            httpOnly: false,
+            // Legacy MySQL sessions are cookie-authenticated too. Keep the
+            // JWT out of document.cookie so an XSS cannot steal it.
+            httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
             maxAge: 7 * 24 * 60 * 60 * 1000
@@ -510,8 +512,7 @@ ON DUPLICATE KEY UPDATE
 
         await res.status(201).json({
             status: true,
-            message: "Registration Successful. Please check email for verification code",
-            token: token
+            message: "Registration Successful. Please check email for verification code"
         });
     }
 
@@ -762,7 +763,8 @@ router.post("/login", async function (req, res) {
 
         // Setting JWT token in cookie
         res.cookie("token", token, {
-            httpOnly: false,
+            // Keep the browser session token inaccessible to page scripts.
+            httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
             maxAge: 7 * 24 * 60 * 60 * 1000
@@ -892,8 +894,7 @@ router.post("/login", async function (req, res) {
 
         return res.status(200).json({
             status: true,
-            message: "Login Successful",
-            token: token
+            message: "Login Successful"
         })
     }
 

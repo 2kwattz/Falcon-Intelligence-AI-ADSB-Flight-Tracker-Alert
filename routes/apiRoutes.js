@@ -8,9 +8,10 @@ const authMiddleware = require("../middlewares/authMiddleware"); // Auth Middlew
 const aiRateLimiting = require("../middlewares/aiRateLimiting");
 const { getLiveAircraft, getConnectionStatus } = require("../feedPartners/adsbHubTcpConn");
 const { STATION_ID, STATION_NAME, getLocalSdrAircraft } = require("../services/localSdrAircraftFeed");
-const bangaloreIafData = require("../iafDataBangalore");
-const delhiIafData = require("../iafDataDelhi");
-const hyderabadIafData = require("../iafDataHyderabad");
+const {
+    getCityAircraftCatalogue,
+    onCityAircraftCatalogueChange
+} = require("../services/cityAircraftCatalogues");
 const flightAlertTemplate = require("../templates/flightAlertTemplate");
 const antiAlertTemplate = require("../templates/antiAlertTemplate");
 const twilio = require("twilio");
@@ -283,9 +284,9 @@ function validateNearbyInput({ latitude, longitude, radiusMiles }) {
     return null;
 }
 
-function buildIafAircraftHexLookup(cityIafData) {
+function buildAlertAircraftHexLookup(aircraftCatalog) {
     const lookup = new Map();
-    const aircraftGroups = cityIafData?.allAircraft || {};
+    const aircraftGroups = aircraftCatalog?.allAircraft || {};
 
     Object.values(aircraftGroups).flat().forEach((aircraft) => {
         const hexCode = normalizeHexCode(aircraft?.HexCode);
@@ -319,7 +320,7 @@ const cityAlertConfigs = [
         enableCallAlerts: true,
         cacheMatchedAircraft: true,
         sendAntiAlertForHighAltitude: true,
-        iafData: bangaloreIafData,
+        aircraftCatalog: getCityAircraftCatalogue("bangalore"),
         distanceField: "distanceFromBangaloreMiles"
     },
     {
@@ -336,7 +337,7 @@ const cityAlertConfigs = [
         enableCallAlerts: true,
         cacheMatchedAircraft: true,
         sendAntiAlertForHighAltitude: true,
-        iafData: delhiIafData,
+        aircraftCatalog: getCityAircraftCatalogue("delhi"),
         distanceField: "distanceFromDelhiMiles"
     },
     {
@@ -353,12 +354,12 @@ const cityAlertConfigs = [
         enableCallAlerts: true,
         cacheMatchedAircraft: true,
         sendAntiAlertForHighAltitude: true,
-        iafData: hyderabadIafData,
+        aircraftCatalog: getCityAircraftCatalogue("hyderabad"),
         distanceField: "distanceFromHyderabadMiles"
     }
 ].map((config) => ({
     ...config,
-    iafAircraftByHexCode: buildIafAircraftHexLookup(config.iafData),
+    alertAircraftByHexCode: buildAlertAircraftHexLookup(config.aircraftCatalog),
     state: {
         isRunning: false,
         lastRunAt: null,
@@ -381,6 +382,16 @@ onCityAlertSettingsChange((settings) => {
         config.enabled = settings.enabled[cityId];
         config.emails = settings.emailRecipients[cityId];
     }
+});
+
+// Dashboard edits are written only to the corresponding city catalogue file.
+// Refresh the live matching indexes immediately; the master reference catalogue
+// is deliberately not used here.
+onCityAircraftCatalogueChange((cityId, catalogue) => {
+    const config = cityAlertConfigById.get(cityId);
+    if (!config) return;
+    config.aircraftCatalog = catalogue;
+    config.alertAircraftByHexCode = buildAlertAircraftHexLookup(catalogue);
 });
 
 async function shouldTriggerCityEmail(config, hexCode, email) {
@@ -619,11 +630,11 @@ async function pollCityIafAlerts(config) {
         for (const adsbAircraft of aircraft) {
             const hexCode = normalizeHexCode(adsbAircraft.hex);
 
-            if (!hexCode || !config.iafAircraftByHexCode.has(hexCode)) {
+            if (!hexCode || !config.alertAircraftByHexCode.has(hexCode)) {
                 continue;
             }
 
-            const matchedAircrafts = config.iafAircraftByHexCode.get(hexCode);
+            const matchedAircrafts = config.alertAircraftByHexCode.get(hexCode);
 
             for (const iafAircraft of matchedAircrafts) {
                 const match = toCityAlertMatch(
@@ -774,7 +785,7 @@ function buildCityAlertStatus(config) {
         callAltitudeLimitFeet: CITY_CALL_ALERT_MAX_ALTITUDE_FEET,
         matchedAircraftCacheEnabled: config.cacheMatchedAircraft,
         matchedAircraftCacheSeconds: config.cacheMatchedAircraft ? config.expirySeconds : 0,
-        iafHexesLoaded: config.iafAircraftByHexCode.size,
+        iafHexesLoaded: config.alertAircraftByHexCode.size,
         lastRunAt: config.state.lastRunAt,
         lastError: config.state.lastError,
         lastMatches: config.state.lastMatches,

@@ -8,8 +8,6 @@ const authMiddleware = async (req, res, next) => {
 
         const token = req.cookies.token;
 
-        console.log("[*] TOKEN ",token)
-
         // If JWT Token is missing
         if (!token) {
             return res.status(401).json({
@@ -28,8 +26,6 @@ const authMiddleware = async (req, res, next) => {
 
         // Appending user details in Request object
         req.user = decoded;
-
-        console.log("[*] REQ.USER Value ",req.user);
 
         console.log("[*] User Authenticated")
         next();

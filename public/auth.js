@@ -21,13 +21,13 @@
     status.classList.toggle("error", isError);
   };
 
-  const submitAuthForm = async (form, endpoint, successMessage) => {
+  const submitAuthForm = async (form, endpoint, successMessage, payloadOverride, handleResponse) => {
     const button = $('button[type="submit"]', form);
     button.disabled = true;
     setStatus(form, "Submitting...");
 
     try {
-      const payload = Object.fromEntries(new FormData(form));
+      const payload = payloadOverride || Object.fromEntries(new FormData(form));
       payload.deviceId = ensureDeviceId();
 
       const response = await fetch(endpoint, {
@@ -38,13 +38,14 @@
       });
 
       const result = await response.json().catch(() => ({}));
+      if (handleResponse && handleResponse(result, response)) return;
       if (!response.ok || result.status === false) {
         throw new Error(result.message || result.error || "Unable to complete request.");
       }
 
       setStatus(form, successMessage);
 
-      if (endpoint === "/auth/mongo/login") {
+      if (endpoint === "/auth/mongo/login" || endpoint === "/auth/mongo/login/verify-location") {
         window.setTimeout(() => window.location.assign("/dashboard"), 300);
       }
     } catch (error) {
@@ -77,11 +78,30 @@
     const registerForm = $("#register-form");
 
     if (loginForm) {
+      let locationChallengeId = null;
       loginForm.addEventListener("submit", (event) => {
         event.preventDefault();
         // Accounts created in MongoDB authenticate through the isolated JWT
         // endpoint. The legacy MySQL login remains available at `/auth/login`.
-        submitAuthForm(loginForm, "/auth/mongo/login", "Login successful.");
+        if (locationChallengeId) {
+          submitAuthForm(loginForm, "/auth/mongo/login/verify-location", "Location verified. Login successful.", {
+            challengeId: locationChallengeId,
+            otp: $("input[name=\"otp\"]", loginForm).value
+          });
+          return;
+        }
+        submitAuthForm(loginForm, "/auth/mongo/login", "Login successful.", null, (result) => {
+          if (!result.requiresLocationOtp) return false;
+          locationChallengeId = result.challengeId;
+          const otpField = $("#login-otp-field", loginForm);
+          const otpInput = $("input[name=\"otp\"]", loginForm);
+          otpField.hidden = false;
+          otpInput.required = true;
+          otpInput.focus();
+          window.alert("Unrecognized Location, Suspicious Login Attempt. A verification code was sent to your registered email address.");
+          setStatus(loginForm, result.message);
+          return true;
+        });
       });
     }
 

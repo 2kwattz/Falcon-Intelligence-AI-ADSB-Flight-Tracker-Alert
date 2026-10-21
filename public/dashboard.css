@@ -53,6 +53,11 @@ h2 { margin:0; font-size:clamp(1.35rem,2.5vw,2rem); letter-spacing:-.035em; }
 .dashboard-tab { min-height:38px; flex:0 0 auto; padding:0 14px; border:1px solid transparent; border-radius:7px; color:var(--muted); background:transparent; font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
 .dashboard-tab:hover { color:var(--ink); background:rgba(38,69,85,.4); }
 .dashboard-tab.active { border-color:rgba(88,223,188,.5); color:#c7f7eb; background:rgba(42,126,113,.22); }
+.extras-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+.extras-card { display:grid; gap:8px; min-height:126px; padding:18px; border:1px solid rgba(73,124,140,.55); border-radius:9px; color:var(--ink); background:rgba(12,29,43,.68); text-decoration:none; transition:border-color .18s,transform .18s,background .18s; }
+.extras-card:hover { border-color:rgba(88,223,188,.7); background:rgba(24,61,69,.48); transform:translateY(-2px); }
+.extras-card strong { color:#c7f7eb; font-size:.9rem; }
+.extras-card span { color:var(--muted); font-size:.76rem; line-height:1.5; }
 .summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:13px; }
 .summary-card,.health-card,.station-card,.feed-card,.phone-card { min-width:0; border:1px solid rgba(78,119,136,.72); border-radius:10px; background:linear-gradient(145deg,rgba(20,37,56,.9),rgba(11,25,38,.92)); }
 .summary-card { min-height:139px; padding:20px; }
@@ -162,6 +167,44 @@ h2 { margin:0; font-size:clamp(1.35rem,2.5vw,2rem); letter-spacing:-.035em; }
 .city-alert-recipient-form { display:grid; grid-template-columns:minmax(150px,.7fr) minmax(220px,1.5fr) auto; align-items:end; gap:12px; margin-top:16px; }
 .city-alert-recipient-form label { display:grid; gap:7px; color:#a6bac8; font-size:.65rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
 .city-alert-recipient-note { margin-top:12px; }
+.city-aircraft-form { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; padding:17px; border:1px solid rgba(73,124,140,.56); border-radius:9px; background:rgba(14,35,49,.58); }
+.city-aircraft-form label { display:grid; gap:7px; min-width:0; color:#a6bac8; font-size:.65rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.city-aircraft-form input,.city-aircraft-form select { width:100%; min-width:0; min-height:42px; padding:0 11px; border:1px solid #426276; border-radius:7px; color:var(--ink); background:#091825; font:inherit; font-size:.82rem; letter-spacing:normal; text-transform:none; }
+.city-aircraft-form input:focus-visible,.city-aircraft-form select:focus-visible { outline:2px solid #9cf4dc; outline-offset:2px; border-color:#58dfbc; }
+.city-aircraft-actions { display:flex; align-items:end; gap:8px; grid-column:span 2; }
+.city-aircraft-actions .button { min-height:42px; }
+.city-aircraft-note { margin:12px 0; color:var(--muted); font-size:.74rem; line-height:1.5; }
+.city-aircraft-catalogue-filter { display:flex; margin-bottom:12px; }
+.city-aircraft-catalogue-filter label { display:grid; gap:7px; min-width:min(100%,260px); color:#a6bac8; font-size:.65rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.city-aircraft-catalogue-filter select { width:100%; min-height:42px; padding:0 11px; border:1px solid #426276; border-radius:7px; color:var(--ink); background:#091825; font:inherit; font-size:.82rem; letter-spacing:normal; text-transform:none; }
+.city-aircraft-catalogue-filter select:focus-visible { outline:2px solid #9cf4dc; outline-offset:2px; border-color:#58dfbc; }
+.city-aircraft-catalogues { display:grid; gap:16px; }
+.city-aircraft-city { overflow:hidden; border:1px solid rgba(78,119,136,.72); border-radius:10px; background:linear-gradient(145deg,rgba(20,37,56,.9),rgba(11,25,38,.92)); }
+.city-aircraft-city h3 { margin:0; padding:14px 16px; border-bottom:1px solid rgba(73,124,140,.56); font-size:.95rem; }
+.city-aircraft-city h3 span { margin-left:8px; color:var(--muted); font-size:.7rem; font-weight:500; }
+.city-aircraft-table-wrap { overflow-x:auto; }
+.city-aircraft-table { width:100%; border-collapse:collapse; font-size:.72rem; }
+.city-aircraft-table th,.city-aircraft-table td { padding:10px 12px; border-bottom:1px solid rgba(73,124,140,.35); text-align:left; vertical-align:middle; white-space:nowrap; }
+.city-aircraft-table th { color:#a6bac8; font-size:.61rem; letter-spacing:.07em; text-transform:uppercase; }
+.city-aircraft-table tr:last-child td { border-bottom:0; }
+.city-aircraft-table .inactive { color:#8297a6; }
+.city-aircraft-row-actions { display:flex; gap:7px; }
+.city-aircraft-row-actions button { padding:5px 7px; border:1px solid #47788a; border-radius:5px; color:#dcebf3; background:#102332; font:inherit; font-size:.61rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
+.city-aircraft-row-actions .danger { border-color:rgba(251,119,118,.55); color:#ffb8b7; background:rgba(119,35,43,.24); }
+.master-dataset-filters { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; padding:17px; border:1px solid rgba(73,124,140,.56); border-radius:9px; background:rgba(14,35,49,.58); }
+.master-dataset-filters label { display:grid; gap:7px; min-width:0; color:#a6bac8; font-size:.65rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.master-dataset-filters input,.master-dataset-filters select { width:100%; min-width:0; min-height:42px; padding:0 11px; border:1px solid #426276; border-radius:7px; color:var(--ink); background:#091825; font:inherit; font-size:.82rem; letter-spacing:normal; text-transform:none; }
+.master-dataset-filters input:focus-visible,.master-dataset-filters select:focus-visible { outline:2px solid #9cf4dc; outline-offset:2px; border-color:#58dfbc; }
+.master-dataset-summary { margin:12px 0; color:var(--muted); font-size:.74rem; line-height:1.5; }
+.master-dataset-groups { display:grid; gap:10px; }
+.master-dataset-group { overflow:hidden; border:1px solid rgba(78,119,136,.72); border-radius:9px; background:rgba(11,25,38,.75); }
+.master-dataset-group summary { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:12px; padding:14px 16px; color:#dcebf3; font-size:.84rem; font-weight:800; cursor:pointer; list-style:none; }
+.master-dataset-group summary::-webkit-details-marker { display:none; }
+.master-dataset-group summary::after { content:"⌄"; color:#58dfbc; font-size:1.2rem; font-weight:500; line-height:1; transition:transform .18s ease; }
+.master-dataset-group summary small { color:var(--muted); font-size:.7rem; font-weight:500; white-space:nowrap; }
+.master-dataset-group[open] summary { border-bottom:1px solid rgba(73,124,140,.56); }
+.master-dataset-group[open] summary::after { transform:rotate(180deg); }
+.master-dataset-group summary:focus-visible { outline:2px solid #9cf4dc; outline-offset:-3px; }
 .visitor-log-controls { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:18px; padding:15px; border:1px solid rgba(78,119,136,.5); border-radius:10px; background:rgba(14,35,49,.58); }
 .visitor-log-switch { display:flex; align-items:center; gap:12px; min-width:0; cursor:pointer; }
 .visitor-log-switch input { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; clip-path:inset(50%); }
@@ -191,3 +234,5 @@ h2 { margin:0; font-size:clamp(1.35rem,2.5vw,2rem); letter-spacing:-.035em; }
 .site-footer { padding-top:0; padding-bottom:34px; color:#71879a; font-size:.7rem; letter-spacing:.06em; text-align:center; }
 @media (max-width:900px) { .nav-links { gap:12px; } .nav-links a { font-size:.68rem; } .dashboard-heading,.section-heading { display:block; } .dashboard-actions { margin-top:16px; } .section-heading > p { margin-top:12px; text-align:left; } .gain-control { grid-template-columns:1fr; } .visitor-log-controls { align-items:flex-start; flex-direction:column; } .visitor-log-note { text-align:left; } }
 @media (max-width:720px) { .shell { padding:0 17px; } .nav { min-height:70px; gap:10px; } .brand-mark { width:46px; height:46px; flex-basis:46px; } .menu-button { display:block; } .nav-links { position:absolute; top:66px; right:17px; left:17px; z-index:2; display:none; padding:16px; border:1px solid var(--line); border-radius:10px; background:#0b1825; flex-direction:column; align-items:stretch; gap:17px; } .nav-links.open { display:flex; } .nav-links a.active::after { display:none; } .dashboard { padding-top:36px; padding-bottom:38px; } .dashboard-actions { align-items:stretch; flex-direction:column; } .summary-grid { grid-template-columns:1fr; } .dashboard-section { padding:20px; } .station-grid,.feed-grid,.phone-grid,.health-grid,.adsb-metrics-grid,.graphs1090-grid,.visitor-log-grid,.city-alert-radii-grid,.city-alert-enabled-grid,.city-alert-recipients-grid,.city-alert-recipient-form { grid-template-columns:1fr; } .adsb-health-state { grid-template-columns:1fr; } .adsb-health-state .state,.adsb-health-state strong,.adsb-health-state p { grid-column:1; grid-row:auto; } .adsb-health-state strong { margin-top:10px; } .adsb-log-heading { align-items:flex-start; flex-direction:column; } .graphs1090-card div { align-items:flex-start; flex-direction:column; } .visitor-details { grid-template-columns:1fr; } .city-alert-radii-actions { align-items:stretch; flex-direction:column; } }
+@media (max-width:720px) { .city-aircraft-form { grid-template-columns:1fr; } .city-aircraft-actions { grid-column:auto; flex-wrap:wrap; } }
+@media (max-width:720px) { .master-dataset-filters { grid-template-columns:1fr; } }

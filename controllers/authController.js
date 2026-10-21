@@ -3,6 +3,8 @@ const bcrypt = require("bcrypt");
 const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
+const geoip = require("geoip-lite");
 const path = require("node:path");
 
 // The existing MySQL authentication system already owns the `token` cookie.
@@ -14,6 +16,14 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const usernameRegex = /^[a-z0-9_]+$/;
 const profilePictureDirectory = path.resolve(__dirname, "../public/uploads/profile-pictures");
 const profilePictureUrlPrefix = "/uploads/profile-pictures/";
+const LOGIN_OTP_TTL_MS = 5 * 60 * 1000;
+const MAX_LOGIN_OTP_ATTEMPTS = 5;
+const OTP_PATTERN = /^\d{6}$/;
+
+const gmailTransporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: { user: process.env.GMAIL_SMTP, pass: process.env.GMAIL_SMTP_PASSWORD }
+});
 
 const getJwtSecret = () => process.env.JWT_SECRET || process.env.JWT_SECRET_KEY;
 
@@ -49,7 +59,9 @@ const publicUser = (user) => ({
 });
 
 const tokenCookieBaseOptions = () => ({
-  httpOnly: false,
+  // Browser sessions are authenticated by this cookie; application JavaScript
+  // must never be able to read or exfiltrate the JWT.
+  httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "lax",
   // This uses a separate name from the legacy MySQL `token` cookie, so it does
@@ -81,14 +93,67 @@ const sendAuthenticatedResponse = (res, statusCode, message, user) => {
     .json({
       success: true,
       message,
-      // API clients can use this as a Bearer token. Browsers can rely on the
-      // HttpOnly cookie set above.
-      token,
       user: publicUser(user)
     });
 };
 
 const requiredText = (value) => typeof value === "string" ? value.trim() : "";
+
+const locationLabel = (location) => [location?.city, location?.region, location?.country]
+  .filter(Boolean)
+  .join(", ");
+
+const sameCity = (first, second) => (
+  Boolean(first?.city && second?.city)
+  && first.city.toLowerCase() === second.city.toLowerCase()
+  && String(first.country || "").toLowerCase() === String(second.country || "").toLowerCase()
+);
+
+const loginOtpSecret = () => process.env.LOGIN_OTP_SECRET || getJwtSecret();
+
+const hashLoginOtp = (challengeId, otp) => {
+  const secret = loginOtpSecret();
+  if (!secret) throw new Error("LOGIN_OTP_SECRET or JWT_SECRET is not configured");
+  return crypto.createHmac("sha256", secret).update(`${challengeId}:${otp}`).digest("hex");
+};
+
+const secureEqual = (first, second) => {
+  const firstBuffer = Buffer.from(String(first || ""));
+  const secondBuffer = Buffer.from(String(second || ""));
+  return firstBuffer.length === secondBuffer.length && crypto.timingSafeEqual(firstBuffer, secondBuffer);
+};
+
+function clientIp(req) {
+  const ip = String(req.ip || req.socket?.remoteAddress || "").trim();
+  return ip.startsWith("::ffff:") ? ip.slice(7) : ip;
+}
+
+function isPublicIp(ip) {
+  return Boolean(ip) && !(ip === "::1" || ip === "127.0.0.1" || ip.startsWith("10.") || ip.startsWith("192.168.") || /^172\.(1[6-9]|2\d|3[0-1])\./.test(ip));
+}
+
+function resolveLoginLocation(req) {
+  const ip = clientIp(req);
+  if (!isPublicIp(ip)) return null;
+
+  // geoip-lite ships a local GeoLite database. No IP address is sent to a
+  // third party and no IP-geolocation API key is required.
+  const result = geoip.lookup(ip);
+  const city = requiredText(result?.city);
+  const country = requiredText(result?.country);
+  return city && country ? { city, region: requiredText(result?.region), country } : null;
+}
+
+async function sendLoginOtpEmail(user, otp, location) {
+  if (!process.env.GMAIL_SMTP || !process.env.GMAIL_SMTP_PASSWORD) throw new Error("Gmail SMTP is not configured");
+  const locationName = locationLabel(location) || "an unrecognized location";
+  await gmailTransporter.sendMail({
+    from: `Falcon Intelligence <${process.env.GMAIL_SMTP}>`, to: user.email,
+    subject: "Falcon Intelligence | Suspicious login attempt",
+    text: `We detected a login attempt from ${locationName}. Your verification code is ${otp}. It expires in 5 minutes. If this was not you, change your password immediately.`,
+    html: `<p>We detected a login attempt from <strong>${locationName}</strong>.</p><p>Your verification code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px">${otp}</p><p>This code expires in 5 minutes. If this was not you, change your password immediately.</p>`
+  });
+}
 
 const profilePictureExtension = (buffer) => {
   if (!Buffer.isBuffer(buffer)) return null;
@@ -263,7 +328,7 @@ exports.login = async (req, res) => {
         { email: identifier },
         { username: identifier }
       ]
-    }).select("+password");
+    }).select("+password +pendingLoginOtp");
 
     if (!user) {
       return res.status(401).json({
@@ -284,6 +349,46 @@ exports.login = async (req, res) => {
       });
     }
 
+    const currentLocation = await resolveLoginLocation(req);
+
+    // Private networks and IP ranges without city data must not lock a
+    // legitimate user out. When a city is resolved, the first login
+    // establishes it; later city changes require a five-minute email OTP.
+    if (currentLocation && user.lastLoginLocation?.city && !sameCity(user.lastLoginLocation, currentLocation)) {
+      const otp = String(crypto.randomInt(100000, 1_000_000));
+      const challengeId = crypto.randomUUID();
+      user.pendingLoginOtp = {
+        challengeId,
+        hash: hashLoginOtp(challengeId, otp),
+        expiresAt: new Date(Date.now() + LOGIN_OTP_TTL_MS),
+        attempts: 0,
+        location: currentLocation
+      };
+      await user.save();
+
+      try {
+        await sendLoginOtpEmail(user, otp, currentLocation);
+      } catch (error) {
+        user.pendingLoginOtp = undefined;
+        await user.save();
+        console.error("Login OTP email error:", error.message);
+        return res.status(503).json({ success: false, message: "Login verification email is unavailable. Please try again later." });
+      }
+
+      return res.status(202).json({
+        success: false,
+        requiresLocationOtp: true,
+        challengeId,
+        expiresInSeconds: LOGIN_OTP_TTL_MS / 1000,
+        message: "Unrecognized Location, Suspicious Login Attempt. A verification code was sent to your registered email address."
+      });
+    }
+
+    if (currentLocation) {
+      user.lastLoginLocation = { ...currentLocation, updatedAt: new Date() };
+      await user.save();
+    }
+
     return sendAuthenticatedResponse(res, 200, "Login successful", user);
 
   } catch (error) {
@@ -293,6 +398,40 @@ exports.login = async (req, res) => {
       success: false,
       message: "Unable to log in"
     });
+  }
+};
+
+exports.verifyLoginLocationOtp = async (req, res) => {
+  try {
+    const challengeId = requiredText(req.body?.challengeId);
+    const otp = requiredText(req.body?.otp);
+    if (!challengeId || !OTP_PATTERN.test(otp)) {
+      return res.status(400).json({ success: false, message: "Enter the six-digit verification code." });
+    }
+
+    const user = await User.findOne({ "pendingLoginOtp.challengeId": challengeId }).select("+pendingLoginOtp");
+    const pending = user?.pendingLoginOtp;
+    if (!user || !pending?.expiresAt || pending.expiresAt.getTime() <= Date.now()) {
+      return res.status(401).json({ success: false, message: "This verification code has expired. Please log in again." });
+    }
+    if (Number(pending.attempts || 0) >= MAX_LOGIN_OTP_ATTEMPTS) {
+      user.pendingLoginOtp = undefined;
+      await user.save();
+      return res.status(429).json({ success: false, message: "Too many incorrect codes. Please log in again." });
+    }
+    if (!secureEqual(pending.hash, hashLoginOtp(challengeId, otp))) {
+      pending.attempts = Number(pending.attempts || 0) + 1;
+      await user.save();
+      return res.status(401).json({ success: false, message: "The verification code is incorrect." });
+    }
+
+    user.lastLoginLocation = { ...pending.location, updatedAt: new Date() };
+    user.pendingLoginOtp = undefined;
+    await user.save();
+    return sendAuthenticatedResponse(res, 200, "Location verified. Login successful", user);
+  } catch (error) {
+    console.error("Login location OTP verification error:", error.message);
+    return res.status(500).json({ success: false, message: "Unable to verify the login code." });
   }
 };
 

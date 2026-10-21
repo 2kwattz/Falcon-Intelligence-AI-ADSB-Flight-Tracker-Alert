@@ -1,4 +1,4 @@
-const iafData = {
+const bangaloreAlertAircrafts = {
     "allAircraft": {
         // "Airbus C-295W": [
         //     {
@@ -315,7 +315,7 @@ const iafData = {
                 "Registration": "K2412",
                 "AircraftType": "Boeing 737-2A8",
                 "TypeCode": "B732",
-                "AircraftOperator": "ARC/RAW Disguised under Indian Air Force",
+                "AircraftOperator": "IndianAirForce",
                 "HexCode": "800078"
             },
             {
@@ -595,26 +595,6 @@ const iafData = {
                 "HexCode": "8000D6"
             }
         ],
-
-         "NonIL78Refuelers": [
-            {
-                "Registration": "N604MA",
-                "AircraftType": "Boeing C-135FR Stratolifter",
-                "TypeCode": "K35R",
-                "AircraftOperator": "Indian Air Force",
-                "HexCode": "A7D72F"
-            },
-
-              {
-                "Registration": "N679MA",
-                "AircraftType": "Boeing C-135FR Stratolifter",
-                "TypeCode": "K35R",
-                "AircraftOperator": "Indian Air Force",
-                "HexCode": "A8FE3B"
-            }
-        ],
-
-
         "AWACS": [
             {
                 "Registration": "VUAUM",
@@ -696,6 +676,23 @@ const iafData = {
                 "AircraftOperator": "IndianAirForce",
                 "HexCode": null
             },
+        ],
+
+        "ARC/RAW": [
+            {
+                "Registration": "K2412",
+                "AircraftType": "Boeing 737-2A8(A)",
+                "TypeCode": "B732",
+                "AircraftOperator": "IndianAirForce",
+                "HexCode": "800078"
+            },
+            {
+                "Registration": "K2413",
+                "AircraftType": "Boeing 737-2A8(A)",
+                "TypeCode": "B732",
+                "AircraftOperator": "IndianAirForce",
+                "HexCode": "800079"
+            }
         ],
 
 
@@ -859,7 +856,7 @@ const iafData = {
                 "PredictedAircraftOperator": "Indian Air Force"
             },
 
-              {
+            {
                 "Registration": "Unknown",
                 "AircraftType": "Unknown",
                 "TypeCode": "Unknown",
@@ -880,7 +877,7 @@ const iafData = {
                 "PredictedReg": "LT5205",
                 "PredictedAircraftType": "LCA Twin Seater",
                 "PredictedType": "LCA",
-                "PredictedAircraftOperator": "Indian Air Force" 
+                "PredictedAircraftOperator": "Indian Air Force"
             }
 
 
@@ -915,4 +912,4 @@ const iafData = {
     }
 };
 
-module.exports = iafData;
+module.exports = bangaloreAlertAircrafts;

@@ -30,9 +30,34 @@ const {
     CityAlertSettingsError
 } = require("../services/cityAlertSettings");
 const { ADSB_FLIGHT_JSON_URL, READSB_AIRCRAFT_JSON_PATH } = require("../utils/globals");
+const {
+    getDashboardAircraftCatalogues,
+    addCityAircraft,
+    updateCityAircraft,
+    removeCityAircraft,
+    CityAircraftCatalogueError
+} = require("../services/cityAircraftCatalogues");
+const masterDataset = require("../aircraftsDataset/MasterDataset");
 
 const router = express.Router();
 const execFileAsync = promisify(execFile);
+
+function masterDatasetCategory(record, group) {
+    const operator = String(record.AircraftOperator || "").toLowerCase();
+    if (group === "Reported aircraft identities (not confirmed)" || group.includes("not independently confirmed") || operator === "unknown") return "Unconfirmed";
+    if (operator.includes("government") || operator.includes("raw")) return "Government";
+    return "Military";
+}
+
+function getMasterDatasetAircraft() {
+    return Object.entries(masterDataset?.allAircraft || {}).flatMap(([group, records]) => (
+        Array.isArray(records) ? records.map((record) => ({
+            group,
+            category: masterDatasetCategory(record, group),
+            ...record
+        })) : []
+    ));
+}
 
 function parseOsRelease(contents) {
     const details = {};
@@ -207,6 +232,40 @@ async function getRootDiskHealth() {
     }
 }
 
+async function getCpuTemperature() {
+    // Linux exposes hardware temperatures in millidegrees Celsius through
+    // sysfs. Prefer zones explicitly identified as CPU sensors and avoid
+    // reporting a board/drive sensor as CPU temperature.
+    try {
+        const entries = await fs.readdir("/sys/class/thermal", { withFileTypes: true });
+        const readings = await Promise.all(entries
+            .filter((entry) => entry.isDirectory() && /^thermal_zone\d+$/.test(entry.name))
+            .map(async (entry) => {
+                const directory = path.join("/sys/class/thermal", entry.name);
+                const [type, rawTemperature] = await Promise.all([
+                    fs.readFile(path.join(directory, "type"), "utf8"),
+                    fs.readFile(path.join(directory, "temp"), "utf8")
+                ]);
+                const rawValue = Number(rawTemperature.trim());
+                const celsius = rawValue > 1000 ? rawValue / 1000 : rawValue;
+                return { type: type.trim(), celsius };
+            })
+        );
+        const usableReadings = readings.filter((reading) => (
+            Number.isFinite(reading.celsius) && reading.celsius >= -20 && reading.celsius <= 150
+        ));
+        const cpuReading = usableReadings.find((reading) => /cpu|pkg|core|k10|zen/i.test(reading.type));
+
+        if (cpuReading) {
+            return { available: true, celsius: roundMetric(cpuReading.celsius), source: cpuReading.type };
+        }
+    } catch {
+        // A host may not expose thermal sensors to its service/container.
+    }
+
+    return { available: false, celsius: null, source: null };
+}
+
 async function getMongoConnectionHealth() {
     const connection = mongoose.connection;
     const stateNames = {
@@ -295,9 +354,10 @@ async function getRedisConnectionHealth() {
 }
 
 async function getServerHealth() {
-    const [memory, disk, mongodb, redis] = await Promise.all([
+    const [memory, disk, cpuTemperature, mongodb, redis] = await Promise.all([
         getMemoryHealth(),
         getRootDiskHealth(),
+        getCpuTemperature(),
         getMongoConnectionHealth(),
         getRedisConnectionHealth()
     ]);
@@ -314,6 +374,7 @@ async function getServerHealth() {
             fifteenMinuteLoad: roundMetric(fifteenMinute, 2),
             oneMinuteLoadPerCore: roundMetric(oneMinute / cpuCores, 2)
         },
+        cpuTemperature,
         mongodb,
         redis,
         systemUptimeSeconds: Math.round(os.uptime()),
@@ -958,7 +1019,9 @@ async function buildDashboardStats(user) {
         alertPhoneNumbers: phoneNumbersForDashboard(),
         cityAlertRadii: getCityAlertRadii(),
         cityAlertEnabled: getCityAlertEnabled(),
-        cityAlertEmailRecipients: getCityAlertEmailRecipients()
+        cityAlertEmailRecipients: getCityAlertEmailRecipients(),
+        cityAircraftCatalogues: getDashboardAircraftCatalogues(),
+        masterDatasetAircraft: getMasterDatasetAircraft()
     };
 }
 
@@ -1066,6 +1129,31 @@ async function changeCityAlertEmailRecipient(req, res) {
     }
 }
 
+async function manageCityAircraft(req, res) {
+    try {
+        const cityId = req.params.cityId || req.body?.cityId;
+        if (req.method === "POST") {
+            await addCityAircraft(cityId, req.body?.group, req.body?.aircraft);
+        } else if (req.method === "PUT") {
+            await updateCityAircraft(cityId, req.params.hexCode, req.query?.registration, req.body?.group, req.body?.aircraft);
+        } else if (req.method === "DELETE") {
+            await removeCityAircraft(cityId, req.params.hexCode, req.query?.registration);
+        }
+        res.set("Cache-Control", "no-store");
+        return res.status(200).json({
+            success: true,
+            cityAircraftCatalogues: getDashboardAircraftCatalogues()
+        });
+    } catch (error) {
+        const statusCode = error instanceof CityAircraftCatalogueError ? error.statusCode : 500;
+        if (statusCode === 500) console.error("City aircraft catalogue update error:", error.message);
+        return res.status(statusCode).json({
+            success: false,
+            message: error.message || "Unable to update the city aircraft catalogue"
+        });
+    }
+}
+
 async function updateReadsbGain(req, res) {
     const setting = requestedReadsbGain(req.body);
 
@@ -1137,5 +1225,12 @@ router.put("/api/dashboard/city-alert-radii", mongodbAuthMiddleware, updateCityA
 router.put("/api/dashboard/city-alert-enabled", mongodbAuthMiddleware, updateCityAlertEnabledSettings);
 router.post("/api/dashboard/city-alert-email-recipients", mongodbAuthMiddleware, changeCityAlertEmailRecipient);
 router.delete("/api/dashboard/city-alert-email-recipients", mongodbAuthMiddleware, changeCityAlertEmailRecipient);
+router.get("/api/dashboard/city-aircraft", mongodbAuthMiddleware, (req, res) => {
+    res.set("Cache-Control", "no-store");
+    return res.status(200).json({ success: true, cityAircraftCatalogues: getDashboardAircraftCatalogues() });
+});
+router.post("/api/dashboard/city-aircraft", mongodbAuthMiddleware, manageCityAircraft);
+router.put("/api/dashboard/city-aircraft/:cityId/:hexCode", mongodbAuthMiddleware, manageCityAircraft);
+router.delete("/api/dashboard/city-aircraft/:cityId/:hexCode", mongodbAuthMiddleware, manageCityAircraft);
 
 module.exports = router;

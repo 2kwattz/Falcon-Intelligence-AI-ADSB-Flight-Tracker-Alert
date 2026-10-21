@@ -47,7 +47,9 @@
       <button class="dashboard-tab" id="sdr-health-tab" type="button" role="tab" aria-selected="false" aria-controls="sdr-health-panel" data-dashboard-tab="sdr-health">SDR health</button>
       <button class="dashboard-tab" id="feed-clients-tab" type="button" role="tab" aria-selected="false" aria-controls="feed-clients-panel" data-dashboard-tab="feed-clients">Feed clients</button>
       <button class="dashboard-tab" id="flight-alerts-tab" type="button" role="tab" aria-selected="false" aria-controls="flight-alerts-panel" data-dashboard-tab="flight-alerts">Flight alerts</button>
+      <button class="dashboard-tab" id="master-dataset-tab" type="button" role="tab" aria-selected="false" aria-controls="master-dataset-panel" data-dashboard-tab="master-dataset">Master dataset</button>
       <button class="dashboard-tab" id="visitor-logs-tab" type="button" role="tab" aria-selected="false" aria-controls="visitor-logs-panel" data-dashboard-tab="visitor-logs">Visitor logs</button>
+      <button class="dashboard-tab" id="extras-tab" type="button" role="tab" aria-selected="false" aria-controls="extras-panel" data-dashboard-tab="extras">Extras</button>
     </div>
 
     <div id="dashboard-overview" role="tabpanel" aria-labelledby="overview-tab">
@@ -188,7 +190,45 @@
         </form>
         <p class="city-alert-recipient-note" id="city-alert-recipient-note" aria-live="polite">Loading saved recipients…</p>
       </section>
+
+      <section class="dashboard-section" aria-labelledby="city-aircraft-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Aircraft alerts</p><h2 id="city-aircraft-title">City aircraft catalogues</h2></div>
+          <p>Choose a city to view and manage its aircraft catalogue. Changes take effect in alert matching immediately.</p>
+        </div>
+        <div class="city-aircraft-catalogue-filter">
+          <label><span>View city catalogue</span><select id="city-aircraft-catalogue-city" aria-label="City aircraft catalogue"><option value="vadodara">Vadodara</option><option value="bangalore">Bangalore</option><option value="delhi">Delhi</option><option value="hyderabad">Hyderabad</option></select></label>
+        </div>
+        <form class="city-aircraft-form" id="city-aircraft-form">
+          <input name="originalHexCode" type="hidden"><input name="originalRegistration" type="hidden">
+          <label><span>City</span><select name="cityId" required><option value="vadodara">Vadodara</option><option value="bangalore">Bangalore</option><option value="delhi">Delhi</option><option value="hyderabad">Hyderabad</option></select></label>
+          <label><span>Group</span><input name="group" maxlength="100" placeholder="C-130J Hercules" required></label>
+          <label><span>Registration</span><input name="registration" maxlength="100" placeholder="KC3801" required></label>
+          <label><span>Aircraft type</span><input name="aircraftType" maxlength="100" placeholder="C-130J Hercules" required></label>
+          <label><span>Type code</span><input name="typeCode" maxlength="20" placeholder="C30J" required></label>
+          <label><span>Operator</span><input name="operator" maxlength="100" placeholder="Indian Air Force" required></label>
+          <label><span>ICAO / Mode-S hex</span><input name="hexCode" maxlength="6" pattern="[0-9A-Fa-f]{6}" placeholder="800332" required></label>
+          <div class="city-aircraft-actions"><button class="button" id="city-aircraft-save" type="submit">Add aircraft</button><button class="button secondary" id="city-aircraft-cancel" type="button" hidden>Cancel edit</button></div>
+        </form>
+        <p class="city-aircraft-note" id="city-aircraft-note" aria-live="polite">Loading aircraft catalogues…</p>
+        <div class="city-aircraft-catalogues" id="city-aircraft-catalogues" aria-live="polite"></div>
+      </section>
     </div>
+
+    <section class="dashboard-section master-dataset-panel" id="master-dataset-panel" role="tabpanel" aria-labelledby="master-dataset-tab" hidden>
+      <div class="section-heading">
+        <div><p class="eyebrow">Reference only</p><h2>Master Dataset</h2></div>
+        <p>Browse the Indian military and government reference catalogue. This view does not add aircraft to alerts or city catalogues.</p>
+      </div>
+      <div class="master-dataset-filters">
+        <label><span>Category</span><select id="master-category-filter"><option value="all">All categories</option><option value="Military">Military</option><option value="Government">Government</option><option value="Commercial">Commercial</option><option value="Unconfirmed">Unconfirmed</option></select></label>
+        <label><span>Aircraft type</span><select id="master-type-filter"><option value="all">All aircraft types</option></select></label>
+        <label><span>Operator</span><select id="master-operator-filter"><option value="all">All operators</option></select></label>
+        <label><span>Search</span><input id="master-search-filter" type="search" placeholder="Registration, hex, type…"></label>
+      </div>
+      <p class="master-dataset-summary" id="master-dataset-summary" aria-live="polite">Loading master dataset…</p>
+      <div class="master-dataset-groups" id="master-dataset-groups" aria-live="polite"></div>
+    </section>
 
     <section class="dashboard-section visitor-logs-panel" id="visitor-logs-panel" role="tabpanel" aria-labelledby="visitor-logs-tab" hidden>
       <div class="section-heading">
@@ -205,6 +245,19 @@
       </div>
       <p class="visitor-log-summary" id="visitor-log-summary" aria-live="polite">Loading visitor logs…</p>
       <div class="visitor-log-grid" id="visitor-log-grid" aria-live="polite"></div>
+    </section>
+
+    <section class="dashboard-section extras-panel" id="extras-panel" role="tabpanel" aria-labelledby="extras-tab" hidden>
+      <div class="section-heading">
+        <div><p class="eyebrow">Additional tools</p><h2>Extras</h2></div>
+        <p>Quick access to supporting Falcon Intelligence tools and account settings.</p>
+      </div>
+      <div class="extras-grid">
+        <a class="extras-card" href="/profile"><strong>My profile</strong><span>Update your profile photo and view account information.</span></a>
+        <a class="extras-card" href="/falcon-video-generator"><strong>Video generator</strong><span>Create a video with the Falcon AI workspace.</span></a>
+        <a class="extras-card" href="/tracked-aircrafts"><strong>Intelligence archive</strong><span>Browse the recent tracked-aircraft archive.</span></a>
+        <a class="extras-card" href="/live-map"><strong>Live map</strong><span>Open the real-time aircraft map.</span></a>
+      </div>
     </section>
   </main>
 

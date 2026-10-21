@@ -45,6 +45,9 @@
         <label>Password
           <input required type="password" name="password" autocomplete="current-password" placeholder="Your password">
         </label>
+        <label id="login-otp-field" hidden>Verification code
+          <input type="text" name="otp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="Six-digit code">
+        </label>
         <button class="button" type="submit">Log in</button>
         <p class="status" aria-live="polite"></p>
         <p class="auth-link">Need access? <a href="/register">Register with referral ID</a></p>

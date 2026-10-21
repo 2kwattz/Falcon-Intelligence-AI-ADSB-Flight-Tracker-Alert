@@ -1,4 +1,4 @@
-const iafData = {
+const delhiAlertAircrafts = {
     "allAircraft": {
         // "Airbus C-295W": [
         //     {
@@ -900,4 +900,4 @@ const iafData = {
     }
 };
 
-module.exports = iafData;
+module.exports = delhiAlertAircrafts;

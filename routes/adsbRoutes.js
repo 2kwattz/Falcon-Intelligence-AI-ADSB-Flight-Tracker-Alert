@@ -6,7 +6,10 @@ const { cacheTrackedAircraft } = require("../redis/trackedAircraftCache");
 const authMiddleware = require("../middlewares/authMiddleware"); // Auth Middleware
 const axios = require("axios"); // HTTP Request Maker
 const { ADSB_FLIGHT_JSON_URL, READSB_AIRCRAFT_JSON_PATH } = require("../utils/globals")
-const iafData = require("../iafData");
+const {
+    getCityAircraftCatalogue,
+    onCityAircraftCatalogueChange
+} = require("../services/cityAircraftCatalogues");
 const flightAlertTemplate = require("../templates/flightAlertTemplate")
 const antiAlertTemplate = require("../templates/antiAlertTemplate")
 const nodemailer = require("nodemailer")
@@ -306,9 +309,9 @@ const normalizeHexCode = (hexCode) => {
     return typeof hexCode === "string" ? hexCode.trim().toUpperCase() : null;
 }
 
-const buildIafAircraftHexLookup = () => {
+const buildAlertAircraftHexLookup = (aircraftCatalogue) => {
     const lookup = new Map();
-    const aircraftGroups = iafData?.allAircraft || {};
+    const aircraftGroups = aircraftCatalogue?.allAircraft || {};
 
     Object.values(aircraftGroups).flat().forEach((aircraft) => {
         const hexCode = normalizeHexCode(aircraft?.HexCode);
@@ -325,7 +328,13 @@ const buildIafAircraftHexLookup = () => {
     return lookup;
 }
 
-const iafAircraftByHexCode = buildIafAircraftHexLookup();
+let vadodaraAlertAircraftByHexCode = buildAlertAircraftHexLookup(getCityAircraftCatalogue("vadodara"));
+
+onCityAircraftCatalogueChange((cityId, catalogue) => {
+    if (cityId === "vadodara") {
+        vadodaraAlertAircraftByHexCode = buildAlertAircraftHexLookup(catalogue);
+    }
+});
 
 async function triggerCallAlert(match) {
 
@@ -368,7 +377,7 @@ async function triggerCallAlert(match) {
     }
 }
 
-const logIafAircraftMatches = async (adsbAircrafts = []) => {
+const logVadodaraAlertAircraftMatches = async (adsbAircrafts = []) => {
     if (!Array.isArray(adsbAircrafts)) {
         return [];
     }
@@ -468,14 +477,14 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
         }
         // const icao = normalizeHexCode(adsbAircraft?.Icao); VRS
 
-        if (!icao || !iafAircraftByHexCode.has(icao)) {
+        if (!icao || !vadodaraAlertAircraftByHexCode.has(icao)) {
             continue;
         }
 
 
 
 
-        const matchedAircrafts = iafAircraftByHexCode.get(icao);
+        const matchedAircrafts = vadodaraAlertAircraftByHexCode.get(icao);
 
         for (const iafAircraft of matchedAircrafts) {
 
@@ -567,14 +576,14 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
             matches.push(match);
 
             try {
-                // Include the matched IAF metadata as well as the complete raw
+                // Include the matched alert-catalogue metadata as well as the complete raw
                 // ADS-B/Mode-S payload in the dedicated five-day record.
                 await cacheTrackedAircraft({ ...adsbAircraft, ...match });
             } catch (error) {
                 console.error("[*] Failed to enrich tracked aircraft cache:", error.message);
             }
 
-            // console.log("[*] Tracked aircraft from iafData detected:", match);
+            // console.log("[*] Tracked aircraft from VadodaraAlertAircrafts detected:", match);
             // ============================================
             // ALTITUDE FILTER
             // ============================================
@@ -856,7 +865,7 @@ const fetchAircrafts = async () => {
     }
 
     if (Array.isArray(aircrafts)) {
-        await logIafAircraftMatches(aircrafts);
+        await logVadodaraAlertAircraftMatches(aircrafts);
     }
     return aircrafts;
 }

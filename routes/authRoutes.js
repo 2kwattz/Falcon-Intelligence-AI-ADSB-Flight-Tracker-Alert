@@ -5,6 +5,7 @@ const router = express.Router();
 const {
   register,
   login,
+  verifyLoginLocationOtp,
   logout,
   getProfile,
   updateProfilePicture
@@ -57,6 +58,7 @@ router.post("/register", authLimiter, register);
 
 // Login. The controller issues the persistent Mongo session cookie.
 router.post("/login", mongoLoginRateLimiter, login);
+router.post("/login/verify-location", mongoLoginRateLimiter, verifyLoginLocationOtp);
 
 router.post("/logout", logout);
 
