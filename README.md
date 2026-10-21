@@ -262,9 +262,33 @@ Adding a remote city is a code change because the app keeps an explicit allow-li
 
 Keep local-SDR cities separate from this list unless they should deliberately move to the ADSBHub remote-alert pipeline.
 
-### Allowing dashboard gain changes
+### Understanding and changing local-SDR gain
 
-The dashboard can set a validated manual gain (0–59.6 dB) or `auto`, then briefly restart `readsb`. This requires a root-owned, restricted helper; the Node process deliberately does not receive broad sudo access. On the receiver server, install the helper and allow only that exact command for the account that runs the Falcon Node service:
+**Gain is the amount of amplification applied by the radio tuner before `readsb` decodes 1090 MHz ADS-B / Mode-S signals.** It is an RF-receiver setting for the local SDR path—currently the Vadodara receiver—not an aircraft altitude, map, cache, alert, or remote-city setting. Changing it does not affect the ADSBHub-backed Bangalore, Delhi, or Hyderabad feeds, their dashboard switches, or their email/call rules.
+
+More gain can make a weak, distant aircraft signal large enough to decode. It also amplifies unwanted RF energy: electrical noise, strong nearby transmitters, and interference. At a point the tuner or ADC can overload (desensitise), which can mean *fewer* useful ADS-B messages even though the configured number is higher. The best setting is therefore **the lowest gain that produces the best stable valid-message and range results for this antenna and RF environment**, not automatically the maximum dB value.
+
+`auto` is the recommended initial setting. In automatic mode, readsb's ADS-B-oriented algorithm adjusts the RTL-SDR tuner gain in response to its observed noise and strong signals. Use manual gain only when you have a reason to compare repeatable settings—for example after moving the antenna, adding a 1090 MHz filter/LNA, or diagnosing local RF interference.
+
+#### Finding the optimal gain
+
+There is no universal "optimal gain": antenna height, coax loss, an inline filter/LNA, receiver hardware, nearby cellular/broadcast transmitters, and local electrical noise all matter. Tune it empirically while keeping the physical installation unchanged.
+
+1. Start with **Automatic** and let the receiver run through normal traffic for at least 15–30 minutes. Use a longer, comparable period where possible; traffic volume itself varies through the day.
+2. Record the Dashboard receiver figures—received-message rate, bad-message rate, current aircraft count, last aircraft update—and the range/message graphs from graphs1090 if installed.
+3. If testing manual gain, begin in the middle of the tuner range (for a typical RTL-SDR, `38.6 dB` or `40.2 dB` is a sensible comparison point). Test one supported step at a time, usually moving by roughly 2–4 dB, and observe each setting for the same period.
+4. Keep the setting that improves sustained valid-message rate and useful range **without** a meaningful rise in bad messages or gaps in nearby/strong aircraft. If increasing gain stops helping—or message quality/range worsens—step back to the previous setting.
+5. Recheck after antenna, cable, filter, LNA, or receiver changes. A new installation should return to `auto` until it has a fresh baseline.
+
+Typical symptoms are: too little gain gives weak-signal loss and lower range; too much gain can give an elevated bad-message rate, bursts of noise, or poorer decoding despite strong local traffic. An external 1090 MHz filter often improves a noisy site more than turning the gain up. Do not use the dashboard to compensate for a bad antenna location, damaged coax, or receiver power/USB noise.
+
+The Dashboard accepts `auto` or a manual value from `0` to `59.6 dB`, in 0.1 dB input increments. That is Falcon's safe input boundary, **not a promise that every SDR exposes every value**. `readsb` applies values supported by the connected tuner; common RTL-SDR/R820T-class devices use discrete steps such as `36.4`, `37.2`, `38.6`, `40.2`, `42.1`, `43.4`, `43.9`, `44.5`, `48.0`, and `49.6 dB` (with hardware/build-dependent alternatives). Check `readsb --help` on the receiver for its authoritative list. If a selected value prevents readsb from restarting, the helper restores the prior configuration.
+
+#### What the dashboard changes
+
+When an authenticated dashboard user submits the control, Falcon validates the requested mode/value, invokes one narrowly permitted root helper, updates only the `--gain` entry inside `RECEIVER_OPTIONS` in `/etc/default/readsb`, and restarts `readsb`. Expect a short interruption to the local receiver JSON/map while it restarts. The helper creates `/etc/default/readsb.falcon-gain-backup`; if the restart fails, it restores that previous configuration and attempts to restart readsb with it. The dashboard then reads the live receiver statistics again, including the gain reported by readsb when available.
+
+This requires a root-owned, restricted helper; the Node process deliberately does not receive broad sudo access. On the receiver server, install the helper and allow only that exact command for the account that runs the Falcon Node service:
 
 ```bash
 sudo install -o root -g root -m 0750 scripts/falcon-set-readsb-gain /usr/local/sbin/falcon-set-readsb-gain
