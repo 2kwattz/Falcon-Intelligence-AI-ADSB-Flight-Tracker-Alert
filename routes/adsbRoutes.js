@@ -768,14 +768,14 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
 
                         await sendEmail(
                             email,
-                            `Falcon Intelligence | No Call Alert | ${match.registration} above 20,000 ft`,
+                            `Falcon Intelligence [Vadodara] | No Call Alert | ${match.registration} above 20,000 ft`,
                             antiAlertTemplate(match)
                         );
 
                         await transporter.sendMail({
                             from: `Falcon Intelligence`,
                             to: email,
-                            subject: `Falcon Intelligence | No Call Alert | ${match.registration} above 20,000 ft`,
+                            subject: `Falcon Intelligence [Vadodara] | No Call Alert | ${match.registration} above 20,000 ft`,
                             html: antiAlertTemplate(match)
                         });
 

@@ -21,8 +21,10 @@ const {
 } = require("../services/localSdrAircraftFeed");
 const {
     getCityAlertRadii,
+    getCityAlertEnabled,
     getCityAlertEmailRecipients,
     updateCityAlertRadii,
+    updateCityAlertEnabled,
     addCityAlertEmailRecipient,
     removeCityAlertEmailRecipient,
     CityAlertSettingsError
@@ -413,6 +415,10 @@ const alertPhoneVariables = [
     { label: "Bangalore alert 2", variable: "BANGALORE_ALERT_PHONE_2" },
     { label: "Bangalore alert 3", variable: "BANGALORE_ALERT_PHONE_3" },
     { label: "Bangalore alert 4", variable: "BANGALORE_ALERT_PHONE_4" },
+    { label: "Delhi alert 1", variable: "DELHI_ALERT_PHONE_1" },
+    { label: "Delhi alert 2", variable: "DELHI_ALERT_PHONE_2" },
+    { label: "Delhi alert 3", variable: "DELHI_ALERT_PHONE_3" },
+    { label: "Delhi alert 4", variable: "DELHI_ALERT_PHONE_4" },
     { label: "Hyderabad alert 1", variable: "HYDERABAD_ALERT_PHONE_1" },
     { label: "Hyderabad alert 2", variable: "HYDERABAD_ALERT_PHONE_2" },
     { label: "Hyderabad alert 3", variable: "HYDERABAD_ALERT_PHONE_3" },
@@ -951,6 +957,7 @@ async function buildDashboardStats(user) {
         feedingData,
         alertPhoneNumbers: phoneNumbersForDashboard(),
         cityAlertRadii: getCityAlertRadii(),
+        cityAlertEnabled: getCityAlertEnabled(),
         cityAlertEmailRecipients: getCityAlertEmailRecipients()
     };
 }
@@ -1019,6 +1026,21 @@ async function updateCityAlertRadiusSettings(req, res) {
         return res.status(statusCode).json({
             success: false,
             message: error.message || "Unable to update city alert radii"
+        });
+    }
+}
+
+async function updateCityAlertEnabledSettings(req, res) {
+    try {
+        const cityAlertEnabled = await updateCityAlertEnabled(req.body?.enabled);
+        res.set("Cache-Control", "no-store");
+        return res.status(200).json({ success: true, cityAlertEnabled: cityAlertEnabled.enabled });
+    } catch (error) {
+        const statusCode = error instanceof CityAlertSettingsError ? error.statusCode : 500;
+        if (statusCode === 500) console.error("City alert enabled dashboard update error:", error.message);
+        return res.status(statusCode).json({
+            success: false,
+            message: error.message || "Unable to update city alert settings"
         });
     }
 }
@@ -1112,6 +1134,7 @@ router.get("/api/dashboard/visitor-logs", mongodbAuthMiddleware, sendVisitorLogs
 router.put("/api/dashboard/visitor-logs/settings", mongodbAuthMiddleware, updateVisitorLoggingSettings);
 router.put("/api/dashboard/readsb/gain", mongodbAuthMiddleware, updateReadsbGain);
 router.put("/api/dashboard/city-alert-radii", mongodbAuthMiddleware, updateCityAlertRadiusSettings);
+router.put("/api/dashboard/city-alert-enabled", mongodbAuthMiddleware, updateCityAlertEnabledSettings);
 router.post("/api/dashboard/city-alert-email-recipients", mongodbAuthMiddleware, changeCityAlertEmailRecipient);
 router.delete("/api/dashboard/city-alert-email-recipients", mongodbAuthMiddleware, changeCityAlertEmailRecipient);
 

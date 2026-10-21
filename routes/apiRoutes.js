@@ -60,6 +60,8 @@ const BANGALORE_AIRSPACE_CALLER_ID =
     process.env.BANGALORE_AIRSPACE_NUMBER || TWILIO_CALLER_ID;
 const HYDERABAD_AIRSPACE_CALLER_ID =
     process.env.HYDERABAD_AIRSPACE_NUMBER || TWILIO_CALLER_ID;
+const DELHI_AIRSPACE_CALLER_ID =
+    process.env.DELHI_AIRSPACE_NUMBER || TWILIO_CALLER_ID;
 
 const twilioClient = twilio(
     process.env.TWILIO_ACCOUNT_SID,
@@ -79,6 +81,13 @@ const bangaloreAlertPhoneNumbers = [
     process.env.BANGALORE_ALERT_PHONE_2,
     process.env.BANGALORE_ALERT_PHONE_3,
     process.env.BANGALORE_ALERT_PHONE_4
+].filter(Boolean);
+
+const delhiAlertPhoneNumbers = [
+    process.env.DELHI_ALERT_PHONE_1,
+    process.env.DELHI_ALERT_PHONE_2,
+    process.env.DELHI_ALERT_PHONE_3,
+    process.env.DELHI_ALERT_PHONE_4
 ].filter(Boolean);
 
 const hyderabadAlertPhoneNumbers = [
@@ -305,10 +314,12 @@ const cityAlertConfigs = [
         intervalMs: CITY_ALERT_INTERVAL_MS,
         expirySeconds: CITY_ALERT_EXPIRY_SECONDS,
         emails: initialCityAlertSettings.emailRecipients.bangalore,
+        enabled: initialCityAlertSettings.enabled.bangalore,
         callPhones: bangaloreAlertPhoneNumbers,
         callFrom: BANGALORE_AIRSPACE_CALLER_ID,
         enableCallAlerts: true,
         cacheMatchedAircraft: true,
+        sendAntiAlertForHighAltitude: true,
         iafData: bangaloreIafData,
         distanceField: "distanceFromBangaloreMiles"
     },
@@ -320,10 +331,12 @@ const cityAlertConfigs = [
         intervalMs: CITY_ALERT_INTERVAL_MS,
         expirySeconds: CITY_ALERT_EXPIRY_SECONDS,
         emails: initialCityAlertSettings.emailRecipients.delhi,
-        callPhones: [],
-        callFrom: TWILIO_CALLER_ID,
-        enableCallAlerts: false,
-        cacheMatchedAircraft: false,
+        enabled: initialCityAlertSettings.enabled.delhi,
+        callPhones: delhiAlertPhoneNumbers,
+        callFrom: DELHI_AIRSPACE_CALLER_ID,
+        enableCallAlerts: true,
+        cacheMatchedAircraft: true,
+        sendAntiAlertForHighAltitude: true,
         iafData: delhiIafData,
         distanceField: "distanceFromDelhiMiles"
     },
@@ -335,6 +348,7 @@ const cityAlertConfigs = [
         intervalMs: CITY_ALERT_INTERVAL_MS,
         expirySeconds: CITY_ALERT_EXPIRY_SECONDS,
         emails: initialCityAlertSettings.emailRecipients.hyderabad,
+        enabled: initialCityAlertSettings.enabled.hyderabad,
         callPhones: hyderabadAlertPhoneNumbers,
         callFrom: HYDERABAD_AIRSPACE_CALLER_ID,
         enableCallAlerts: true,
@@ -366,6 +380,7 @@ onCityAlertSettingsChange((settings) => {
         if (!config) continue;
 
         config.radiusMiles = radiusMiles;
+        config.enabled = settings.enabled[cityId];
         config.emails = settings.emailRecipients[cityId];
     }
 });
@@ -399,7 +414,7 @@ async function shouldTriggerCityAntiEmail(config, hexCode, email) {
 }
 
 async function cacheCityMatchedAircraft(config, match) {
-    if (!config.cacheMatchedAircraft) {
+    if (!config.enabled || !config.cacheMatchedAircraft) {
         return;
     }
 
@@ -472,11 +487,19 @@ function toCityAlertMatch(config, adsbAircraft, iafAircraft, distanceMilesFromCe
 }
 
 async function sendCityAlertEmails(config, match) {
+    if (!config.enabled) {
+        return;
+    }
+
     const isHighAltitudeAntiAlert =
         config.sendAntiAlertForHighAltitude &&
         !shouldAllowCityCallForAltitude(match);
 
     for (const email of config.emails) {
+        if (!config.enabled) {
+            return;
+        }
+
         try {
             const shouldEmail = isHighAltitudeAntiAlert
                 ? await shouldTriggerCityAntiEmail(config, match.hexCode, email)
@@ -489,7 +512,7 @@ async function sendCityAlertEmails(config, match) {
             }
 
             const subject = isHighAltitudeAntiAlert
-                ? `Falcon Intelligence | No Call Alert | ${match.registration} above ${CITY_CALL_ALERT_MAX_ALTITUDE_FEET.toLocaleString()} ft`
+                ? `Falcon Intelligence [${config.label}] | No Call Alert | ${match.registration} above ${CITY_CALL_ALERT_MAX_ALTITUDE_FEET.toLocaleString()} ft`
                 : `Falcon Intelligence ${config.label} Alert | ${match.registration} (${match.aircraftType}) within ${config.radiusMiles} miles`;
             const html = isHighAltitudeAntiAlert
                 ? antiAlertTemplate(match)
@@ -519,7 +542,7 @@ async function sendCityAlertEmails(config, match) {
 }
 
 async function triggerCityCallAlert(config, match) {
-    if (!config.enableCallAlerts || !config.callPhones.length) {
+    if (!config.enabled || !config.enableCallAlerts || !config.callPhones.length) {
         return;
     }
 
@@ -543,6 +566,10 @@ async function triggerCityCallAlert(config, match) {
     );
 
     for (const phoneNumber of config.callPhones) {
+        if (!config.enabled) {
+            return;
+        }
+
         try {
             const shouldCall = await shouldTriggerCityCall(config, match.hexCode, phoneNumber);
 
@@ -567,6 +594,17 @@ async function triggerCityCallAlert(config, match) {
 }
 
 async function pollCityIafAlerts(config) {
+    // A disabled city must not inspect the ADSBHub feed, cache matches, or
+    // trigger notifications. The lightweight interval remains so a dashboard
+    // change applies without a process restart.
+    if (!config.enabled) {
+        config.state.lastMatches = [];
+        config.state.lastError = null;
+        config.state.lastRunAt = null;
+        config.state.notificationsEnabled = false;
+        return;
+    }
+
     if (config.state.isRunning) {
         return;
     }
@@ -601,10 +639,12 @@ async function pollCityIafAlerts(config) {
                     adsbAircraft.distanceMiles
                 );
 
+                if (!config.enabled) return;
+
                 matches.push(match);
                 await cacheCityMatchedAircraft(config, match);
 
-                if (notificationsEnabled) {
+                if (config.enabled && notificationsEnabled) {
                     await sendCityAlertEmails(config, match);
                     await triggerCityCallAlert(config, match);
                 }
@@ -634,9 +674,13 @@ async function pollCityIafAlerts(config) {
 }
 
 function startCityIafAlertPolling(config) {
-    console.log(
-        `[*] ${config.label} IAF alert polling started. Radius ${config.radiusMiles} miles, interval ${config.intervalMs / 1000}s`
-    );
+    if (!config.enabled) {
+        console.log(`[*] ${config.label} IAF alert polling is disabled from the dashboard.`);
+    } else {
+        console.log(
+            `[*] ${config.label} IAF alert polling started. Radius ${config.radiusMiles} miles, interval ${config.intervalMs / 1000}s`
+        );
+    }
 
     setInterval(() => pollCityIafAlerts(config), config.intervalMs);
 }
@@ -659,6 +703,15 @@ async function handleAdsbHubNearbyRequest(req, res) {
         return res.status(400).json({
             status: false,
             message: validationError
+        });
+    }
+
+    const cityConfig = findCityAlertConfigForCoordinates(nearbyRequest);
+    if (cityConfig && nearbyRequest.source !== STATION_ID && !cityConfig.enabled) {
+        return res.status(409).json({
+            status: false,
+            city: cityConfig.label,
+            message: `${cityConfig.label} airspace tracking is disabled from the dashboard`
         });
     }
 
@@ -698,21 +751,32 @@ router.get("/adsbhub-tcp/nearby", handleAdsbHubNearbyRequest);
 router.get("/adsbhub-tcp/nearby/:latitude/:longitude/:radialMiles", handleAdsbHubNearbyRequest);
 router.get("/adsbhub-tcp/:latitude/:longitude/:radialMiles", handleAdsbHubNearbyRequest);
 
+function findCityAlertConfigForCoordinates({ latitude, longitude }) {
+    const coordinateTolerance = 0.0001;
+
+    return cityAlertConfigs.find((config) => (
+        Math.abs(config.center.latitude - latitude) < coordinateTolerance &&
+        Math.abs(config.center.longitude - longitude) < coordinateTolerance
+    ));
+}
+
 function buildCityAlertStatus(config) {
     return {
         status: true,
         city: config.label,
         center: config.center,
         radiusMiles: config.radiusMiles,
+        trackingEnabled: config.enabled,
         emailRecipients: config.emails.length,
         callRecipients: config.callPhones.length,
-        callAlertsEnabled: config.enableCallAlerts,
+        emailAlertsEnabled: config.enabled,
+        callAlertsEnabled: config.enabled && config.enableCallAlerts,
         notificationWindow: {
             timeZone: CITY_ALERT_NOTIFICATION_TIME_ZONE,
             startTime: `${String(CITY_ALERT_NOTIFICATION_START_HOUR).padStart(2, "0")}:00`,
             endTime: `${String(CITY_ALERT_NOTIFICATION_END_HOUR).padStart(2, "0")}:00`
         },
-        notificationsEnabled: areCityAlertNotificationsEnabled(),
+        notificationsEnabled: config.enabled && areCityAlertNotificationsEnabled(),
         callAltitudeLimitFeet: CITY_CALL_ALERT_MAX_ALTITUDE_FEET,
         matchedAircraftCacheEnabled: config.cacheMatchedAircraft,
         matchedAircraftCacheSeconds: config.cacheMatchedAircraft ? config.expirySeconds : 0,
@@ -721,6 +785,30 @@ function buildCityAlertStatus(config) {
         lastError: config.state.lastError,
         lastMatches: config.state.lastMatches,
         connection: getConnectionStatus()
+    };
+}
+
+function buildRemoteAirspaceHealth(config) {
+    return {
+        status: config.enabled && !config.state.lastError,
+        state: !config.enabled
+            ? "disabled"
+            : config.state.isRunning
+                ? "polling"
+                : config.state.lastError
+                    ? "error"
+                    : config.state.lastRunAt
+                        ? "ready"
+                        : "starting",
+        trackingEnabled: config.enabled,
+        radiusMiles: config.radiusMiles,
+        lastRunAt: config.state.lastRunAt,
+        lastError: config.state.lastError,
+        lastMatches: config.state.lastMatches.length,
+        emailRecipients: config.emails.length,
+        callRecipients: config.callPhones.length,
+        callAlertsEnabled: config.enableCallAlerts,
+        notificationsEnabled: config.enabled && areCityAlertNotificationsEnabled()
     };
 }
 
@@ -754,6 +842,7 @@ async function buildServerHealthStatus() {
     }
 
     const bangaloreConfig = cityAlertConfigById.get("bangalore");
+    const delhiConfig = cityAlertConfigById.get("delhi");
     const hyderabadConfig = cityAlertConfigById.get("hyderabad");
 
     return {
@@ -773,42 +862,9 @@ async function buildServerHealthStatus() {
             warning: adsbTcpConnection.warning || null
         },
         vadodaraAirspace: vadodaraStation,
-        bangaloreAirspace: {
-            status: !bangaloreConfig.state.lastError,
-            state: bangaloreConfig.state.isRunning
-                ? "polling"
-                : bangaloreConfig.state.lastError
-                    ? "error"
-                    : bangaloreConfig.state.lastRunAt
-                        ? "ready"
-                        : "starting",
-            radiusMiles: bangaloreConfig.radiusMiles,
-            lastRunAt: bangaloreConfig.state.lastRunAt,
-            lastError: bangaloreConfig.state.lastError,
-            lastMatches: bangaloreConfig.state.lastMatches.length,
-            emailRecipients: bangaloreConfig.emails.length,
-            callRecipients: bangaloreConfig.callPhones.length,
-            callAlertsEnabled: bangaloreConfig.enableCallAlerts,
-            notificationsEnabled: areCityAlertNotificationsEnabled()
-        },
-        hyderabadAirspace: {
-            status: !hyderabadConfig.state.lastError,
-            state: hyderabadConfig.state.isRunning
-                ? "polling"
-                : hyderabadConfig.state.lastError
-                    ? "error"
-                    : hyderabadConfig.state.lastRunAt
-                        ? "ready"
-                        : "starting",
-            radiusMiles: hyderabadConfig.radiusMiles,
-            lastRunAt: hyderabadConfig.state.lastRunAt,
-            lastError: hyderabadConfig.state.lastError,
-            lastMatches: hyderabadConfig.state.lastMatches.length,
-            emailRecipients: hyderabadConfig.emails.length,
-            callRecipients: hyderabadConfig.callPhones.length,
-            callAlertsEnabled: hyderabadConfig.enableCallAlerts,
-            notificationsEnabled: areCityAlertNotificationsEnabled()
-        }
+        bangaloreAirspace: buildRemoteAirspaceHealth(bangaloreConfig),
+        delhiAirspace: buildRemoteAirspaceHealth(delhiConfig),
+        hyderabadAirspace: buildRemoteAirspaceHealth(hyderabadConfig)
     };
 }
 

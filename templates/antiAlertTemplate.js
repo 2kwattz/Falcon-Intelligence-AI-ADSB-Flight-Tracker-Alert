@@ -68,6 +68,8 @@ function altitudeFilteredFlightAlertTemplate(match) {
         </tr>
     `;
 
+    const monitoringZone = match.alertLocation || "Vadodara";
+
     const data = {
         aircraftType: formatValue(match.aircraftType),
         registration: formatValue(match.registration),
@@ -76,7 +78,8 @@ function altitudeFilteredFlightAlertTemplate(match) {
         callsign: formatValue(match.callsign),
         altitude: formatValue(match.altitude, "ft"),
         hexCode: formatValue(match.hexCode),
-        monitoringZone: match.alertLocation || "Vadodara",
+        monitoringZone,
+        monitoringZoneHtml: escapeHtml(monitoringZone),
         monitoringRadius: (
             match.alertRadiusMiles ? `${match.alertRadiusMiles} MI` : "100 KM"
         ),
@@ -88,7 +91,7 @@ function altitudeFilteredFlightAlertTemplate(match) {
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Falcon Intelligence</title>
+    <title>Falcon Intelligence [${data.monitoringZoneHtml}] | No Call Alert</title>
 </head>
 
 <body style="
@@ -122,14 +125,14 @@ function altitudeFilteredFlightAlertTemplate(match) {
             color: #9ca3af;
             margin-bottom: 8px;
         ">
-            FALCON INTELLIGENCE
+            FALCON INTELLIGENCE · ${data.monitoringZoneHtml.toUpperCase()}
         </div>
 
         <div style="
             font-size: 22px;
             font-weight: 700;
         ">
-            Call Alert Suppressed
+            ${data.monitoringZoneHtml} Call Alert Suppressed
         </div>
 
         <div style="
@@ -157,12 +160,13 @@ function altitudeFilteredFlightAlertTemplate(match) {
                 We detected
                 <strong>${data.aircraftType}</strong>
                 <strong>${data.registration}</strong>
-                within the monitored area.
+                within the monitored area around
+                <strong>${data.monitoringZoneHtml}</strong>.
             </p>
 
             <p>
                 However, we <strong>did not send you a call alert</strong>
-                because the aircraft was flying above the
+                for <strong>${data.monitoringZoneHtml}</strong> because the aircraft was flying above the
                 <strong>20,000 ft alert threshold</strong>.
             </p>
 
@@ -269,8 +273,8 @@ function altitudeFilteredFlightAlertTemplate(match) {
 
             Detection time: ${data.time}<br>
 
-            Falcon Intelligence will continue monitoring the aircraft
-            for relevant altitude changes.
+            Falcon Intelligence will continue monitoring the aircraft around
+            ${data.monitoringZoneHtml} for relevant altitude changes.
 
             <br><br>
 

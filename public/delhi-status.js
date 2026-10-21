@@ -30,6 +30,20 @@
   }
 
   function renderStatus(payload) {
+    if (!payload.trackingEnabled) {
+      setPill(false);
+      $("#metric-status").textContent = "Disabled";
+      $("#metric-error").textContent = "Enable Delhi tracking and alerts from the dashboard to begin polling.";
+      $("#metric-feed").textContent = "Disabled";
+      $("#metric-feed-detail").textContent = "No Delhi ADSBHub location lookups are running";
+      $("#metric-matches").textContent = "0";
+      $("#status-updated").textContent = "Tracking disabled from dashboard";
+      $("#metric-nearby").textContent = "0";
+      $("#nearby-updated").textContent = "Tracking disabled";
+      $("#nearby-aircraft").innerHTML = `<div class="empty-state">Delhi tracking is disabled from the dashboard.</div>`;
+      return;
+    }
+
     const connection = payload.connection || {};
     const connected = Boolean(connection.connected);
     const awaitingData = connection.state === "connected-awaiting-data" || (connected && !connection.lastMessageAt);
@@ -46,18 +60,21 @@
 
   async function refresh() {
     try {
-      const [statusResponse, nearbyResponse] = await Promise.all([
-        fetch(statusEndpoint, { headers: { Accept: "application/json" }, cache: "no-store" }),
-        fetch(nearbyEndpoint, { headers: { Accept: "application/json" }, cache: "no-store" })
-      ]);
+      const statusResponse = await fetch(statusEndpoint, { headers: { Accept: "application/json" }, cache: "no-store" });
 
       if (!statusResponse.ok) throw new Error("Status endpoint returned " + statusResponse.status);
-      if (!nearbyResponse.ok) throw new Error("Nearby endpoint returned " + nearbyResponse.status);
-
       const statusPayload = await statusResponse.json();
+      renderStatus(statusPayload);
+
+      if (!statusPayload.trackingEnabled) {
+        $("#raw-response").textContent = JSON.stringify({ status: statusPayload }, null, 2);
+        return;
+      }
+
+      const nearbyResponse = await fetch(nearbyEndpoint, { headers: { Accept: "application/json" }, cache: "no-store" });
+      if (!nearbyResponse.ok) throw new Error("Nearby endpoint returned " + nearbyResponse.status);
       const nearbyPayload = await nearbyResponse.json();
 
-      renderStatus(statusPayload);
       renderNearby(nearbyPayload);
       $("#raw-response").textContent = JSON.stringify({ status: statusPayload, nearby: nearbyPayload }, null, 2);
     } catch (error) {

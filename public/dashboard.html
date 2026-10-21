@@ -145,6 +145,21 @@
     </div>
 
     <div id="flight-alerts-panel" role="tabpanel" aria-labelledby="flight-alerts-tab" hidden>
+      <section class="dashboard-section" aria-labelledby="city-alert-enabled-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">Remote ADS-B alerts</p><h2 id="city-alert-enabled-title">City tracking and alerts</h2></div>
+          <p>Enable a city to begin its ADSBHub location tracking and allow email and call alerts. Disabled cities do not query their location feed or send alerts. Vadodara remains on its local SDR feed.</p>
+        </div>
+        <form class="city-alert-enabled-form" id="city-alert-enabled-form">
+          <div class="city-alert-enabled-grid">
+            <label class="city-alert-enabled-field" for="bangalore-city-alert-enabled"><span>Bangalore</span><span class="city-alert-enabled-switch"><input id="bangalore-city-alert-enabled" name="bangalore" type="checkbox" role="switch" aria-describedby="bangalore-city-alert-enabled-help"><span aria-hidden="true"></span><strong>Enable tracking and alerts</strong></span><small id="bangalore-city-alert-enabled-help">ADSBHub tracking, email, and calls</small></label>
+            <label class="city-alert-enabled-field" for="delhi-city-alert-enabled"><span>Delhi</span><span class="city-alert-enabled-switch"><input id="delhi-city-alert-enabled" name="delhi" type="checkbox" role="switch" aria-describedby="delhi-city-alert-enabled-help"><span aria-hidden="true"></span><strong>Enable tracking and alerts</strong></span><small id="delhi-city-alert-enabled-help">ADSBHub tracking, email, and calls</small></label>
+            <label class="city-alert-enabled-field" for="hyderabad-city-alert-enabled"><span>Hyderabad</span><span class="city-alert-enabled-switch"><input id="hyderabad-city-alert-enabled" name="hyderabad" type="checkbox" role="switch" aria-describedby="hyderabad-city-alert-enabled-help"><span aria-hidden="true"></span><strong>Enable tracking and alerts</strong></span><small id="hyderabad-city-alert-enabled-help">ADSBHub tracking, email, and calls</small></label>
+          </div>
+          <div class="city-alert-radii-actions"><p id="city-alert-enabled-note" aria-live="polite">Loading saved tracking settings…</p><button class="button" id="city-alert-enabled-save" type="submit">Save tracking settings</button></div>
+        </form>
+      </section>
+
       <section class="dashboard-section" aria-labelledby="city-alert-radii-title">
         <div class="section-heading">
           <div><p class="eyebrow">Remote ADS-B alerts</p><h2 id="city-alert-radii-title">City alert radii</h2></div>

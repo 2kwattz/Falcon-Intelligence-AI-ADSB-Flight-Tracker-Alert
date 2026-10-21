@@ -10,6 +10,9 @@
   const cityAlertRadiiForm = $("#city-alert-radii-form");
   const cityAlertRadiiNote = $("#city-alert-radii-note");
   const cityAlertRadiiSaveButton = $("#city-alert-radii-save");
+  const cityAlertEnabledForm = $("#city-alert-enabled-form");
+  const cityAlertEnabledNote = $("#city-alert-enabled-note");
+  const cityAlertEnabledSaveButton = $("#city-alert-enabled-save");
   const cityAlertRecipientsGrid = $("#city-alert-recipients-grid");
   const cityAlertRecipientForm = $("#city-alert-recipient-form");
   const cityAlertRecipientNote = $("#city-alert-recipient-note");
@@ -311,6 +314,7 @@
     receivingFeedGrid.innerHTML = receivingData.map((feed) => statsCard(feed, "feed")).join("") || '<p class="empty-state">No receiving sources are configured.</p>';
     feedingFeedGrid.innerHTML = feedingData.map((feed) => statsCard(feed, "feed", feed.metric)).join("") || '<p class="empty-state">No feeder clients are configured.</p>';
     phoneGrid.innerHTML = phones.map((phone) => `<article class="phone-card"><span>${escapeHtml(phone.label)}</span><strong>${escapeHtml(phone.number)}</strong><small>${escapeHtml(phone.variable)}</small></article>`).join("") || '<p class="empty-state">No alert phone numbers are configured.</p>';
+    renderCityAlertEnabled(data.cityAlertEnabled);
     renderCityAlertRadii(data.cityAlertRadii);
     renderCityAlertEmailRecipients(data.cityAlertEmailRecipients);
   };
@@ -323,6 +327,20 @@
       if (input && Number.isFinite(radiusMiles)) input.value = String(radiusMiles);
     });
     cityAlertRadiiNote.textContent = "Saved radii are active on the remote city alert loops.";
+  };
+
+  const renderCityAlertEnabled = (enabledByCity) => {
+    const enabled = enabledByCity || {};
+    const activeCities = [];
+    ["bangalore", "delhi", "hyderabad"].forEach((cityId) => {
+      const input = cityAlertEnabledForm.elements.namedItem(cityId);
+      const isEnabled = enabled[cityId] === true;
+      if (input) input.checked = isEnabled;
+      if (isEnabled) activeCities.push(cityId);
+    });
+    cityAlertEnabledNote.textContent = activeCities.length
+      ? `${activeCities.map((cityId) => cityId[0].toUpperCase() + cityId.slice(1)).join(", ")} tracking is active. Disabled cities do not query ADSBHub or send alerts.`
+      : "All remote city tracking is disabled. No ADSBHub location lookups or alerts will run.";
   };
 
   const cityAlertRecipientCard = (cityId, label, recipients) => {
@@ -467,6 +485,40 @@
     }
   };
 
+  const updateCityAlertEnabled = async (event) => {
+    event.preventDefault();
+    const enabled = Object.fromEntries(
+      ["bangalore", "delhi", "hyderabad"].map((cityId) => [
+        cityId,
+        Boolean(cityAlertEnabledForm.elements.namedItem(cityId).checked)
+      ])
+    );
+    cityAlertEnabledSaveButton.disabled = true;
+    cityAlertEnabledNote.textContent = "Saving tracking settings…";
+
+    try {
+      const response = await fetch("/api/dashboard/city-alert-enabled", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ enabled })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        window.location.assign("/login");
+        return;
+      }
+      if (!response.ok || !payload.success) throw new Error(payload.message || "Unable to update city tracking settings.");
+      renderCityAlertEnabled(payload.cityAlertEnabled);
+      setStatus("City tracking and alert settings saved.");
+    } catch (error) {
+      cityAlertEnabledNote.textContent = "City tracking settings could not be updated.";
+      setStatus(error.message || "Unable to update city tracking settings.", true);
+    } finally {
+      cityAlertEnabledSaveButton.disabled = false;
+    }
+  };
+
   const changeCityAlertEmailRecipient = async (method, cityId, email) => {
     cityAlertRecipientAddButton.disabled = true;
     cityAlertRecipientNote.textContent = `${method === "DELETE" ? "Removing" : "Adding"} email recipient…`;
@@ -589,6 +641,7 @@
   gainModeManual.addEventListener("change", setGainControlMode);
   gainControlForm.addEventListener("submit", updateReadsbGain);
   cityAlertRadiiForm.addEventListener("submit", updateCityAlertRadii);
+  cityAlertEnabledForm.addEventListener("submit", updateCityAlertEnabled);
   cityAlertRecipientForm.addEventListener("submit", addCityAlertEmailRecipient);
   cityAlertRecipientsGrid.addEventListener("click", removeCityAlertEmailRecipient);
   initMenu();

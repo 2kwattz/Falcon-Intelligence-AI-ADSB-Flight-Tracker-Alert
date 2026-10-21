@@ -4,6 +4,7 @@ const CityAlertSettings = require("../models/CityAlertSettings");
 const {
     CONFIGURABLE_CITY_IDS,
     DEFAULT_RADIUS_MILES,
+    DEFAULT_CITY_ALERT_ENABLED,
     DEFAULT_CITY_ALERT_EMAIL_RECIPIENTS
 } = require("../utils/cityAlertDefaults");
 
@@ -16,6 +17,9 @@ const settingsChangeListeners = new Set();
 function defaultSettings() {
     return {
         radii: Object.fromEntries(CONFIGURABLE_CITY_IDS.map((cityId) => [cityId, DEFAULT_RADIUS_MILES])),
+        enabled: Object.fromEntries(
+            CONFIGURABLE_CITY_IDS.map((cityId) => [cityId, DEFAULT_CITY_ALERT_ENABLED[cityId]])
+        ),
         emailRecipients: Object.fromEntries(
             CONFIGURABLE_CITY_IDS.map((cityId) => [cityId, [...DEFAULT_CITY_ALERT_EMAIL_RECIPIENTS[cityId]]])
         )
@@ -35,6 +39,7 @@ class CityAlertSettingsError extends Error {
 function copySettings() {
     return {
         radii: { ...cityAlertSettings.radii },
+        enabled: { ...cityAlertSettings.enabled },
         emailRecipients: Object.fromEntries(
             CONFIGURABLE_CITY_IDS.map((cityId) => [cityId, [...cityAlertSettings.emailRecipients[cityId]]])
         )
@@ -82,6 +87,21 @@ function normalizedRadii(storedRadii) {
     }));
 }
 
+function normalizeEnabled(value, cityId) {
+    if (typeof value !== "boolean") return DEFAULT_CITY_ALERT_ENABLED[cityId];
+
+    return value;
+}
+
+function normalizedEnabled(storedEnabled) {
+    const source = storedEnabled && typeof storedEnabled === "object" ? storedEnabled : {};
+
+    return Object.fromEntries(CONFIGURABLE_CITY_IDS.map((cityId) => [
+        cityId,
+        normalizeEnabled(source[cityId], cityId)
+    ]));
+}
+
 function normalizedRecipients(storedRecipients) {
     const source = storedRecipients && typeof storedRecipients === "object" ? storedRecipients : {};
     return Object.fromEntries(CONFIGURABLE_CITY_IDS.map((cityId) => {
@@ -104,6 +124,7 @@ function normalizedRecipients(storedRecipients) {
 function applySettings(settings) {
     cityAlertSettings = {
         radii: normalizedRadii(settings?.radii),
+        enabled: normalizedEnabled(settings?.enabled),
         emailRecipients: normalizedRecipients(settings?.emailRecipients)
     };
     for (const listener of settingsChangeListeners) {
@@ -131,6 +152,10 @@ function getCityAlertSettings() {
 
 function getCityAlertRadii() {
     return { ...cityAlertSettings.radii };
+}
+
+function getCityAlertEnabled() {
+    return { ...cityAlertSettings.enabled };
 }
 
 function getCityAlertEmailRecipients() {
@@ -165,6 +190,35 @@ async function updateCityAlertRadii(requestedRadii) {
     ensureDatabaseIsAvailable();
     const updates = Object.fromEntries(
         cityIds.map((cityId) => [`radii.${cityId}`, normalizeRadius(requestedRadii[cityId], cityId)])
+    );
+    const settings = await CityAlertSettings.findOneAndUpdate(
+        { key: SETTINGS_KEY },
+        { $set: updates, $setOnInsert: { key: SETTINGS_KEY } },
+        { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: false }
+    ).lean();
+    return applySettings(settings);
+}
+
+async function updateCityAlertEnabled(requestedEnabled) {
+    if (!requestedEnabled || typeof requestedEnabled !== "object" || Array.isArray(requestedEnabled)) {
+        throw new CityAlertSettingsError("Alert settings must be an object keyed by city", 400);
+    }
+
+    const cityIds = Object.keys(requestedEnabled);
+    if (!cityIds.length) throw new CityAlertSettingsError("Choose at least one city alert setting to update", 400);
+    if (cityIds.some((cityId) => !CONFIGURABLE_CITY_IDS.includes(cityId))) {
+        throw new CityAlertSettingsError(
+            `Only ${CONFIGURABLE_CITY_IDS.join(", ")} city alerts can be changed from the dashboard`,
+            400
+        );
+    }
+    if (cityIds.some((cityId) => typeof requestedEnabled[cityId] !== "boolean")) {
+        throw new CityAlertSettingsError("Each city alert setting must be true or false", 400);
+    }
+
+    ensureDatabaseIsAvailable();
+    const updates = Object.fromEntries(
+        cityIds.map((cityId) => [`enabled.${cityId}`, requestedEnabled[cityId]])
     );
     const settings = await CityAlertSettings.findOneAndUpdate(
         { key: SETTINGS_KEY },
@@ -214,9 +268,11 @@ module.exports = {
     CityAlertSettingsError,
     getCityAlertSettings,
     getCityAlertRadii,
+    getCityAlertEnabled,
     getCityAlertEmailRecipients,
     hydrateCityAlertSettings,
     updateCityAlertRadii,
+    updateCityAlertEnabled,
     addCityAlertEmailRecipient: (cityId, email) => changeCityAlertEmailRecipient(cityId, email, "add"),
     removeCityAlertEmailRecipient: (cityId, email) => changeCityAlertEmailRecipient(cityId, email, "remove"),
     onCityAlertSettingsChange

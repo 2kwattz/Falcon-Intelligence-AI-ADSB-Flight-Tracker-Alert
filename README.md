@@ -1,18 +1,22 @@
+<p align="center">
+  <img src="public/assets/falcon-intelligence-logo.png" width="220" alt="Falcon Intelligence logo: a falcon with aviation radar" />
+</p>
+
 # Falcon Intelligence
 
-Falcon Intelligence is a self-hosted aircraft-tracking and alerting application for aviation enthusiasts. It turns ADS-B / Mode-S feed data into a live map, a searchable observation archive, city-based aircraft alerts, and a simple web experience for exploring aircraft activity.
+Falcon Intelligence is a self-hosted, Express-based aviation-intelligence platform that ingests local `readsb`/SDR JSON and approved ADS-B / Mode-S partner feeds, including ADSBHub TCP, to create a clear operational picture of the sky. It combines real-time aircraft maps, airspace-aware city tracking with email and VoIP Call escalation, a Redis-backed searchable observation archive and ICAO/Mode-S aircraft lookup, public exploration and status pages, and a MongoDB/JWT-protected operations dashboard for receiver health, feeder connections, historical graphs, gain control, alert recipients, and server monitoring—giving aviation teams and enthusiasts one practical place to receive, investigate, and act on aircraft activity.
 
 ## What it does
 
 The project is designed to collect aircraft observations from a local `readsb`/SDR feed and partner feeds, then make the information useful without requiring a commercial tracking dashboard. Its public-facing pages include:
+
+![Falcon Intelligence system flow: ADS-B and ADSBHub ingestion through the static-IP main server, data services, alert decisions, delivery providers, dashboard, and feeder-health checks](public/assets/falcon-alert-flow.png)
 
 - A live aircraft map with selectable sources and map-bound filtering.
 - An Intelligence Archive that retains aircraft observations in Redis for five days, with searching, filters, raw payload detail, and a last-known-position map.
 - An aircraft detail lookup that resolves a valid ICAO / Mode-S hex code through the public HexDB registry.
 - Explore, alert-status, authentication, contact, registration, and community pages.
 - Alerts that can send email and place phone calls when configured aircraft enter defined airspaces.
-
-When there are no archived records yet, the archive intentionally serves a small, clearly-labelled set of sample records from `public/dummyAircraftData.json`. Live cache data automatically takes precedence once it is available.
 
 ## Architecture
 
@@ -103,7 +107,7 @@ The following integrations are optional and only needed for their corresponding 
 | MongoDB dashboard and profile data | `MONGO_URI` |
 | Resend email delivery | `RESEND_API_KEY`, `EMAIL_FROM` |
 | Gmail SMTP mail delivery | `GMAIL_SMTP`, `GMAIL_SMTP_PASSWORD` |
-| Twilio calls | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_CALLER_ID`, `TWILIO_CALL_TIMEOUT_SECONDS` |
+| Twilio calls | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_CALLER_ID`, `TWILIO_CALL_TIMEOUT_SECONDS`; city call recipients use `BANGALORE_ALERT_PHONE_1`–`_4` and `DELHI_ALERT_PHONE_1`–`_4` (with optional `BANGALORE_AIRSPACE_NUMBER` and `DELHI_AIRSPACE_NUMBER` caller IDs) |
 | Razorpay payments | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` |
 | ADSBHub live feed | `ADSBHUB_HOST`, `ADSBHUB_PORT`, `ADSBHUB_NO_DATA_WARNING_MS` |
 | ADSB.lol re-api dashboard probe | `ADSBLOL_RE_API_URL`, `ADSBLOL_RE_API_CIRCLE`, `ADSBLOL_RE_API_TIMEOUT_MS` |
@@ -118,6 +122,145 @@ The following integrations are optional and only needed for their corresponding 
 | IP lookup | `IPINFO_API_KEY` |
 
 Do not commit `.env` files or API credentials.
+
+### Receiver software: readsb, tar1090, and graphs1090
+
+For the local-SDR/Vadodara path, **readsb** is the receiver/decoder and is the only one of these three tools that is normally required. It writes the local aircraft and receiver JSON files that Falcon reads. **tar1090** is an optional web interface for that decoder, and **graphs1090** is an optional historical-graphs service. They are useful operationally, but neither replaces the Falcon dashboard or enables remote-city alerts.
+
+These upstream installers target Debian-family receiver hosts (such as Ubuntu, Debian, or Raspberry Pi OS) and require an RTL-SDR-compatible receiver for local radio reception. Review every downloaded script before running it, run this on the receiver host rather than the public web server, and retain the upstream links below for current options and troubleshooting.
+
+| Software | When it is needed | Falcon integration |
+| --- | --- | --- |
+| [readsb](https://github.com/wiedehopf/adsb-scripts) | Required for a local SDR receiver, including Vadodara tracking. | Falcon prefers `/run/readsb/aircraft.json`; it can also read `stats.json` and `receiver.json` for the protected dashboard. |
+| [tar1090](https://github.com/wiedehopf/tar1090) | Recommended for an on-host/lab web map and raw JSON diagnostics. | Serves readsb data at `/tar1090/data/…`; set `ADSB_FLIGHT_JSON_URL` only if Falcon needs to use that HTTP source instead of the local file. |
+| [graphs1090](https://github.com/wiedehopf/graphs1090) | Optional; use when historical receiver/range/message-rate graphs are useful. | Point `GRAPHS1090_OUTPUT_DIR` at its generated graph directory; the dashboard defaults to `/run/graphs1090`. |
+
+Install the base utilities once:
+
+```bash
+sudo apt update
+sudo apt install -y curl wget
+```
+
+#### Install readsb
+
+The maintained readsb installer also installs tar1090 unless instructed otherwise. Use the upstream script only after inspecting it:
+
+```bash
+curl -fsSL https://github.com/wiedehopf/adsb-scripts/raw/master/readsb-install.sh -o /tmp/readsb-install.sh
+less /tmp/readsb-install.sh
+sudo bash /tmp/readsb-install.sh
+
+# Set the physical receiver location after installation.
+sudo readsb-set-location <latitude> <longitude>
+sudo systemctl status readsb --no-pager
+```
+
+After readsb is working, keep Falcon on the local file path where possible:
+
+```dotenv
+READSB_AIRCRAFT_JSON_PATH=/run/readsb/aircraft.json
+```
+
+#### Install or verify tar1090
+
+Skip this step when the readsb installer has already installed tar1090. Otherwise, install it with its maintained installer:
+
+```bash
+sudo bash -c "$(wget -nv -O - https://github.com/wiedehopf/tar1090/raw/master/install.sh)"
+sudo systemctl status tar1090 --no-pager
+```
+
+Open `http://<receiver-host>/tar1090/` from a trusted network. Its useful local diagnostic endpoints include:
+
+```text
+http://<receiver-host>/tar1090/data/aircraft.json
+http://<receiver-host>/tar1090/data/stats.json
+http://<receiver-host>/tar1090/data/status.json
+http://<receiver-host>/tar1090/data/outline.json
+http://<receiver-host>/tar1090/data/stats.prom
+http://<receiver-host>/tar1090/data/status.prom
+```
+
+If the Falcon service cannot read `/run/readsb/aircraft.json` directly, it may use tar1090 instead:
+
+```dotenv
+ADSB_FLIGHT_JSON_URL=http://127.0.0.1/tar1090/data/aircraft.json
+```
+
+Do not expose these raw receiver endpoints to the public internet without authentication, a VPN, or an appropriately restricted reverse proxy.
+
+#### Install graphs1090
+
+Install graphs1090 only after readsb is producing `stats.json`:
+
+```bash
+sudo bash -c "$(curl -L -o - https://github.com/wiedehopf/graphs1090/raw/master/install.sh)"
+sudo systemctl status graphs1090 --no-pager
+```
+
+Its configuration is normally in `/etc/default/graphs1090`. Configure Falcon with the directory that contains the generated graph images, then restart the Falcon Node service:
+
+```dotenv
+GRAPHS1090_OUTPUT_DIR=/run/graphs1090
+GRAPHS1090_PERIOD=24h
+```
+
+### Data-sharing receiver status and endpoints
+
+Falcon exposes **local process health**, not a proxy for each partner's private feeder dashboard. The Mongo/JWT-protected `GET /api/dashboard/stats` endpoint (and **Dashboard → Feed clients**) reports whether the local feeder service/process is present for Flightradar24, AirNav Radar, ADSBexchange, ADSB.lol, ADSBHub, Airplanes.live, and FlightAware. A healthy local process does **not** prove that the remote provider accepted its upload; confirm that in the provider location below.
+
+| Data-sharing network | Receiver-detail/status location | Notes |
+| --- | --- | --- |
+| Flightradar24 | Sign in to the [Flightradar24 account data-sharing area](https://www.flightradar24.com/account/data-sharing) and open the receiver's feed statistics. | Feed-owner access; there is no Falcon-created public receiver-details endpoint. |
+| AirNav Radar | `https://www.airnavradar.com/stations/<station-id>` | Replace `<station-id>` with the station identifier shown in AirNav/RadarBox; this page shows the station's live/range/uptime information. |
+| ADSBexchange | [ADSBexchange feeder hub](https://www.adsbexchange.com/community/feeder-hub/connect-equipment/) and [My IP](https://www.adsbexchange.com/myip/) from the receiver network. | Use the hub/account to confirm feeder acceptance; `myip` helps identify the egress address used by the receiver. |
+| ADSB.lol | [ADSB.lol](https://www.adsb.lol/) feeder/account view; if its optional local UI is installed, `http://<receiver-host>/adsblol`. | The local path exists only when the ADSB.lol client interface has been installed. |
+| ADSBHub | Sign in and open the account [Statistics](https://data.adsbhub.org/howtofeed.php) page. | Provider-side receiver statistics are account-bound rather than a public Falcon endpoint. |
+| Airplanes.live | [Airplanes.live API documentation](https://airplanes.live/api-docs/), including its feeder-status operation. | Follow that documentation's current authentication and feeder-identifier requirements; Falcon does not store or proxy its API credentials. |
+| FlightAware | Sign in to the PiAware feeder's statistics page; global [PiAware site statistics](https://www.flightaware.com/adsb/stats/sites) are also available. | Detailed per-receiver statistics are restricted to the feeder owner/provider staff. |
+
+When sharing one receiver with more than one network, use credentials issued for that receiver and review every provider's sharing policy before enabling another client. In particular, a Flightradar24-supplied receiver is subject to a no-third-party-feeding condition in its [receiver agreement](https://www.flightradar24.com/files/Our_Receiver.pdf). Never put feeder keys, account cookies, or provider API tokens in this repository or in client-side JavaScript.
+
+### Remote city call and email alerts
+
+Remote city alerts use the ADSBHub TCP feed and are controlled from **Dashboard → Flight alerts**. A city must be enabled there before the service reads its nearby-aircraft feed, records a match, sends an email, or starts a call. Vadodara is intentionally separate: it remains on the local SDR/readsb path and is not governed by the remote-city controls.
+
+| City | Default tracking state | Alert source | Call-recipient environment variables | Email delivery |
+| --- | --- | --- | --- | --- |
+| Bangalore | Disabled | ADSBHub TCP | `BANGALORE_ALERT_PHONE_1` through `_4`; optional `BANGALORE_AIRSPACE_NUMBER` caller ID | Resend |
+| Delhi | Disabled | ADSBHub TCP | `DELHI_ALERT_PHONE_1` through `_4`; optional `DELHI_AIRSPACE_NUMBER` caller ID | Resend |
+| Hyderabad | Enabled | ADSBHub TCP | `LOKESH_BHAI_PHONE`; optional `HYDERABAD_AIRSPACE_NUMBER` caller ID | Gmail SMTP |
+| Vadodara | Local SDR path | Local readsb/SDR | Existing local-alert configuration | Existing local-alert delivery |
+
+To activate Delhi call and email alerts:
+
+1. Configure Resend (`RESEND_API_KEY` and `EMAIL_FROM`) and Twilio (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_CALLER_ID`).
+2. Add one or more E.164 phone numbers to the server environment, for example:
+
+   ```dotenv
+   DELHI_ALERT_PHONE_1=+919999999999
+   # Optional: use a Delhi-specific Twilio sender instead of TWILIO_CALLER_ID.
+   DELHI_AIRSPACE_NUMBER=+12296653927
+   ```
+
+3. Restart the Node service so it reads the new phone-number configuration.
+4. Sign in, open **Dashboard → Flight alerts**, add the Delhi email recipients, choose a Delhi radius, enable **Delhi tracking and alerts**, then save each setting.
+
+No calls are made unless the city is enabled and at least one city phone variable is configured. The normal altitude rules still apply: an aircraft above 20,000 ft receives a no-call email instead of a call where that city is configured for high-altitude suppression. No-call email subjects use `Falcon Intelligence [City] | No Call Alert | …`, and the city is named in the email header and body.
+
+### Adding a remote city for call and email alerts
+
+Adding a remote city is a code change because the app keeps an explicit allow-list of airspaces. Use this checklist for a city such as `examplecity`:
+
+1. Add `iafDataExamplecity.js`, exporting an `allAircraft` catalog with the aircraft `HexCode`, `Registration`, `AircraftType`, `TypeCode`, and `AircraftOperator` fields.
+2. Add `examplecity` to `CONFIGURABLE_CITY_IDS`, `DEFAULT_CITY_ALERT_ENABLED`, and `DEFAULT_CITY_ALERT_EMAIL_RECIPIENTS` in `utils/cityAlertDefaults.js`; add matching `radii`, `enabled`, and `emailRecipients` paths to `models/CityAlertSettings.js`.
+3. In `routes/apiRoutes.js`, import the catalog, define the city centre, add its `EXAMPLECITY_ALERT_PHONE_1`–`_4` array and optional `EXAMPLECITY_AIRSPACE_NUMBER`, then add a `cityAlertConfigs` entry. Set its label, radius, email recipients, enabled state, call configuration, cache preference, data catalog, and distance-field name.
+4. Extend the protected dashboard API in `routes/privateStatsRoutes.js` with the city call-number labels. Add a dashboard switch, radius input, recipient card, and recipient selector option in `public/dashboard.html` and `public/dashboard.js`.
+5. If the city needs a public status or archive view, add its status endpoint/view and register it in the tracked-aircraft selector. Add it to the server-health response and this README as appropriate.
+6. Add the new phone variables to the deployment environment, restart the service, configure recipients and radius in the dashboard, enable the city, and verify an alert with a controlled feed record.
+
+Keep local-SDR cities separate from this list unless they should deliberately move to the ADSBHub remote-alert pipeline.
 
 ### Allowing dashboard gain changes
 
@@ -147,11 +290,13 @@ Validate it with `sudo visudo -cf /etc/sudoers.d/falcon-readsb-gain`. The helper
 | `/trackedaircrafts` | Archived aircraft JSON; returns labelled sample data only when the archive is empty or unavailable. |
 | `/aircraft-lookup/:hex` | Validated six-character ICAO / Mode-S registry lookup used by the archive popup. |
 | `/explore` | Aircraft exploration page. |
-| `/bangalore-status` and `/delhi-status` | City alert-status pages. |
+| `/bangalore-status`, `/delhi-status`, and `/hyderabad-status` | City alert-status pages; disabled cities do not request their nearby-aircraft feed. |
 | `/api/aircraft/nearby` | Nearby-aircraft API; additional compatible ADSBHub TCP paths are available under `/api/adsbhub-tcp`. |
 | `/auth/mongo/login` | MongoDB/JWT login for the protected dashboard and profile. This is separate from the existing MySQL `/auth` flow. |
 | `/dashboard` | Mongo-JWT-protected operations dashboard. Direct `/dashboard.html` access is also protected before static files are served. |
 | `/api/dashboard/stats` | Mongo-JWT-protected main-server station, feed, server-health, and configured alert-recipient data. |
+| `/api/dashboard/city-alert-enabled` | Mongo-JWT-protected `PUT` endpoint for the per-city remote tracking and alert switches. |
+| `/api/dashboard/city-alert-radii` and `/api/dashboard/city-alert-email-recipients` | Mongo-JWT-protected city radius and email-recipient management endpoints. |
 | `/profile` | Mongo-JWT-protected profile page, including profile-photo updates. |
 | `/falcon-video-generator` | Video-generator page; its upload and generation APIs require Mongo/JWT login. |
 
@@ -167,6 +312,8 @@ The existing MySQL authentication system is retained under `/auth`. MongoDB/JWT 
 - `/dashboard`, `/dashboard.html`, `/api/dashboard/stats`, and `/api/private-stats` require a valid Mongo JWT. Dashboard data is collected by the Node/Ubuntu host, not the visitor's device.
 - Browser navigation to a protected page redirects to `/login` when the Mongo JWT is missing or invalid. Protected API requests continue to return JSON `401` responses for client-side handling.
 - The dashboard shows the authenticated greeting, configured station status, ADSBHub TCP and ADSB.lol re-api receiving data, local Ubuntu feeder checks, alert phone numbers currently configured in the server environment, and a main-server identity label.
+- The Dashboard **Flight alerts** tab independently enables Bangalore, Delhi, and Hyderabad remote-airspace tracking. Disabled cities do not query their ADSBHub nearby-aircraft endpoint, cache matches, or issue email/call alerts. New and legacy settings default to Hyderabad enabled and Bangalore/Delhi disabled; Vadodara remains outside this control because it uses the local SDR feed. Delhi uses the same remote email-and-call pipeline as Bangalore, with `DELHI_ALERT_PHONE_1`–`_4` as its configurable call recipients.
+- High-altitude no-call emails are city-aware in both delivery paths: their subject is `Falcon Intelligence [City] | No Call Alert | …`, and their header and body state the monitored city.
 - Main-server health reporting includes Ubuntu OS details, RAM used/available, CPU load, root-disk usage, MongoDB and Redis connection status (each with a bounded ping), system uptime, and Node process RSS memory. RAM uses `/proc/meminfo`; disk reporting uses filesystem metrics with an Ubuntu `df` fallback.
 - The protected Dashboard **Visitor logs** tab shows anonymous public-page visitors grouped by IP address, along with parsed browser, device, operating-system, and unique page-path data. Logged-in sessions, API calls, assets, and protected routes are excluded.
 - Visitor logs use bounded Redis storage: one hash and one unique-page set per IP address, a 24-hour TTL starting with the first recorded visit, a 10,000-record default cap, and a 50-page-per-visitor default cap. Repeated requests to the same page do not add records or pages. The Dashboard switch pauses/resumes future collection; existing records still age out within 24 hours.
@@ -195,6 +342,51 @@ The existing MySQL authentication system is retained under `/auth`. MongoDB/JWT 
 4. The archive page requests `/trackedaircrafts`, then handles filtering, sorting, grouping, and detail rendering in the browser.
 5. A user can select **Predict Aircraft** in a detail popup to look up a valid six-character hex code. The server validates the input, calls HexDB with a five-second timeout, and caches successful responses for six hours.
 
+### Flight-alert decision flow
+
+Falcon has two independent alert engines. **Bangalore, Delhi, and Hyderabad** use the dashboard-controlled ADSBHub TCP airspace pipeline. **Vadodara** uses the local readsb/SDR pipeline in `routes/adsbRoutes.js`. Their source, matching, altitude, and delivery rules are intentionally different.
+
+#### Remote city alerts: Bangalore, Delhi, and Hyderabad
+
+1. At startup, each city starts a one-second polling timer. The first effective action is determined by its dashboard setting: Bangalore and Delhi default to disabled; Hyderabad defaults to enabled. Saved MongoDB settings update the active radius, enabled state, and email-recipient list without requiring a Node restart.
+2. A **disabled** city returns before reading ADSBHub data. It does not inspect nearby aircraft, write matched-aircraft cache entries, or send email/call alerts. Its public nearby-aircraft request at that city's exact coordinates is also rejected as disabled.
+3. An enabled city takes the current in-memory ADSBHub TCP snapshot, discards aircraft without a valid latitude/longitude, calculates great-circle distance from the configured city centre, keeps aircraft inside the configured radius, sorts nearest first, and considers at most 500 records. ADSBHub records are evicted after 60 seconds without a message (during a 10-second cleanup cycle), so a disconnected, empty, or stale feed produces no candidate alerts.
+4. An aircraft must have a hexadecimal ICAO/Mode-S value in that city's IAF catalogue to be a match. Aircraft outside the radius, without a usable position, without a hex code, or absent from that city catalogue do not produce an alert.
+5. Matching aircraft are recorded in a city-specific Redis key and exposed in that city's status/health response. The match cache is refreshed while the aircraft remains visible and expires 20 minutes after its last matching write.
+6. Notification delivery is allowed only from **08:00 through 01:59 Asia/Kolkata time**. During the 02:00–07:59 quiet period, enabled cities still read, match, cache, and report aircraft, but they do not send emails or place calls.
+7. During the notification window, Falcon evaluates email and call delivery independently for every configured recipient. Redis reserves a separate 20-minute cooldown per city, ICAO, alert type, and recipient/phone number before the external delivery request is made. A delivery failure is logged; it is not retried during that cooldown window.
+
+| Remote-city condition | Match/cache result | Email result | Call result |
+| --- | --- | --- | --- |
+| City disabled | No ADSBHub read, no match cache. | None. | None. |
+| City enabled, but aircraft is outside the radius or not in its IAF catalogue | No alert match. | None. | None. |
+| City enabled and matching, but outside the IST notification window | Match is cached and shown in status. | None. | None. |
+| Matching, active window, on ground / altitude missing / numeric altitude at or below 20,000 ft | Match is cached. | Normal city alert email. | Twilio call to each configured city phone after its cooldown. |
+| Any remote-city match above 20,000 ft | Match is cached. | `Falcon Intelligence [City] | No Call Alert | …` email, with the matching city named in the HTML content. | Suppressed. |
+
+Remote cities do **not** wait for a missing altitude. A missing/non-numeric altitude is call-permitted and follows the normal-email path. For every remote city, an aircraft above 20,000 ft suppresses the call and uses the city-named no-call email path. Email delivery uses Resend for Bangalore and Delhi, and Gmail SMTP for Hyderabad. Calls require the appropriate city phone variables to be configured; with no valid phone numbers, the call stage exits without creating a Twilio call.
+
+#### Local SDR alerts: Vadodara
+
+1. The local loop polls every two seconds by default (`ADSB_TRACKING_INTERVAL_MS`). It reads `READSB_AIRCRAFT_JSON_PATH` first and falls back to `ADSB_FLIGHT_JSON_URL` only when the file cannot be read. If neither source can be read, the polling error is logged and that iteration sends no local alerts.
+2. Each feed record with a usable hex code is offered to the five-day tracked-aircraft archive before IAF matching is evaluated. The legacy local alert match is by catalogue ICAO/Mode-S hex code. Unlike the remote-city pipeline, it does **not** calculate or enforce a Vadodara radius; location is retained as aircraft telemetry only.
+3. A catalogue match receives identity fallbacks from `iafData.js` when the live feed omits registration, type, description, or operator. Non-catalogue aircraft are archived but do not enter the local notification flow.
+4. The altitude branch is then evaluated as follows:
+
+| Local/Vadodara altitude state | Decision |
+| --- | --- |
+| `alt_baro` is `ground` | Any pending altitude grace state is cancelled. The aircraft is call-permitted and follows the normal-email path. |
+| A valid numeric altitude is present | It is saved in Redis for 60 seconds and any pending grace state is cancelled. At or below 20,000 ft is call-permitted; above 20,000 ft suppresses the call and selects the no-call email path. |
+| Altitude is missing, but a valid value was cached in the preceding 60 seconds | The cached altitude is used for the same at-or-below/above-20,000-ft decision. |
+| Altitude is missing and no recent altitude is cached | Falcon starts a one-time 120-second grace period. Until it expires, it sends neither the normal call nor email. |
+| Still missing after the 120-second grace period | Missing altitude is treated as not high altitude, so the normal call and normal-email decisions proceed. |
+| Aircraft disappears while its altitude grace period is still pending | The grace timer is cancelled and Falcon triggers the call path immediately. This disappearance path does not itself run the normal-email loop. |
+
+5. Local calls, normal emails, and no-call emails each use their own Redis cooldown key: one key per ICAO and phone/email recipient, valid for 20 minutes. Therefore a call recipient may be suppressed while another recipient is still eligible, and a normal email cooldown is separate from a no-call email cooldown.
+6. For a normal local match, the call path runs first and then the normal-email path. For a high-altitude match, the call is skipped and the no-call email path is used; its title is `Falcon Intelligence [Vadodara] | No Call Alert | …` and the template names Vadodara in the content. The current legacy local path calls Resend first and attempts Gmail SMTP only when that Resend call succeeds for the recipient; a failure is logged. As with remote alerts, the cooldown is acquired before delivery, so a failed attempt is not automatically retried until it expires.
+
+In both engines, a Twilio API failure, mail-provider failure, unavailable Redis operation, missing delivery credentials, no configured recipient, or missing live source data prevents that particular delivery. Check the server log together with the city status/dashboard view when diagnosing a non-delivery; a receiver or feeder process being healthy alone does not prove that an alert was eligible or sent.
+
 ### Stack
 
 - **Runtime:** Node.js with CommonJS modules
@@ -211,9 +403,63 @@ The existing MySQL authentication system is retained under `/auth`. MongoDB/JWT 
 - The app uses a general rate limiter. Account and external-service routes may apply additional limits.
 - The archive's HexDB data is supplementary registry information, not an authoritative flight record. It can be incomplete or out of date.
 
+### Development-only alert tests with the dummy feed
+
+`public/dummyAircraftData.json` is a readsb-shaped **test input** for the legacy local/Vadodara tracking path. It is not an archive fallback and it does not exercise the Bangalore, Delhi, or Hyderabad remote-city pipeline; those cities receive their data from ADSBHub TCP and must be enabled in the dashboard before their alerts can run.
+
+The sample includes ICAO `800E42` (KC3813), which is present in the local IAF catalogue and has an altitude of `2000` ft. It therefore exercises the normal matched-aircraft branch: archive write, low-altitude call decision, and normal-email decision. The tracking loop polls every two seconds by default (`ADSB_TRACKING_INTERVAL_MS`) and Redis suppresses each call/email variant for 20 minutes, so one match will not repeatedly send the same notification during that window.
+
+**Never run this flow with production delivery credentials or real recipient numbers.** A matching dummy record can invoke the real notification code. The current legacy Vadodara path also has its recipient list in `routes/adsbRoutes.js`, rather than in the dashboard. For a delivery test, use an isolated mail/Twilio test account and temporarily limit that local recipient list to one approved test mailbox in an uncommitted working copy.
+
+1. Stop the normal development instance, or select an unused local port. Keep the production service and its `.env` untouched.
+2. Create a private test environment file outside the repository and a disposable public test feed:
+
+   ```bash
+   cp .env /tmp/falcon-alert-test.env
+   cp public/dummyAircraftData.json public/dummyAircraftData.alert-test.json
+   ```
+
+3. Edit `/tmp/falcon-alert-test.env` and set these values. `READSB_AIRCRAFT_JSON_PATH` deliberately points to a nonexistent test path: Falcon always attempts that local file first and only then uses the HTTP feed URL.
+
+   ```dotenv
+   PORT=3002
+   READSB_AIRCRAFT_JSON_PATH=/tmp/falcon-readsb-disabled-for-alert-test.json
+   ADSB_FLIGHT_JSON_URL=http://127.0.0.1:3002/dummyAircraftData.alert-test.json
+   ADSB_TRACKING_INTERVAL_MS=2000
+   ADSB_DEBUG_LOGS=true
+   ```
+
+   Do **not** change `BASE_URL` for this purpose. It is used for application-generated links, such as password-reset URLs; the aircraft feed is controlled by `ADSB_FLIGHT_JSON_URL`.
+
+4. Start Falcon with that environment file:
+
+   ```bash
+   dotenv_config_path=/tmp/falcon-alert-test.env node -r dotenv/config src/server.js
+   ```
+
+5. Verify that the static dummy feed and the processing route are reachable. The archive response should acquire the test record after a poll completes:
+
+   ```bash
+   curl http://127.0.0.1:3002/dummyAircraftData.alert-test.json
+   curl http://127.0.0.1:3002/adsb/aircrafts
+   curl http://127.0.0.1:3002/trackedaircrafts
+   ```
+
+6. Test the branch required, always using a matching ICAO from `iafData.js` in the disposable file:
+
+   | Scenario | Change in `public/dummyAircraftData.alert-test.json` | Expected local/Vadodara behavior |
+   | --- | --- | --- |
+   | Normal alert | Leave `800E42` at `alt_baro: 2000`. | The normal call and email decisions are reached; actual delivery depends on the deliberately isolated test credentials/recipients. |
+   | High-altitude no-call | Change the matching record to `alt_baro: 20001` or higher. | No call is attempted; the no-call email path is selected with the Vadodara city name in the subject and body. |
+   | Unknown-altitude grace period | Use an otherwise unused catalogue ICAO such as `800E23`, remove its `alt_baro`, and wait 120 seconds. | Falcon waits for the altitude grace period before allowing the normal-alert decision. |
+
+   The feed is reread on each poll, so JSON edits take effect without restarting Falcon. Use a fresh matching ICAO or wait for the relevant Redis cooldown before repeating the same scenario.
+
+7. Stop the test process, remove `public/dummyAircraftData.alert-test.json`, and restart the normal service with its original receiver settings. Do not use broad Redis flush commands to reset an alert test; its cache may contain unrelated application data.
+
 ## Contributing
 
-Keep changes scoped to their feature area, avoid committing credentials or production data, and validate server-side and browser-side JavaScript before submitting changes. For user-facing archive work, test both live-cache and sample-data states.
+Keep changes scoped to their feature area, avoid committing credentials or production data, and validate server-side and browser-side JavaScript before submitting changes. For user-facing archive work, test both live-cache and controlled dummy-feed states where applicable.
 
 ## License
 
