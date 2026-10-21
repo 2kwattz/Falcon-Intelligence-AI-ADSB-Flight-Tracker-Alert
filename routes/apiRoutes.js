@@ -13,7 +13,6 @@ const delhiIafData = require("../iafDataDelhi");
 const hyderabadIafData = require("../iafDataHyderabad");
 const flightAlertTemplate = require("../templates/flightAlertTemplate");
 const antiAlertTemplate = require("../templates/antiAlertTemplate");
-const sendEmail = require("../services/sendEmail");
 const twilio = require("twilio");
 const nodemailer = require("nodemailer");
 const {
@@ -353,7 +352,6 @@ const cityAlertConfigs = [
         callFrom: HYDERABAD_AIRSPACE_CALLER_ID,
         enableCallAlerts: true,
         cacheMatchedAircraft: true,
-        emailProvider: "gmail",
         sendAntiAlertForHighAltitude: true,
         iafData: hyderabadIafData,
         distanceField: "distanceFromHyderabadMiles"
@@ -518,20 +516,16 @@ async function sendCityAlertEmails(config, match) {
                 ? antiAlertTemplate(match)
                 : flightAlertTemplate(match);
 
-            if (config.emailProvider === "gmail") {
-                await gmailTransporter.sendMail({
-                    from: `Falcon Intelligence <${process.env.GMAIL_SMTP}>`,
-                    to: email,
-                    subject,
-                    html
-                });
-            } else {
-                await sendEmail(email, subject, html);
-            }
+            await gmailTransporter.sendMail({
+                from: `Falcon Intelligence <${process.env.GMAIL_SMTP}>`,
+                to: email,
+                subject,
+                html
+            });
 
             console.log(
                 `[${config.id.toUpperCase()} ${isHighAltitudeAntiAlert ? "ANTI EMAIL" : "EMAIL"}] ` +
-                `Sent via ${config.emailProvider || "resend"} ` +
+                "Sent via Gmail SMTP " +
                 `to ${email} for ${match.hexCode}`
             );
         }

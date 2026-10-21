@@ -105,8 +105,8 @@ The following integrations are optional and only needed for their corresponding 
 | --- | --- |
 | JWT authentication | `JWT_SECRET` (or `JWT_SECRET_KEY`), `JWT_EXPIRES_IN`, `JWT_ISSUER`, `JWT_AUDIENCE`, `CLIENT_URL` |
 | MongoDB dashboard and profile data | `MONGO_URI` |
-| Resend email delivery | `RESEND_API_KEY`, `EMAIL_FROM` |
-| Gmail SMTP mail delivery | `GMAIL_SMTP`, `GMAIL_SMTP_PASSWORD` |
+| Resend email delivery for non-flight-alert legacy mail | `RESEND_API_KEY`, `EMAIL_FROM` |
+| Gmail SMTP mail delivery for every flight alert | `GMAIL_SMTP`, `GMAIL_SMTP_PASSWORD` |
 | Twilio calls | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_CALLER_ID`, `TWILIO_CALL_TIMEOUT_SECONDS`; city call recipients use `BANGALORE_ALERT_PHONE_1`–`_4` and `DELHI_ALERT_PHONE_1`–`_4` (with optional `BANGALORE_AIRSPACE_NUMBER` and `DELHI_AIRSPACE_NUMBER` caller IDs) |
 | Razorpay payments | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` |
 | ADSBHub live feed | `ADSBHUB_HOST`, `ADSBHUB_PORT`, `ADSBHUB_NO_DATA_WARNING_MS` |
@@ -228,14 +228,14 @@ Remote city alerts use the ADSBHub TCP feed and are controlled from **Dashboard 
 
 | City | Default tracking state | Alert source | Call-recipient environment variables | Email delivery |
 | --- | --- | --- | --- | --- |
-| Bangalore | Disabled | ADSBHub TCP | `BANGALORE_ALERT_PHONE_1` through `_4`; optional `BANGALORE_AIRSPACE_NUMBER` caller ID | Resend |
-| Delhi | Disabled | ADSBHub TCP | `DELHI_ALERT_PHONE_1` through `_4`; optional `DELHI_AIRSPACE_NUMBER` caller ID | Resend |
+| Bangalore | Disabled | ADSBHub TCP | `BANGALORE_ALERT_PHONE_1` through `_4`; optional `BANGALORE_AIRSPACE_NUMBER` caller ID | Gmail SMTP |
+| Delhi | Disabled | ADSBHub TCP | `DELHI_ALERT_PHONE_1` through `_4`; optional `DELHI_AIRSPACE_NUMBER` caller ID | Gmail SMTP |
 | Hyderabad | Enabled | ADSBHub TCP | `LOKESH_BHAI_PHONE`; optional `HYDERABAD_AIRSPACE_NUMBER` caller ID | Gmail SMTP |
-| Vadodara | Local SDR path | Local readsb/SDR | Existing local-alert configuration | Existing local-alert delivery |
+| Vadodara | Local SDR path | Local readsb/SDR | Existing local-alert configuration | Gmail SMTP |
 
 To activate Delhi call and email alerts:
 
-1. Configure Resend (`RESEND_API_KEY` and `EMAIL_FROM`) and Twilio (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_CALLER_ID`).
+1. Configure Gmail SMTP (`GMAIL_SMTP` and `GMAIL_SMTP_PASSWORD`) and Twilio (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_CALLER_ID`).
 2. Add one or more E.164 phone numbers to the server environment, for example:
 
    ```dotenv
@@ -364,7 +364,7 @@ Falcon has two independent alert engines. **Bangalore, Delhi, and Hyderabad** us
 | Matching, active window, on ground / altitude missing / numeric altitude at or below 20,000 ft | Match is cached. | Normal city alert email. | Twilio call to each configured city phone after its cooldown. |
 | Any remote-city match above 20,000 ft | Match is cached. | `Falcon Intelligence [City] | No Call Alert | …` email, with the matching city named in the HTML content. | Suppressed. |
 
-Remote cities do **not** wait for a missing altitude. A missing/non-numeric altitude is call-permitted and follows the normal-email path. For every remote city, an aircraft above 20,000 ft suppresses the call and uses the city-named no-call email path. Email delivery uses Resend for Bangalore and Delhi, and Gmail SMTP for Hyderabad. Calls require the appropriate city phone variables to be configured; with no valid phone numbers, the call stage exits without creating a Twilio call.
+Remote cities do **not** wait for a missing altitude. A missing/non-numeric altitude is call-permitted and follows the normal-email path. For every remote city, an aircraft above 20,000 ft suppresses the call and uses the city-named no-call email path. Every flight-alert email is delivered through Gmail SMTP. Calls require the appropriate city phone variables to be configured; with no valid phone numbers, the call stage exits without creating a Twilio call.
 
 #### Local SDR alerts: Vadodara
 
@@ -383,7 +383,7 @@ Remote cities do **not** wait for a missing altitude. A missing/non-numeric alti
 | Aircraft disappears while its altitude grace period is still pending | The grace timer is cancelled and Falcon triggers the call path immediately. This disappearance path does not itself run the normal-email loop. |
 
 5. Local calls, normal emails, and no-call emails each use their own Redis cooldown key: one key per ICAO and phone/email recipient, valid for 20 minutes. Therefore a call recipient may be suppressed while another recipient is still eligible, and a normal email cooldown is separate from a no-call email cooldown.
-6. For a normal local match, the call path runs first and then the normal-email path. For a high-altitude match, the call is skipped and the no-call email path is used; its title is `Falcon Intelligence [Vadodara] | No Call Alert | …` and the template names Vadodara in the content. The current legacy local path calls Resend first and attempts Gmail SMTP only when that Resend call succeeds for the recipient; a failure is logged. As with remote alerts, the cooldown is acquired before delivery, so a failed attempt is not automatically retried until it expires.
+6. For a normal local match, the call path runs first and then the normal-email path. For a high-altitude match, the call is skipped and the no-call email path is used; its title is `Falcon Intelligence [Vadodara] | No Call Alert | …` and the template names Vadodara in the content. Every local flight-alert email is sent through Gmail SMTP; a failure is logged. As with remote alerts, the cooldown is acquired before delivery, so a failed attempt is not automatically retried until it expires.
 
 In both engines, a Twilio API failure, mail-provider failure, unavailable Redis operation, missing delivery credentials, no configured recipient, or missing live source data prevents that particular delivery. Check the server log together with the city status/dashboard view when diagnosing a non-delivery; a receiver or feeder process being healthy alone does not prove that an alert was eligible or sent.
 
@@ -394,7 +394,7 @@ In both engines, a Twilio API failure, mail-provider failure, unavailable Redis 
 - **Frontend:** static HTML, CSS, and browser JavaScript; Leaflet is vendored under `public/vendor/leaflet`
 - **Data stores:** MySQL via `mysql2` and Redis via `ioredis`
 - **Security controls:** JWT middleware, bcrypt password hashing, XSS cleaning, request rate limits, SQL-injection guarding, brute-force protection, and Helmet headers
-- **Notifications and payments:** Nodemailer/Resend, Twilio, and Razorpay when configured
+- **Notifications and payments:** Nodemailer/Gmail SMTP for flight alerts, Resend for legacy non-alert mail, Twilio, and Razorpay when configured
 
 ### Development notes
 

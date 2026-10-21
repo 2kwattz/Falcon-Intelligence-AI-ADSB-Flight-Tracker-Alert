@@ -9,7 +9,6 @@ const { ADSB_FLIGHT_JSON_URL, READSB_AIRCRAFT_JSON_PATH } = require("../utils/gl
 const iafData = require("../iafData");
 const flightAlertTemplate = require("../templates/flightAlertTemplate")
 const antiAlertTemplate = require("../templates/antiAlertTemplate")
-const sendEmail = require("../services/sendEmail"); // Email Service
 const nodemailer = require("nodemailer")
 
 const twilio = require("twilio");
@@ -706,39 +705,6 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
 
             ];
 
-            // for (const email of emailsToSend) {
-
-            //     try {
-
-            //         const shouldEmail = await shouldTriggerEmail(match.hexCode, email);
-
-            //         if (!shouldEmail) {
-            //             console.log(`[EMAIL] Skipping ${email}`);
-            //             continue;
-            //         }
-
-            //         await sendEmail(
-            //             email,
-            //             `Falcon Intelligence Flight Alert | ${match.registration} (${match.aircraftType}) within 100 km of Vadodara`,
-            //             flightAlertTemplate(match)
-            //         );
-
-            //         await transporter.sendMail({
-            //             from: `Falcon Intelligence`,
-            //             to: email,
-            //             subject: `Falcon Intelligence Flight Alert | ${match.registration} (${match.aircraftType}) within 100 km of Vadodara`,
-            //             html: flightAlertTemplate(match)
-            //         });
-
-            //         console.log(`[EMAIL] Sent to ${email}`);
-
-            //     }
-            //     catch (err) {
-            //         console.error("[EMAIL ERROR]", err.message);
-            //     }
-
-            // }
-
             for (const email of emailsToSend) {
 
                 try {
@@ -766,14 +732,8 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
                             continue;
                         }
 
-                        await sendEmail(
-                            email,
-                            `Falcon Intelligence [Vadodara] | No Call Alert | ${match.registration} above 20,000 ft`,
-                            antiAlertTemplate(match)
-                        );
-
                         await transporter.sendMail({
-                            from: `Falcon Intelligence`,
+                            from: `Falcon Intelligence <${process.env.GMAIL_SMTP}>`,
                             to: email,
                             subject: `Falcon Intelligence [Vadodara] | No Call Alert | ${match.registration} above 20,000 ft`,
                             html: antiAlertTemplate(match)
@@ -802,14 +762,8 @@ const logIafAircraftMatches = async (adsbAircrafts = []) => {
                         continue;
                     }
 
-                    await sendEmail(
-                        email,
-                        `Falcon Intelligence Flight Alert | ${match.registration} (${match.aircraftType}) within 100 km of Vadodara`,
-                        flightAlertTemplate(match)
-                    );
-
                     await transporter.sendMail({
-                        from: `Falcon Intelligence`,
+                        from: `Falcon Intelligence <${process.env.GMAIL_SMTP}>`,
                         to: email,
                         subject: `Falcon Intelligence Flight Alert | ${match.registration} (${match.aircraftType}) within 100 km of Vadodara`,
                         html: flightAlertTemplate(match)
