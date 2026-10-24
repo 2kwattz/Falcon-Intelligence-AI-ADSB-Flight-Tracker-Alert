@@ -7,6 +7,7 @@
   <title>Dashboard | Falcon Intelligence</title>
   <link rel="stylesheet" href="/dashboard.css">
   <link rel="stylesheet" href="/shared-nav.css">
+  <link rel="stylesheet" href="/toast.css">
 </head>
 <body>
   <a class="skip-link" href="#dashboard-content">Skip to dashboard content</a>
@@ -271,13 +272,17 @@
       <section class="lyria-music-studio" aria-labelledby="lyria-music-title">
         <div class="lyria-music-heading">
           <div><p class="eyebrow">Standalone audio workspace</p><h3 id="lyria-music-title">Lyria Music Studio</h3></div>
-          <span>Google Lyria 3.5</span>
+          <div class="lyria-music-heading-actions"><span>Google Lyria 3.5</span><button class="lyria-info-button" id="lyria-info-button" type="button" aria-label="About Lyria Music Studio" aria-haspopup="dialog">i</button><button class="lyria-settings-button" id="lyria-settings-button" type="button" aria-label="Open Lyria Music Studio limit settings" aria-haspopup="dialog"><span aria-hidden="true">⚙</span></button></div>
         </div>
         <p class="lyria-music-intro">Generate original music separately from the Falcon Video Generator. Describe the genre, instruments, tempo, mood, and whether you want vocals or an instrumental.</p>
+        <section class="lyria-usage-overview" aria-labelledby="lyria-usage-title">
+          <p class="lyria-usage-title" id="lyria-usage-title">Usage &amp; limits</p>
+          <p class="lyria-rate-summary" id="lyria-rate-summary" role="status" aria-live="polite">Loading Lyria limits…</p>
+        </section>
         <form class="lyria-music-form" id="lyria-music-form" novalidate>
           <label for="lyria-music-prompt">Music prompt</label>
-          <textarea id="lyria-music-prompt" rows="6" maxlength="2000" placeholder="Instrumental devotional ambience, slow tanpura drone, gentle bansuri, soft tabla at 72 BPM, calm and reverent, no vocals." required></textarea>
-          <div class="lyria-music-meta"><span>Do not request a specific artist’s voice. Generated audio includes a SynthID watermark.</span><span id="lyria-prompt-count">0 / 2000</span></div>
+          <textarea id="lyria-music-prompt" rows="6" maxlength="12000" placeholder="Instrumental devotional ambience, slow tanpura drone, gentle bansuri, soft tabla at 72 BPM, calm and reverent, no vocals." required></textarea>
+          <div class="lyria-music-meta"><span>Do not request a specific artist’s voice. Generated audio includes a SynthID watermark.</span><span id="lyria-prompt-count">0 / 12,000 characters</span></div>
           <p class="lyria-music-status" id="lyria-music-status" role="status" aria-live="polite">Describe the track you want to create.</p>
           <button class="button lyria-generate-button" id="lyria-generate-button" type="submit">Generate music</button>
         </form>
@@ -305,9 +310,41 @@
     <p class="hindu-calendar-dialog-status" id="hindu-calendar-deities-dialog-status" aria-live="polite">Loading deities…</p>
     <div class="hindu-calendar-deities-grid" id="hindu-calendar-deities-dialog-content"></div>
   </dialog>
+  <dialog class="lyria-info-dialog" id="lyria-info-dialog" aria-labelledby="lyria-info-dialog-title">
+    <div class="lyria-info-dialog-heading"><div><p class="eyebrow">Lyria Music Studio</p><h2 id="lyria-info-dialog-title">How this workspace works</h2></div><button class="lyria-info-close" id="lyria-info-close" type="button" aria-label="Close Lyria Music Studio information">×</button></div>
+    <div class="lyria-info-dialog-content">
+      <section><h3>What it does</h3><p>This is a music-only workspace in Dashboard → Extras. It sends your description to Google Lyria 3.5 to create original audio. It is completely separate from the Falcon Video Generator.</p></section>
+      <section><h3>Write a prompt</h3><p>Describe the mood, genre, instruments, tempo, structure, and whether you want vocals or an instrumental. Do not ask for a specific artist’s voice. Generated audio includes a SynthID watermark.</p></section>
+      <section><h3>Limits and rate protection</h3><p>The default is a maximum of 2,000 prompt tokens and 3 generations in a rolling 10-hour global window. Google counts the prompt only when you select Generate; an over-limit prompt is rejected without using a generation attempt. The card’s Usage &amp; limits summary is the single live place to see the prompt cap, used and remaining attempts, and next reset. Select the gear icon to modify the limits.</p></section>
+      <section><h3>Email notifications</h3><p>Each reserved generation attempt immediately notifies prakashbhatia1970@gmail.com and roshan.bhatia.blueera@gmail.com with a Falcon Intelligence / YouTube Automation email. When the final allowed attempt is used, a second limit-reached email is sent. Prompts and audio are never included.</p></section>
+      <section><h3>What is stored</h3><p>MongoDB stores only the shared limits and timestamp-only reservations for the rate window. Prompts, Google keys, provider responses, and generated audio are not stored there. Lyria does not use Redis.</p></section>
+      <section><h3>Audio availability</h3><p>A generated track is kept only in server memory for one hour so it can be played or downloaded. It disappears after that period or after a server restart.</p></section>
+    </div>
+  </dialog>
+  <dialog class="lyria-info-dialog lyria-settings-dialog" id="lyria-settings-dialog" aria-labelledby="lyria-settings-dialog-title">
+    <div class="lyria-info-dialog-heading"><div><p class="eyebrow">Lyria Music Studio</p><h2 id="lyria-settings-dialog-title">Limit settings</h2></div><button class="lyria-info-close" id="lyria-settings-close" type="button" aria-label="Close Lyria Music Studio limit settings">×</button></div>
+    <div class="lyria-settings-dialog-content">
+      <p>These shared settings apply to every Lyria generation. The current usage remains visible in the card behind this dialog.</p>
+      <form class="lyria-rate-form" id="lyria-rate-form" novalidate>
+        <label>Prompt-token limit
+          <input id="lyria-max-prompt-tokens" type="number" min="1" max="2000" step="1" value="2000" required>
+          <small>Maximum is 2,000 tokens. Google counts the prompt before music is generated.</small>
+        </label>
+        <label>Generations allowed
+          <input id="lyria-max-requests" type="number" min="1" max="20" step="1" value="3" required>
+        </label>
+        <label>Rate-limit window (hours)
+          <input id="lyria-window-hours" type="number" min="1" max="168" step="1" value="10" required>
+        </label>
+        <button class="button lyria-save-limits-button" id="lyria-save-limits" type="submit">Save limits</button>
+        <p class="lyria-settings-status" id="lyria-settings-status" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </dialog>
 
   <footer class="site-footer shell">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
   <script src="/nav-auth.js" defer></script>
+  <script src="/toast.js" defer></script>
   <script src="/dashboard.js" defer></script>
 </body>
 </html>

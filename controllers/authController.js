@@ -4,8 +4,9 @@ const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
-const geoip = require("geoip-lite");
 const path = require("node:path");
+const { LoginActivity, LOGIN_ACTIVITY_RETENTION_SECONDS } = require("../models/LoginActivity");
+const deviceParser = require("../utils/deviceParser");
 
 // The existing MySQL authentication system already owns the `token` cookie.
 // A distinct cookie prevents a MongoDB login from replacing its session.
@@ -99,16 +100,6 @@ const sendAuthenticatedResponse = (res, statusCode, message, user) => {
 
 const requiredText = (value) => typeof value === "string" ? value.trim() : "";
 
-const locationLabel = (location) => [location?.city, location?.region, location?.country]
-  .filter(Boolean)
-  .join(", ");
-
-const sameCity = (first, second) => (
-  Boolean(first?.city && second?.city)
-  && first.city.toLowerCase() === second.city.toLowerCase()
-  && String(first.country || "").toLowerCase() === String(second.country || "").toLowerCase()
-);
-
 const loginOtpSecret = () => process.env.LOGIN_OTP_SECRET || getJwtSecret();
 
 const hashLoginOtp = (challengeId, otp) => {
@@ -128,30 +119,31 @@ function clientIp(req) {
   return ip.startsWith("::ffff:") ? ip.slice(7) : ip;
 }
 
-function isPublicIp(ip) {
-  return Boolean(ip) && !(ip === "::1" || ip === "127.0.0.1" || ip.startsWith("10.") || ip.startsWith("192.168.") || /^172\.(1[6-9]|2\d|3[0-1])\./.test(ip));
+const displayDevicePart = (...parts) => parts
+  .map((part) => requiredText(String(part || "")))
+  .filter(Boolean)
+  .join(" ") || "Unknown";
+
+function loginDeviceDetails(req) {
+  const parsed = deviceParser(String(req.get("user-agent") || "").slice(0, 2_000));
+  const deviceName = displayDevicePart(parsed?.device?.vendor, parsed?.device?.model);
+  const deviceType = requiredText(parsed?.device?.type);
+  return {
+    device: deviceName !== "Unknown"
+      ? (deviceType ? `${deviceName} (${deviceType})` : deviceName)
+      : (deviceType || "Desktop"),
+    browser: displayDevicePart(parsed?.browser?.name, parsed?.browser?.version),
+    operatingSystem: displayDevicePart(parsed?.os?.name, parsed?.os?.version)
+  };
 }
 
-function resolveLoginLocation(req) {
-  const ip = clientIp(req);
-  if (!isPublicIp(ip)) return null;
-
-  // geoip-lite ships a local GeoLite database. No IP address is sent to a
-  // third party and no IP-geolocation API key is required.
-  const result = geoip.lookup(ip);
-  const city = requiredText(result?.city);
-  const country = requiredText(result?.country);
-  return city && country ? { city, region: requiredText(result?.region), country } : null;
-}
-
-async function sendLoginOtpEmail(user, otp, location) {
+async function sendLoginOtpEmail(user, otp) {
   if (!process.env.GMAIL_SMTP || !process.env.GMAIL_SMTP_PASSWORD) throw new Error("Gmail SMTP is not configured");
-  const locationName = locationLabel(location) || "an unrecognized location";
   await gmailTransporter.sendMail({
     from: `Falcon Intelligence <${process.env.GMAIL_SMTP}>`, to: user.email,
-    subject: "Falcon Intelligence | Suspicious login attempt",
-    text: `We detected a login attempt from ${locationName}. Your verification code is ${otp}. It expires in 5 minutes. If this was not you, change your password immediately.`,
-    html: `<p>We detected a login attempt from <strong>${locationName}</strong>.</p><p>Your verification code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px">${otp}</p><p>This code expires in 5 minutes. If this was not you, change your password immediately.</p>`
+    subject: "Falcon Intelligence | Your two-factor authentication code",
+    text: `Your Falcon Intelligence two-factor authentication code is ${otp}. It expires in 5 minutes. Every login requires this code. If you did not try to log in, change your password immediately.`,
+    html: `<p>Your Falcon Intelligence two-factor authentication code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px">${otp}</p><p>This code expires in 5 minutes. Every login requires this code, regardless of device, browser, or location. If you did not try to log in, change your password immediately.</p>`
   });
 }
 
@@ -349,47 +341,35 @@ exports.login = async (req, res) => {
       });
     }
 
-    const currentLocation = await resolveLoginLocation(req);
+    // This challenge is deliberately created for every correct-password login.
+    // Device, browser, IP, and location never bypass two-factor authentication.
+    const otp = String(crypto.randomInt(100000, 1_000_000));
+    const challengeId = crypto.randomUUID();
+    user.pendingLoginOtp = {
+      challengeId,
+      hash: hashLoginOtp(challengeId, otp),
+      expiresAt: new Date(Date.now() + LOGIN_OTP_TTL_MS),
+      attempts: 0,
+      location: {}
+    };
+    await user.save();
 
-    // Private networks and IP ranges without city data must not lock a
-    // legitimate user out. When a city is resolved, the first login
-    // establishes it; later city changes require a five-minute email OTP.
-    if (currentLocation && user.lastLoginLocation?.city && !sameCity(user.lastLoginLocation, currentLocation)) {
-      const otp = String(crypto.randomInt(100000, 1_000_000));
-      const challengeId = crypto.randomUUID();
-      user.pendingLoginOtp = {
-        challengeId,
-        hash: hashLoginOtp(challengeId, otp),
-        expiresAt: new Date(Date.now() + LOGIN_OTP_TTL_MS),
-        attempts: 0,
-        location: currentLocation
-      };
+    try {
+      await sendLoginOtpEmail(user, otp);
+    } catch (error) {
+      user.pendingLoginOtp = undefined;
       await user.save();
-
-      try {
-        await sendLoginOtpEmail(user, otp, currentLocation);
-      } catch (error) {
-        user.pendingLoginOtp = undefined;
-        await user.save();
-        console.error("Login OTP email error:", error.message);
-        return res.status(503).json({ success: false, message: "Login verification email is unavailable. Please try again later." });
-      }
-
-      return res.status(202).json({
-        success: false,
-        requiresLocationOtp: true,
-        challengeId,
-        expiresInSeconds: LOGIN_OTP_TTL_MS / 1000,
-        message: "Unrecognized Location, Suspicious Login Attempt. A verification code was sent to your registered email address."
-      });
+      console.error("Login OTP email error:", error.message);
+      return res.status(503).json({ success: false, message: "Two-factor authentication email is unavailable. Please try again later." });
     }
 
-    if (currentLocation) {
-      user.lastLoginLocation = { ...currentLocation, updatedAt: new Date() };
-      await user.save();
-    }
-
-    return sendAuthenticatedResponse(res, 200, "Login successful", user);
+    return res.status(202).json({
+      success: false,
+      requiresTwoFactorOtp: true,
+      challengeId,
+      expiresInSeconds: LOGIN_OTP_TTL_MS / 1000,
+      message: "A two-factor authentication code was sent to your registered email address."
+    });
 
   } catch (error) {
     console.error("MongoDB login error:", error.message);
@@ -401,7 +381,7 @@ exports.login = async (req, res) => {
   }
 };
 
-exports.verifyLoginLocationOtp = async (req, res) => {
+exports.verifyLoginOtp = async (req, res) => {
   try {
     const challengeId = requiredText(req.body?.challengeId);
     const otp = requiredText(req.body?.otp);
@@ -409,7 +389,13 @@ exports.verifyLoginLocationOtp = async (req, res) => {
       return res.status(400).json({ success: false, message: "Enter the six-digit verification code." });
     }
 
-    const user = await User.findOne({ "pendingLoginOtp.challengeId": challengeId }).select("+pendingLoginOtp");
+    // Each pending OTP child is marked `select: false` in the schema. Select
+    // the individual fields explicitly: selecting only the parent object can
+    // produce an empty object, which would incorrectly look like an expired
+    // challenge even immediately after a code is sent.
+    const user = await User.findOne({ "pendingLoginOtp.challengeId": challengeId }).select(
+      "+pendingLoginOtp.challengeId +pendingLoginOtp.hash +pendingLoginOtp.expiresAt +pendingLoginOtp.attempts"
+    );
     const pending = user?.pendingLoginOtp;
     if (!user || !pending?.expiresAt || pending.expiresAt.getTime() <= Date.now()) {
       return res.status(401).json({ success: false, message: "This verification code has expired. Please log in again." });
@@ -421,16 +407,33 @@ exports.verifyLoginLocationOtp = async (req, res) => {
     }
     if (!secureEqual(pending.hash, hashLoginOtp(challengeId, otp))) {
       pending.attempts = Number(pending.attempts || 0) + 1;
+      if (pending.attempts >= MAX_LOGIN_OTP_ATTEMPTS) {
+        user.pendingLoginOtp = undefined;
+        await user.save();
+        return res.status(429).json({ success: false, message: "Too many incorrect codes. Please log in again." });
+      }
       await user.save();
-      return res.status(401).json({ success: false, message: "The verification code is incorrect." });
+      return res.status(401).json({ success: false, message: "OTP is incorrect. Please try again." });
     }
 
-    user.lastLoginLocation = { ...pending.location, updatedAt: new Date() };
+    const loginActivity = await LoginActivity.create({
+      user: user._id,
+      username: user.username,
+      ipAddress: clientIp(req) || "Unavailable",
+      ...loginDeviceDetails(req),
+      loggedInAt: new Date(),
+      loginChallengeId: challengeId
+    });
     user.pendingLoginOtp = undefined;
-    await user.save();
-    return sendAuthenticatedResponse(res, 200, "Location verified. Login successful", user);
+    try {
+      await user.save();
+    } catch (saveError) {
+      await LoginActivity.deleteOne({ _id: loginActivity._id }).catch(() => {});
+      throw saveError;
+    }
+    return sendAuthenticatedResponse(res, 200, "Two-factor authentication verified. Login successful", user);
   } catch (error) {
-    console.error("Login location OTP verification error:", error.message);
+    console.error("Login OTP verification error:", error.message);
     return res.status(500).json({ success: false, message: "Unable to verify the login code." });
   }
 };
@@ -447,6 +450,32 @@ exports.getProfile = (req, res) => res.status(200).json({
   success: true,
   user: publicUser(req.user)
 });
+
+// PROTECTED LOGIN ACTIVITY
+exports.getLoginActivity = async (req, res) => {
+  try {
+    const activeSince = new Date(Date.now() - LOGIN_ACTIVITY_RETENTION_SECONDS * 1000);
+    const activities = await LoginActivity.find({ user: req.user._id, loggedInAt: { $gte: activeSince } })
+      .sort({ loggedInAt: -1 })
+      .limit(500)
+      .select("username ipAddress device browser operatingSystem loggedInAt")
+      .lean();
+    return res.status(200).json({ success: true, retentionDays: 3, activities });
+  } catch (error) {
+    console.error("Login activity read error:", error.message);
+    return res.status(500).json({ success: false, message: "Unable to load login activity." });
+  }
+};
+
+exports.clearLoginActivity = async (req, res) => {
+  try {
+    const result = await LoginActivity.deleteMany({ user: req.user._id });
+    return res.status(200).json({ success: true, message: "Login history cleared.", deletedCount: result.deletedCount });
+  } catch (error) {
+    console.error("Login activity clear error:", error.message);
+    return res.status(500).json({ success: false, message: "Unable to clear login history." });
+  }
+};
 
 // PROTECTED PROFILE PICTURE UPDATE
 exports.updateProfilePicture = async (req, res) => {

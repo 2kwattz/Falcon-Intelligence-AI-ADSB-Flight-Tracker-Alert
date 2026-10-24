@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Your recent Falcon Intelligence login activity.">
+  <title>Login Activity | Falcon Intelligence</title>
+  <link rel="stylesheet" href="/profile.css">
+  <link rel="stylesheet" href="/login-activity.css">
+  <link rel="stylesheet" href="/shared-nav.css">
+  <link rel="stylesheet" href="/toast.css">
+</head>
+<body>
+  <a class="skip-link" href="#login-activity-content">Skip to login activity</a>
+  <header class="site-header">
+    <nav class="nav shell" aria-label="Main navigation">
+      <a class="brand" href="/" aria-label="Falcon Intelligence home"><span class="brand-mark"><i class="laser-eye left" aria-hidden="true"></i><i class="laser-eye right" aria-hidden="true"></i><img src="/assets/falcon-laser-logo.png" alt=""></span><span><strong>FALCON</strong><small>INTELLIGENCE</small></span></a>
+      <button class="menu-button" type="button" aria-label="Open menu" aria-expanded="false">&#9776;</button>
+      <div class="nav-links">
+        <a href="/">Home</a><a href="/tracked-aircrafts">Intelligence Archive</a><a href="/live-map">Live Map</a><a href="/explore">Explore</a><a href="/about">About</a><a href="/contact">Contact</a>
+      </div>
+      <a class="nav-cta" href="/login" data-auth-nav>Login</a>
+    </nav>
+  </header>
+
+  <main class="shell login-activity-page" id="login-activity-content">
+    <section class="activity-heading">
+      <p class="eyebrow">Account security</p>
+      <h1>Login activity</h1>
+      <p class="lede">Successful two-factor-authenticated logins from the last three days. Records expire automatically after three days.</p>
+      <a class="back-to-profile" href="/profile">← Back to profile</a>
+    </section>
+    <section class="activity-card" aria-labelledby="activity-list-title">
+      <div class="activity-card-heading"><div><h2 id="activity-list-title">Recent successful logins</h2><p id="login-activity-status" aria-live="polite">Loading login activity…</p></div><button class="clear-activity-button" id="clear-login-activity" type="button" disabled>Clear history</button></div>
+      <div class="activity-table-wrap">
+        <table class="activity-table">
+          <thead><tr><th>User name</th><th>Device details</th><th>Login time (IST)</th><th>IP address</th></tr></thead>
+          <tbody id="login-activity-list"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer shell">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
+  <script src="/nav-auth.js" defer></script>
+  <script src="/toast.js" defer></script>
+  <script src="/login-activity.js" defer></script>
+</body>
+</html>

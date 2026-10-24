@@ -57,8 +57,21 @@
   const youtubeAutomationContent = $("#youtube-automation-content");
   const youtubeAutomationSearch = $("#youtube-automation-search");
   const lyriaMusicForm = $("#lyria-music-form");
+  const lyriaInfoButton = $("#lyria-info-button");
+  const lyriaInfoDialog = $("#lyria-info-dialog");
+  const lyriaInfoClose = $("#lyria-info-close");
+  const lyriaSettingsButton = $("#lyria-settings-button");
+  const lyriaSettingsDialog = $("#lyria-settings-dialog");
+  const lyriaSettingsClose = $("#lyria-settings-close");
+  const lyriaSettingsStatus = $("#lyria-settings-status");
   const lyriaMusicPrompt = $("#lyria-music-prompt");
   const lyriaPromptCount = $("#lyria-prompt-count");
+  const lyriaRateForm = $("#lyria-rate-form");
+  const lyriaRateSummary = $("#lyria-rate-summary");
+  const lyriaMaxPromptTokens = $("#lyria-max-prompt-tokens");
+  const lyriaMaxRequests = $("#lyria-max-requests");
+  const lyriaWindowHours = $("#lyria-window-hours");
+  const lyriaSaveLimitsButton = $("#lyria-save-limits");
   const lyriaMusicStatus = $("#lyria-music-status");
   const lyriaGenerateButton = $("#lyria-generate-button");
   const lyriaMusicOutput = $("#lyria-music-output");
@@ -93,6 +106,7 @@
   let visitorLogsLoaded = false;
   let visitorLogsLoading = false;
   let youtubeAutomationLoading = false;
+  let lyriaMusicSettingsLoading = false;
   let hinduCalendarDatasetLoading = false;
   let hinduCalendarToday = null;
   let cityAircraftCatalogues = {};
@@ -284,6 +298,68 @@
     lyriaMusicStatus.classList.toggle("success", isSuccess);
   };
 
+  const renderLyriaMusicSettings = (settings) => {
+    if (!settings) return;
+    lyriaMaxPromptTokens.value = settings.maxPromptTokens;
+    lyriaMaxRequests.value = settings.maxRequests;
+    lyriaWindowHours.value = settings.windowHours;
+    const used = `${settings.usedRequests} of ${settings.maxRequests} generation${settings.maxRequests === 1 ? "" : "s"} used`;
+    const remaining = `${settings.remainingRequests} remaining`;
+    const reset = settings.resetsAt ? ` Next slot: ${formatDateTime(settings.resetsAt)}.` : "";
+    lyriaRateSummary.textContent = `Prompt cap: ${Number(settings.maxPromptTokens).toLocaleString()} tokens · Usage: ${used} · ${remaining} · Window: ${settings.windowHours} hour${settings.windowHours === 1 ? "" : "s"}.${reset}`;
+  };
+
+  const loadLyriaMusicSettings = async () => {
+    if (lyriaMusicSettingsLoading) return;
+    lyriaMusicSettingsLoading = true;
+    lyriaRateSummary.textContent = "Loading Lyria limits…";
+    try {
+      const response = await fetch("/api/lyria-music/settings", {
+        credentials: "include",
+        cache: "no-store",
+        headers: { Accept: "application/json" }
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) return window.location.assign("/login");
+      if (!response.ok || !payload.success) throw new Error(payload.message || "Could not load Lyria Music Studio limits.");
+      renderLyriaMusicSettings(payload.settings);
+    } catch (error) {
+      lyriaRateSummary.textContent = error.message || "Could not load Lyria Music Studio limits.";
+    } finally {
+      lyriaMusicSettingsLoading = false;
+    }
+  };
+
+  const saveLyriaMusicSettings = async () => {
+    lyriaSaveLimitsButton.disabled = true;
+    lyriaSettingsStatus.textContent = "Saving limits…";
+    lyriaSettingsStatus.classList.remove("error", "success");
+    try {
+      const response = await fetch("/api/lyria-music/settings", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          maxPromptTokens: Number(lyriaMaxPromptTokens.value),
+          maxRequests: Number(lyriaMaxRequests.value),
+          windowHours: Number(lyriaWindowHours.value)
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) return window.location.assign("/login");
+      if (!response.ok || !payload.success) throw new Error(payload.message || "Could not save Lyria Music Studio limits.");
+      renderLyriaMusicSettings(payload.settings);
+      lyriaSettingsStatus.textContent = payload.message;
+      lyriaSettingsStatus.classList.add("success");
+      setLyriaMusicStatus(payload.message, false, true);
+    } catch (error) {
+      lyriaSettingsStatus.textContent = error.message || "Could not save Lyria Music Studio limits.";
+      lyriaSettingsStatus.classList.add("error");
+    } finally {
+      lyriaSaveLimitsButton.disabled = false;
+    }
+  };
+
   const generateLyriaMusic = async () => {
     const prompt = lyriaMusicPrompt.value.trim();
     if (!prompt) {
@@ -312,6 +388,7 @@
       lyriaOutputDownload.href = payload.music.outputUrl;
       lyriaOutputModel.textContent = `Generated with ${payload.music.model}`;
       lyriaMusicOutput.hidden = false;
+      renderLyriaMusicSettings(payload.rateLimit);
       setLyriaMusicStatus(payload.message, false, true);
     } catch (error) {
       setLyriaMusicStatus(error.message || "Could not generate music.", true);
@@ -1005,8 +1082,15 @@
       cityAircraftForm.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    if (!window.confirm(`Remove ${record.Registration || record.HexCode} from the ${catalogue.label || cityId} aircraft file?`)) return;
     button.disabled = true;
+    const approved = await window.FalconToast.confirm({
+      message: `Remove ${record.Registration || record.HexCode} from the ${catalogue.label || cityId} aircraft file?`,
+      confirmLabel: "Remove"
+    });
+    if (!approved) {
+      button.disabled = false;
+      return;
+    }
     cityAircraftNote.textContent = "Removing aircraft from the city file…";
     try {
       const response = await fetch(`/api/dashboard/city-aircraft/${encodeURIComponent(cityId)}/${encodeURIComponent(hexCode)}?registration=${encodeURIComponent(registration)}`, {
@@ -1026,6 +1110,8 @@
     } catch (error) {
       cityAircraftNote.textContent = "The aircraft could not be removed from the city file.";
       setStatus(error.message || "Unable to remove the aircraft.", true);
+    } finally {
+      if (button.isConnected) button.disabled = false;
     }
   };
 
@@ -1046,6 +1132,7 @@
     if (activeDashboardTab === "extras") {
       loadYoutubeAutomation();
       loadHinduCalendarDatasetToday();
+      loadLyriaMusicSettings();
     }
   };
 
@@ -1096,6 +1183,7 @@
     if (activeDashboardTab === "extras") {
       loadYoutubeAutomation();
       loadHinduCalendarDatasetToday();
+      loadLyriaMusicSettings();
       return;
     }
     loadDashboard();
@@ -1104,8 +1192,21 @@
   dashboardTabs.forEach((button) => button.addEventListener("click", () => setDashboardTab(button.dataset.dashboardTab)));
   visitorLoggingToggle.addEventListener("change", updateVisitorLoggingSetting);
   youtubeAutomationSearch.addEventListener("click", searchYoutubeAutomation);
-  lyriaMusicPrompt.addEventListener("input", () => { lyriaPromptCount.textContent = `${lyriaMusicPrompt.value.length} / 2000`; });
+  lyriaMusicPrompt.addEventListener("input", () => {
+    lyriaPromptCount.textContent = `${lyriaMusicPrompt.value.length.toLocaleString()} / 12,000 characters`;
+  });
   lyriaMusicForm.addEventListener("submit", (event) => { event.preventDefault(); generateLyriaMusic(); });
+  lyriaRateForm.addEventListener("submit", (event) => { event.preventDefault(); saveLyriaMusicSettings(); });
+  lyriaInfoButton.addEventListener("click", () => lyriaInfoDialog.showModal());
+  lyriaInfoClose.addEventListener("click", () => lyriaInfoDialog.close());
+  lyriaInfoDialog.addEventListener("click", (event) => { if (event.target === lyriaInfoDialog) lyriaInfoDialog.close(); });
+  lyriaSettingsButton.addEventListener("click", () => {
+    lyriaSettingsStatus.textContent = "";
+    lyriaSettingsStatus.classList.remove("error", "success");
+    lyriaSettingsDialog.showModal();
+  });
+  lyriaSettingsClose.addEventListener("click", () => lyriaSettingsDialog.close());
+  lyriaSettingsDialog.addEventListener("click", (event) => { if (event.target === lyriaSettingsDialog) lyriaSettingsDialog.close(); });
   hinduCalendarDetailsButton.addEventListener("click", showHinduCalendarDetails);
   hinduCalendarDeitiesButton.addEventListener("click", showHinduCalendarDeities);
   hinduCalendarDialogClose.addEventListener("click", () => hinduCalendarDialog.close());

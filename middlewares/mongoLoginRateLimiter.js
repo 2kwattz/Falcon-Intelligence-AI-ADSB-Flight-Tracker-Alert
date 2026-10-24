@@ -17,7 +17,10 @@ const normalizeIdentifier = (value) => typeof value === "string"
   : "";
 
 const loginAttemptKey = (req) => {
-  const identifier = normalizeIdentifier(req.body?.identifier || req.body?.email) || "missing-identifier";
+  // OTP verification has no email/username in its body. Its opaque challenge
+  // id keeps a busy shared IP from pooling all users into one limiter bucket;
+  // the user record separately caps each challenge at five wrong codes.
+  const identifier = normalizeIdentifier(req.body?.identifier || req.body?.email || req.body?.challengeId) || "missing-identifier";
   const clientIp = String(req.ip || req.socket?.remoteAddress || "unknown-ip");
   const fingerprint = crypto
     .createHash("sha256")

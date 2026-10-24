@@ -7,6 +7,7 @@
   <title>Login | Falcon Intelligence</title>
   <link rel="stylesheet" href="/auth.css">
   <link rel="stylesheet" href="/shared-nav.css">
+  <link rel="stylesheet" href="/toast.css">
 </head>
 <body data-auth-page="login">
   <a class="skip-link" href="#login-title">Skip to login form</a>
@@ -45,8 +46,9 @@
         <label>Password
           <input required type="password" name="password" autocomplete="current-password" placeholder="Your password">
         </label>
-        <label id="login-otp-field" hidden>Verification code
+        <label id="login-otp-field" hidden>Two-factor authentication code
           <input type="text" name="otp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="Six-digit code">
+          <small class="otp-countdown" id="login-otp-countdown" aria-live="off"></small>
         </label>
         <button class="button" type="submit">Log in</button>
         <p class="status" aria-live="polite"></p>
@@ -57,6 +59,7 @@
 
   <footer class="site-footer shell">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
   <script src="/nav-auth.js" defer></script>
+  <script src="/toast.js" defer></script>
   <script src="/auth.js" defer></script>
 </body>
 </html>

@@ -132,6 +132,9 @@ async function startServer() {
         app.get("/profile.html", mongodbAuthMiddleware, (req, res) => {
             return res.sendFile(path.join(__dirname, "../public/profile.html"));
         });
+        app.get("/login-activity.html", mongodbAuthMiddleware, (req, res) => {
+            return res.sendFile(path.join(__dirname, "../public/login-activity.html"));
+        });
         app.get("/falcon-video-generator.html", mongodbAuthMiddleware, (req, res) => {
             return res.sendFile(path.join(__dirname, "../public/falcon-video-generator.html"));
         });
@@ -197,6 +200,7 @@ async function startServer() {
         app.get("/login", (req, res) => res.sendFile(path.join(__dirname, "../public/login.html")));
         app.get("/register", (req, res) => res.sendFile(path.join(__dirname, "../public/register.html")));
         app.get("/profile", mongodbAuthMiddleware, (req, res) => res.sendFile(path.join(__dirname, "../public/profile.html")));
+        app.get("/login-activity", mongodbAuthMiddleware, (req, res) => res.sendFile(path.join(__dirname, "../public/login-activity.html")));
         app.get("/bangalore-status", (req, res) => res.sendFile(path.join(__dirname, "../public/bangalore-status.html")));
         app.get("/banglore-status", (req, res) => res.redirect(301, "/bangalore-status"));
         app.get("/delhi-status", (req, res) => res.sendFile(path.join(__dirname, "../public/delhi-status.html")));

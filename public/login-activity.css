@@ -1,0 +1,21 @@
+.login-activity-page { padding-top:55px; padding-bottom:70px; }
+.activity-heading { max-width:760px; }
+.back-to-profile { display:inline-flex; margin-top:18px; color:#8af4d4; font-size:.75rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+.back-to-profile:hover { color:#d8fff3; }
+.activity-card { margin-top:31px; padding:28px; border:1px solid #38566a; border-radius:var(--radius); background:linear-gradient(145deg,rgba(20,37,56,.92),rgba(11,25,38,.95)); box-shadow:0 22px 55px rgba(0,0,0,.18); }
+.activity-card-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:20px; }
+.activity-card-heading h2 { margin:0 0 6px; font-size:1.2rem; }
+.activity-card-heading p { min-height:1.3em; margin:0; color:var(--muted); font-size:.76rem; line-height:1.5; }
+.activity-card-heading p.error { color:#ffaaa7; }
+.clear-activity-button { min-height:38px; padding:0 13px; border:1px solid #826065; border-radius:7px; color:#ffd9d6; background:#352126; font-size:.67rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
+.clear-activity-button:hover:not(:disabled) { border-color:#ffaaa7; background:#4a292f; }
+.clear-activity-button:disabled { cursor:not-allowed; opacity:.55; }
+.activity-table-wrap { overflow-x:auto; border:1px solid rgba(78,119,136,.55); border-radius:8px; }
+.activity-table { width:100%; min-width:620px; border-collapse:collapse; text-align:left; }
+.activity-table th,.activity-table td { padding:14px 15px; border-bottom:1px solid rgba(78,119,136,.4); font-size:.8rem; }
+.activity-table th { color:#a6bac8; background:rgba(7,20,31,.75); font-size:.64rem; letter-spacing:.08em; text-transform:uppercase; }
+.activity-table td { color:#dcebf3; overflow-wrap:anywhere; }
+.activity-table .activity-device { min-width:210px; }.activity-device strong,.activity-device span { display:block; }.activity-device strong { color:#e6f4fb; font-size:.77rem; }.activity-device span { margin-top:3px; color:#9ab4c4; font-size:.69rem; line-height:1.35; }
+.activity-table tbody tr:last-child td { border-bottom:0; }
+.activity-empty { color:var(--muted)!important; text-align:center; }
+@media (max-width:720px) { .login-activity-page { padding-top:36px; padding-bottom:42px; }.activity-card { padding:20px; }.activity-card-heading { flex-direction:column; }.clear-activity-button { width:100%; } }

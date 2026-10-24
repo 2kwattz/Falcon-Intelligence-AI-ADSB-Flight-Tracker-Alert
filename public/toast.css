@@ -1,0 +1,15 @@
+.falcon-toast-region { position:fixed; right:18px; bottom:18px; z-index:1000; display:grid; width:min(390px,calc(100vw - 36px)); gap:10px; pointer-events:none; }
+.falcon-toast { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:start; padding:13px; border:1px solid rgba(97,147,167,.72); border-radius:10px; color:#e7f1fa; background:linear-gradient(145deg,rgba(18,38,55,.98),rgba(8,22,35,.98)); box-shadow:0 16px 40px rgba(0,0,0,.36); font:500 .82rem/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; pointer-events:auto; animation:falcon-toast-in .2s ease-out; }
+.falcon-toast.success { border-color:rgba(88,223,188,.7); }
+.falcon-toast.error,.falcon-toast.danger { border-color:rgba(251,119,118,.7); }
+.falcon-toast-message { min-width:0; }
+.falcon-toast-actions { display:flex; grid-column:1 / -1; flex-wrap:wrap; gap:8px; }
+.falcon-toast-action,.falcon-toast-dismiss { min-height:32px; border:1px solid rgba(126,161,179,.7); border-radius:6px; color:#dcebf3; background:rgba(34,61,77,.7); font:800 .67rem/1 Inter,ui-sans-serif,system-ui,sans-serif; letter-spacing:.06em; text-transform:uppercase; cursor:pointer; }
+.falcon-toast-action { padding:0 11px; }
+.falcon-toast-action.primary { border-color:rgba(88,223,188,.68); color:#d8fff4; background:rgba(31,117,104,.78); }
+.falcon-toast-action.danger { border-color:rgba(251,119,118,.72); color:#ffe2e1; background:rgba(128,43,51,.72); }
+.falcon-toast-dismiss { display:grid; width:28px; padding:0; place-items:center; color:#9eb2c0; background:transparent; font-size:1rem; }
+.falcon-toast-action:hover,.falcon-toast-dismiss:hover,.falcon-toast-action:focus-visible,.falcon-toast-dismiss:focus-visible { outline:none; filter:brightness(1.16); }
+.falcon-toast.leaving { opacity:0; transform:translateY(8px); transition:opacity .16s,transform .16s; }
+@keyframes falcon-toast-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@media (max-width:540px) { .falcon-toast-region { right:12px; bottom:12px; width:calc(100vw - 24px); } }

@@ -227,8 +227,10 @@ not in place of them.
 ### Mongo dashboard login
 
 ```text
-register/login → MongoDB user → bcrypt password check → HS256 JWT
-               → HttpOnly `mongoToken` cookie → protected request checks JWT
+login → MongoDB user → bcrypt password check → save HMAC-hashed 2FA challenge
+      → email six-digit code → POST /auth/mongo/login/verify-otp
+      → write login activity → HS256 JWT → HttpOnly `mongoToken` cookie
+      → protected request checks JWT
 ```
 
 The Mongo middleware accepts a Bearer token or `mongoToken`, checks algorithm,
@@ -239,19 +241,27 @@ Dashboard login uses a Redis-backed per-identifier/IP limiter. If its Redis
 dependency is unavailable, login fails closed rather than allowing unlimited
 password attempts.
 
-#### Suspicious-location OTP
+#### Mandatory email two-factor authentication
 
-After a correct password, a dashboard login from a different resolved public
-city can require an emailed six-digit code:
+After every correct Mongo dashboard password, the server requires an emailed
+six-digit code. This is not conditional on IP address, city, device, browser,
+or a remembered session:
 
 ```text
-password accepted → city differs → save HMAC-hashed five-minute challenge
-→ email code → POST /auth/mongo/login/verify-location → issue cookie
+password accepted → save HMAC-hashed five-minute challenge → email code
+→ POST /auth/mongo/login/verify-otp → write activity → issue cookie
 ```
 
-The code is single-use and five wrong attempts end the challenge. This is
-adaptive suspicious-location verification, not always-on authenticator-app 2FA:
-first logins, same-city logins, private IPs, and unresolved IPs bypass it.
+The code is single-use and five wrong attempts end the challenge. The login
+page displays a five-minute countdown while the server enforces the actual
+expiry. The server does not issue a Mongo session cookie until it succeeds. If Gmail SMTP is
+unavailable, login fails safely instead of bypassing the second factor.
+
+Each successful verification writes a MongoDB `login_activities` record with
+the username, server-parsed device/browser/operating-system summary, login
+timestamp, and IP address. A TTL index removes it after three days; the account
+owner can view and clear only their own records on the Profile → Login activity
+page.
 
 The legacy system remains in `routes/authRouter.js`. Its middleware reads the
 legacy `token` cookie with `JWT_SECRET_KEY`; legacy community and chatroom
@@ -294,7 +304,7 @@ sudo permission for that helper.
 | Hindu calendar | The provider service fetches/normalizes current occasion data and schedules a daily Asia/Kolkata refresh. A separate imported 2026–2027 dataset provides the dashboard Extras daily summary and full details without a provider call; on dates without an observance, it shows the dataset’s mantra name, chant text, transliteration, deity, and repetition count for a devotional video. |
 | Payments | Razorpay key/order/payment verification routes live in `routes/apiRoutes.js`; secret keys remain on server. |
 | Video generation | Mongo-authenticated upload/job/output routes coordinate with configured ComfyUI/Wan-style tooling. |
-| Lyria Music Studio | Mongo-authenticated Dashboard → Extras workspace calls Google Lyria 3.5 with a server-only API key, retains each audio result in memory for one hour, and limits music generation to four requests per 15 minutes per IP. It is separate from video generation. |
+| Lyria Music Studio | Mongo-authenticated Dashboard → Extras workspace calls Google Lyria 3.5 with a server-only API key, counts every prompt before generation (hard cap: 2,000 prompt tokens), and defaults to three global requests in a rolling 10-hour window. One Usage & limits summary shows the live cap, used/remaining attempts, and reset; the gear beside the info icon opens settings to change the policy. MongoDB stores only the policy and timestamp reservations, never Lyria data in Redis. Audio remains in memory for one hour. It is separate from video generation. |
 | Communities/chatrooms | Legacy-authenticated MySQL features; community image uploads use Multer. |
 | Visitor logs | Eligible anonymous public-page visits go to bounded Redis data; assets, APIs, protected routes, and signed-in visitors are excluded. |
 
@@ -307,7 +317,7 @@ sudo permission for that helper.
 | General Redis | Rate limits, cooldowns, visitor logs, normal cache. | Temporary/TTL-based. |
 | Archive Redis DB | `tracked-aircraft:<hex>` records. | One latest local record per aircraft, five-day TTL. |
 | MySQL | Legacy users, communities, chatroom/application data. | Persistent legacy store. |
-| MongoDB | Dashboard users, city settings, temporary provider calendar records, and persistent imported calendar-day records. | Persistent dashboard/config store; the imported dataset is indexed by date and has no TTL. |
+| MongoDB | Dashboard users, city settings, temporary provider calendar records, login-activity records, and persistent imported calendar-day records. | Login activity has a three-day TTL; the imported dataset is indexed by date and has no TTL. |
 | Filesystem | Public files, catalogues, receiver files, uploads, graphs. | Depends on host disk and backups. |
 
 Redis is cache storage, not permanent flight history. Clearing it or reaching a
@@ -329,7 +339,7 @@ Settings come from `.env`; never commit it or expose secrets.
 
 Set `TRUST_PROXY_HOPS` only when Node is exclusively behind the stated number
 of trusted proxies. It changes client-IP handling, affecting rate limits,
-visitor logs, and suspicious-location OTP decisions.
+visitor logs, and the IP address recorded for successful login activity.
 
 ## 11. Troubleshooting map
 

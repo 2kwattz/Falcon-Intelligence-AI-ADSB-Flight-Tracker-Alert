@@ -1,6 +1,7 @@
 const axios = require("axios");
 
 const LYRIA_API_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
+const GOOGLE_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 const LYRIA_MODEL = process.env.LYRIA_MODEL || "lyria-3.5";
 const LYRIA_TIMEOUT_MS = 300_000;
 const MAX_AUDIO_BYTES = 30 * 1024 * 1024;
@@ -31,9 +32,37 @@ function mapLyriaError(error) {
     return new LyriaMusicRequestError("Google Lyria could not generate music right now.", 502);
 }
 
-async function generateLyriaMusic(prompt) {
+function getApiKey() {
     const apiKey = String(process.env.LYRIA_API_KEY || process.env.GEMINI_API_KEY || "").trim();
     if (!apiKey) throw new LyriaMusicRequestError("Set LYRIA_API_KEY before generating music.", 500);
+    return apiKey;
+}
+
+async function countLyriaPromptTokens(prompt) {
+    const apiKey = getApiKey();
+
+    try {
+        const { data } = await axios.post(
+            `${GOOGLE_API_BASE_URL}/models/${encodeURIComponent(LYRIA_MODEL)}:countTokens`,
+            { contents: [{ parts: [{ text: prompt }] }] },
+            {
+                headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+                timeout: 30_000
+            }
+        );
+        const totalTokens = Number(data?.totalTokens ?? data?.total_tokens);
+        if (!Number.isInteger(totalTokens) || totalTokens < 0) {
+            throw new LyriaMusicRequestError("Google Lyria did not return a usable prompt token count.", 502);
+        }
+        return totalTokens;
+    } catch (error) {
+        if (error instanceof LyriaMusicRequestError) throw error;
+        throw mapLyriaError(error);
+    }
+}
+
+async function generateLyriaMusic(prompt) {
+    const apiKey = getApiKey();
 
     try {
         const { data } = await axios.post(
@@ -67,4 +96,4 @@ async function generateLyriaMusic(prompt) {
     }
 }
 
-module.exports = { generateLyriaMusic, LyriaMusicRequestError, LYRIA_MODEL };
+module.exports = { countLyriaPromptTokens, generateLyriaMusic, LyriaMusicRequestError, LYRIA_MODEL };

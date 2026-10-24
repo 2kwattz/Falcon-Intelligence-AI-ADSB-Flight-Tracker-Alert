@@ -5,9 +5,11 @@ const router = express.Router();
 const {
   register,
   login,
-  verifyLoginLocationOtp,
+  verifyLoginOtp,
   logout,
   getProfile,
+  getLoginActivity,
+  clearLoginActivity,
   updateProfilePicture
 } = require("../controllers/authController");
 
@@ -56,9 +58,9 @@ const uploadProfilePicture = (req, res, next) => {
 // Register
 router.post("/register", authLimiter, register);
 
-// Login. The controller issues the persistent Mongo session cookie.
+// Every password login requires a second email code before a session is issued.
 router.post("/login", mongoLoginRateLimiter, login);
-router.post("/login/verify-location", mongoLoginRateLimiter, verifyLoginLocationOtp);
+router.post("/login/verify-otp", mongoLoginRateLimiter, verifyLoginOtp);
 
 router.post("/logout", logout);
 
@@ -67,5 +69,7 @@ router.post("/logout", logout);
 router.get("/me", mongodbAuthMiddleware, getProfile);
 router.get("/profile", mongodbAuthMiddleware, getProfile);
 router.patch("/profile/picture", mongodbAuthMiddleware, uploadProfilePicture, updateProfilePicture);
+router.get("/login-activity", mongodbAuthMiddleware, getLoginActivity);
+router.delete("/login-activity", mongodbAuthMiddleware, clearLoginActivity);
 
 module.exports = router;

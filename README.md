@@ -107,11 +107,10 @@ The following integrations are optional and only needed for their corresponding 
 | JWT authentication | `JWT_SECRET` (or `JWT_SECRET_KEY`), `JWT_EXPIRES_IN`, `JWT_ISSUER`, `JWT_AUDIENCE`, `CLIENT_URL` |
 | MongoDB dashboard and profile data | `MONGO_URI` |
 | Resend email delivery for non-flight-alert legacy mail | `RESEND_API_KEY`, `EMAIL_FROM` |
-| Gmail SMTP mail delivery for every flight alert | `GMAIL_SMTP`, `GMAIL_SMTP_PASSWORD` |
+| Gmail SMTP mail delivery for flight alerts and mandatory Mongo-login 2FA codes | `GMAIL_SMTP`, `GMAIL_SMTP_PASSWORD` |
 | Twilio calls | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_CALLER_ID`, `TWILIO_CALL_TIMEOUT_SECONDS`; city call recipients use `BANGALORE_ALERT_PHONE_1`–`_4` and `DELHI_ALERT_PHONE_1`–`_4` (with optional `BANGALORE_AIRSPACE_NUMBER` and `DELHI_AIRSPACE_NUMBER` caller IDs) |
 | Razorpay payments | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` |
 | Gemini assistant | `GEMINI_API_KEY`; optional `GEMINI_MODEL` (defaults to `gemini-3.8-flash`) |
-| Dashboard Lyria Music Studio | `LYRIA_API_KEY` (falls back to `GEMINI_API_KEY`); optional `LYRIA_MODEL` (defaults to `lyria-3.5`) |
 | ADSBHub live feed | `ADSBHUB_HOST`, `ADSBHUB_PORT`, `ADSBHUB_NO_DATA_WARNING_MS` |
 | ADSB.lol re-api dashboard probe | `ADSBLOL_RE_API_URL`, `ADSBLOL_RE_API_CIRCLE`, `ADSBLOL_RE_API_TIMEOUT_MS` |
 | Local ADS-B receiver dashboard | `READSB_STATS_JSON_PATH`, `READSB_RECEIVER_JSON_PATH`, `READSB_STATS_URL`, `READSB_RECEIVER_URL`, `READSB_LOG_PATH`, `READSB_LOG_LINES`, `READSB_HEALTHY_MESSAGE_RATE`, `READSB_MAX_BAD_MESSAGE_RATE`, `READSB_FRESH_MESSAGE_SECONDS` |
@@ -122,8 +121,7 @@ The following integrations are optional and only needed for their corresponding 
 | Mongo login protection | Redis-backed: 10 attempts per 1 hour for each email/username and IP pair |
 | Anonymous visitor logs | Redis-backed: `VISITOR_LOG_MAX_RECORDS` (default `10000`), `VISITOR_LOG_MAX_PAGES` (default `50`), and `VISITOR_LOG_DASHBOARD_LIMIT` (default `100`) |
 | Reverse-proxy client IPs | `TRUST_PROXY_HOPS=1` only when the app is exclusively behind one trusted proxy such as nginx |
-| Suspicious-location login verification | Offline `geoip-lite` GeoLite database; no IP lookup API key is required |
-| Suspicious-location login OTP email | `GMAIL_SMTP`, `GMAIL_SMTP_PASSWORD`, and a strong `LOGIN_OTP_SECRET` |
+| Mandatory Mongo-login 2FA | `GMAIL_SMTP`, `GMAIL_SMTP_PASSWORD`, and a strong `LOGIN_OTP_SECRET` |
 
 Do not commit `.env` files or API credentials.
 
@@ -132,15 +130,6 @@ Do not commit `.env` files or API credentials.
 The authenticated `POST /ai/askllm` endpoint uses Gemini. `POST /api/askllm` remains available as a compatibility alias. Send a JSON body with a string `query`; the response includes the reply in `message` and identifies the model in `model`.
 
 The default is `gemini-3.8-flash` with low thinking effort, an 8,000-character input limit, and a 512-token output limit. These application limits help conserve the Gemini free-tier quota; the actual quota is applied by Google to the API project, not to an individual API key.
-
-### Lyria Music Studio
-
-Dashboard → Extras includes a separate Google Lyria 3.5 music workspace. Its
-API key stays on the server: set `LYRIA_API_KEY` (or reuse `GEMINI_API_KEY` if
-that key has Lyria access). It accepts a music prompt, limits generation to four
-requests per 15 minutes per client IP, and keeps each generated audio output in
-server memory for one hour. The music feature is independent of the Falcon Video
-Generator.
 
 ### Receiver software: readsb, tar1090, and graphs1090
 
@@ -344,12 +333,14 @@ Validate it with `sudo visudo -cf /etc/sudoers.d/falcon-readsb-gain`. The helper
 | `/bangalore-status`, `/delhi-status`, and `/hyderabad-status` | City alert-status pages; disabled cities do not request their nearby-aircraft feed. |
 | `/api/aircraft/nearby` | Nearby-aircraft API; additional compatible ADSBHub TCP paths are available under `/api/adsbhub-tcp`. |
 | `/auth/mongo/login` | MongoDB/JWT login for the protected dashboard and profile. This is separate from the existing MySQL `/auth` flow. |
+| `/auth/mongo/login/verify-otp` | Required second step for every successful Mongo password login; issues the session only after the email code is verified. |
 | `/dashboard` | Mongo-JWT-protected operations dashboard. Direct `/dashboard.html` access is also protected before static files are served. |
 | `/api/dashboard/stats` | Mongo-JWT-protected main-server station, feed, server-health, and configured alert-recipient data. |
 | `/api/dashboard/city-alert-enabled` | Mongo-JWT-protected `PUT` endpoint for the per-city remote tracking and alert switches. |
 | `/api/dashboard/city-alert-radii` and `/api/dashboard/city-alert-email-recipients` | Mongo-JWT-protected city radius and email-recipient management endpoints. |
 | `/api/dashboard/city-aircraft` | Mongo-JWT-protected file-backed CRUD API for the four active city catalogue files. It does not persist aircraft records to a database. |
 | `/profile` | Mongo-JWT-protected profile page, including profile-photo updates. |
+| `/login-activity` | Mongo-JWT-protected page showing the signed-in user's successful Mongo logins from the last three days. |
 | `/falcon-video-generator` | Video-generator page; its upload and generation APIs require Mongo/JWT login. |
 
 Authentication, admin, community, alert, payment, and AI endpoints live under their route prefixes (`/auth`, `/admin`, `/adsb`, `/ai`, and `/api`). Read the matching module in `routes/` before integrating with them, as many require authentication or an external credential.
@@ -359,7 +350,8 @@ Authentication, admin, community, alert, payment, and AI endpoints live under th
 The existing MySQL authentication system is retained under `/auth`. MongoDB/JWT authentication was added in parallel under `/auth/mongo` so the newer dashboard features do not replace existing MySQL users or routes.
 
 - Mongo accounts use bcrypt password hashes, and the JWT middleware validates the expected algorithm, issuer, audience, expiry, and user record.
-- A successful Mongo login sets the separate `mongoToken` cookie. It persists for 30 days by default (configurable with `AUTH_SESSION_COOKIE_MAX_AGE_MS`) so mobile browsers do not discard it as a session cookie; set `JWT_EXPIRES_IN` to the same duration. It is currently configured as browser-readable (`httpOnly: false`) to support the requested client-side token access; this is less resistant to XSS than an HttpOnly cookie.
+- Every successful Mongo password login requires a six-digit email two-factor code, regardless of the device, browser, IP address, or location. The login page shows a five-minute countdown when the OTP field appears, while the server remains authoritative for expiry. A session cookie is issued only after the code is verified; five incorrect codes or a five-minute expiry end the challenge.
+- A successful verified Mongo login sets the separate HttpOnly `mongoToken` cookie. It persists for 30 days by default (configurable with `AUTH_SESSION_COOKIE_MAX_AGE_MS`) so mobile browsers do not discard it as a session cookie; set `JWT_EXPIRES_IN` to the same duration.
 - Mongo login attempts are Redis-limited to 10 per one-hour window for each normalized email/username and IP pair. Keys use a SHA-256 fingerprint instead of storing the raw email or IP. If Redis is unavailable, login fails closed with HTTP 503 rather than allowing unlimited attempts.
 - `/dashboard`, `/dashboard.html`, `/api/dashboard/stats`, and `/api/private-stats` require a valid Mongo JWT. Dashboard data is collected by the Node/Ubuntu host, not the visitor's device.
 - Browser navigation to a protected page redirects to `/login` when the Mongo JWT is missing or invalid. Protected API requests continue to return JSON `401` responses for client-side handling.
@@ -373,6 +365,7 @@ The existing MySQL authentication system is retained under `/auth`. MongoDB/JWT 
 - Visitor logs use bounded Redis storage: one hash and one unique-page set per IP address, a 24-hour TTL starting with the first recorded visit, a 10,000-record default cap, and a 50-page-per-visitor default cap. Repeated requests to the same page do not add records or pages. The Dashboard switch pauses/resumes future collection; existing records still age out within 24 hours.
 - When deployed behind nginx or another reverse proxy, set `TRUST_PROXY_HOPS=1` only if the Node server is not directly public; this lets Express safely use the proxy-provided client IP for visitor grouping and rate limiting.
 - The profile page allows a signed-in user to replace their JPEG, PNG, or WebP profile photo. Uploads are limited to 5 MB, checked against file signatures, stored with generated names, and old managed photos are removed after a successful replacement.
+- The profile page links to **Login activity**, which shows the successful two-factor-authenticated user name, parsed device/browser/operating-system details, login time (IST), and IP address. MongoDB deletes each record after three days; the signed-in user can also clear only their own history immediately.
 - The video generator no longer accepts a separate password. Its upload, delete, and generation APIs require Mongo/JWT login.
 - Shared navigation is applied across the public pages. Logged-in users see a simple profile icon with **My Profile**, **Dashboard**, and **Logout**; Dashboard is intentionally not a primary navigation link.
 
@@ -380,10 +373,10 @@ The existing MySQL authentication system is retained under `/auth`. MongoDB/JWT 
 
 | Area | Main files |
 | --- | --- |
-| Mongo/JWT auth | `controllers/authController.js`, `routes/authRoutes.js`, `middlewares/mongodbAuthMiddleware.js` |
+| Mongo/JWT auth and login activity | `controllers/authController.js`, `routes/authRoutes.js`, `models/LoginActivity.js`, `middlewares/mongodbAuthMiddleware.js` |
 | Redis Mongo login limiter | `middlewares/mongoLoginRateLimiter.js` |
 | Dashboard and server metrics | `routes/privateStatsRoutes.js`, `public/dashboard.html`, `public/dashboard.js`, `public/dashboard.css` |
-| Profile and photo upload | `public/profile.html`, `public/profile.js`, `public/profile.css` |
+| Profile, photo upload, and login activity | `public/profile.html`, `public/profile.js`, `public/profile.css`, `public/login-activity.html`, `public/login-activity.js` |
 | Shared signed-in navigation | `public/nav-auth.js`, `public/shared-nav.css` |
 
 ## Technical details

@@ -1,12 +1,124 @@
-# Hindu Festival Automation
+# YouTube Automation
 
-> This file uses the requested name. It documents the Hindu festival and occasion automation currently added to Falcon Intelligence; it does not implement a YouTube workflow.
+This document covers the dashboard’s YouTube-planning features: Hindu calendar
+and mantra data, plus the separate Lyria Music Studio used to make original
+audio. It does not control the Falcon Video Generator.
 
 ## Purpose
 
 The application has two related calendar data paths. The provider-backed service retrieves a current daily calendar and retains a short-lived MongoDB record. The dataset-backed dashboard feature reads the bundled 2026–2027 Vadodara calendar dataset from MongoDB for fast, predictable daily detail and YouTube planning.
 
 The feature uses TathaAstu as the upstream Hindu calendar provider. The provider key remains server-side and is never delivered to browser code.
+
+## Lyria Music Studio
+
+Lyria Music Studio is an authenticated, music-only workspace in
+**Dashboard → Extras**. It uses Google Lyria 3.5 to make original audio from a
+text description for YouTube-automation work. It is independent of the Falcon
+Video Generator: it has no video jobs, image uploads, ComfyUI/Wan workflow, or
+video-generator passcode.
+
+```text
+Dashboard or automation client
+        ↓
+POST /api/lyria-music/generate
+        ↓
+Mongo dashboard authentication → exact Google prompt-token count
+        ↓
+Mongo global rate reservation → Lyria 3.5 Interactions API
+        ↓
+Temporary in-memory audio → dashboard player/download
+```
+
+The browser never receives a Google key. A user can describe genre,
+instruments, tempo, mood, arrangement, and vocals/instrumental preference. Do
+not request a specific artist's voice; Google-generated audio includes a
+SynthID watermark.
+
+### Lyria configuration
+
+```dotenv
+# Recommended: a key dedicated to Lyria access.
+LYRIA_API_KEY=...
+
+# Optional. Defaults to lyria-3.5.
+LYRIA_MODEL=lyria-3.5
+
+# Required for Lyria usage email alerts.
+GMAIL_SMTP=your-sending-address@gmail.com
+GMAIL_SMTP_PASSWORD=your-gmail-app-password
+```
+
+`GEMINI_API_KEY` is used only as a fallback when `LYRIA_API_KEY` is absent. Do
+not expose either key in browser code, logs, or committed `.env` files.
+
+### Lyria API and token enforcement
+
+All Lyria endpoints require a Mongo dashboard session (`mongoToken`) or valid
+Bearer token.
+
+| Request | Purpose |
+| --- | --- |
+| `GET /api/lyria-music/settings` | Return the shared prompt-token and request allowance, remaining attempts, and reset time. |
+| `PUT /api/lyria-music/settings` | Change the shared prompt-token limit, request allowance, and rolling window from Dashboard → Extras. |
+| `POST /api/lyria-music/generate` | Count, reserve, and submit a music-generation request. |
+| `GET /api/lyria-music/outputs/:outputId` | Stream a generated result to the authenticated dashboard user. |
+
+The dashboard does not make token-count requests while typing. It asks Google
+for the exact count only after the user selects **Generate**. The
+12,000-character browser limit is only a safe request-size boundary; the token
+limit is authoritative. An over-limit prompt is rejected before a generation
+attempt is reserved, and no draft/history is saved.
+
+### Lyria limits
+
+The default global policy is **2,000 prompt tokens** and **3 generation
+attempts in every rolling 10-hour window**. It is shared by the Lyria feature,
+not granted separately per user, browser, or IP. Dashboard → Extras keeps the
+prompt cap, used/remaining attempts, window, and reset time together in one
+**Usage & limits** summary. The gear icon beside the **i** icon opens the
+separate settings dialog, where a user can lower the token cap (never above
+2,000), change the allowance (1–20 attempts), or change the rolling window
+(1–168 hours).
+
+The dashboard shows the current configured rule, used and remaining attempts,
+and next available slot in that single summary. The server reserves an attempt immediately before sending the
+request to Google. A Google rejection or timeout still keeps that reservation,
+which prevents failed retries from bypassing the spend limit.
+
+### Lyria email alerts
+
+Every reserved Lyria attempt—whether it came from the dashboard or another
+automation client using `POST /api/lyria-music/generate`—immediately sends a
+**Falcon Intelligence / YouTube Automation** email to:
+
+- `prakashbhatia1970@gmail.com`
+- `roshan.bhatia.blueera@gmail.com`
+
+The attempt email reports the prompt-token count, shared rate allowance, number
+of attempts remaining, reset time, authenticated initiator, and India-local
+timestamp. It intentionally excludes the prompt, generated audio, provider
+response, and API key.
+
+When the last allowed attempt in the active rolling window is reserved (the
+third attempt under the default 3-per-10-hours policy), both recipients receive
+a second **Lyria generation limit reached** email. Gmail SMTP errors are logged
+but do not cancel the already-reserved attempt or prevent music generation.
+
+### Lyria storage and lifecycle
+
+Lyria never uses Redis. MongoDB's `lyria_music_settings` collection holds one
+editable global settings document and timestamp-only rolling-window
+reservations. It stores no prompt, audio, Google credential, or provider
+response.
+
+Generated audio is decoded into process memory only and is available for one
+hour to the authenticated dashboard player/download link. It disappears after
+that hour or immediately when the Node process restarts. Audio is not written
+to MongoDB, Redis, or disk.
+
+For the complete implementation/file reference, see
+[Lyria Music Studio](LYRIA_MUSIC_STUDIO.md).
 
 ## Public API
 

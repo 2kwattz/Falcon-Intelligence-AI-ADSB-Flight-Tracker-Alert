@@ -91,13 +91,32 @@ h2 { margin:0; font-size:clamp(1.35rem,2.5vw,2rem); letter-spacing:-.035em; }
 .lyria-music-studio { margin:18px 0; padding:18px; border:1px solid rgba(160,132,255,.48); border-radius:10px; background:linear-gradient(135deg,rgba(63,45,106,.34),rgba(11,28,42,.84)); }
 .lyria-music-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
 .lyria-music-heading h3 { margin:2px 0 0; color:#ded4ff; font-size:1rem; }
-.lyria-music-heading > span { padding:6px 9px; border:1px solid rgba(181,160,255,.4); border-radius:999px; color:#cfc2ff; background:rgba(74,52,122,.35); font-size:.64rem; font-weight:800; letter-spacing:.05em; white-space:nowrap; }
+.lyria-music-heading-actions { display:flex; align-items:center; gap:7px; }
+.lyria-music-heading-actions > span { padding:6px 9px; border:1px solid rgba(181,160,255,.4); border-radius:999px; color:#cfc2ff; background:rgba(74,52,122,.35); font-size:.64rem; font-weight:800; letter-spacing:.05em; white-space:nowrap; }
+.lyria-info-button,.lyria-settings-button { display:grid; width:28px; height:28px; padding:0; place-items:center; border:1px solid rgba(181,160,255,.6); border-radius:50%; color:#e5ddff; background:rgba(74,52,122,.46); cursor:pointer; }
+.lyria-info-button { font:800 .86rem/1 Georgia,serif; }
+.lyria-settings-button span { font-size:1rem; line-height:1; }
+.lyria-info-button:hover,.lyria-info-button:focus-visible,.lyria-settings-button:hover,.lyria-settings-button:focus-visible { border-color:#e5ddff; background:rgba(104,79,167,.8); outline:none; }
 .lyria-music-intro { max-width:770px; margin:12px 0; color:var(--muted); font-size:.78rem; line-height:1.5; }
+.lyria-usage-overview { display:grid; gap:5px; margin:14px 0; padding:12px 14px; border:1px solid rgba(160,132,255,.34); border-radius:8px; background:rgba(10,22,40,.5); }
+.lyria-usage-title { margin:0; color:#d8ceff; font-size:.65rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.lyria-rate-summary { margin:0; color:#c0ced9; font-size:.74rem; line-height:1.5; }
+.lyria-rate-form { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:end; gap:10px; }
+.lyria-rate-form label { display:grid; gap:5px; color:#b9c9d5; font-size:.65rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+.lyria-rate-form input,.lyria-music-form textarea { width:100%; min-width:0; border:1px solid rgba(160,132,255,.52); border-radius:8px; color:#edf4ff; background:linear-gradient(145deg,rgba(7,17,29,.94),rgba(18,27,52,.9)); box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 1px 0 rgba(0,0,0,.2); font:inherit; letter-spacing:normal; text-transform:none; transition:border-color .18s,box-shadow .18s,background .18s; }
+.lyria-rate-form input { min-height:42px; padding:0 11px; font-size:.84rem; }
+.lyria-rate-form input::-webkit-outer-spin-button,.lyria-rate-form input::-webkit-inner-spin-button { margin:0; appearance:none; }
+.lyria-rate-form input[type="number"] { appearance:textfield; }
+.lyria-rate-form small { color:var(--muted); font-size:.61rem; font-weight:500; letter-spacing:0; line-height:1.35; text-transform:none; }
+.lyria-save-limits-button { align-self:end; justify-self:start; }
 .lyria-music-form { display:grid; gap:9px; }
 .lyria-music-form label { color:#b9c9d5; font-size:.68rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
-.lyria-music-form textarea { min-height:130px; border-color:#5b4b88; }
-.lyria-music-form textarea:focus { border-color:#aa95ff; box-shadow:0 0 0 3px rgba(170,149,255,.14); }
-.lyria-music-meta { display:flex; justify-content:space-between; gap:12px; color:#9aaaba; font-size:.66rem; line-height:1.4; }
+.lyria-music-form textarea { min-height:130px; padding:12px; resize:vertical; font-size:.85rem; line-height:1.55; }
+.lyria-rate-form input::placeholder,.lyria-music-form textarea::placeholder { color:#8090a7; opacity:1; }
+.lyria-rate-form input:hover,.lyria-music-form textarea:hover { border-color:rgba(185,165,255,.76); }
+.lyria-rate-form input:focus-visible,.lyria-music-form textarea:focus-visible { border-color:#c1afff; outline:none; background:linear-gradient(145deg,rgba(9,21,36,.98),rgba(29,34,66,.94)); box-shadow:0 0 0 3px rgba(170,149,255,.18),inset 0 1px 0 rgba(255,255,255,.05); }
+.lyria-music-meta { display:flex; flex-wrap:wrap; justify-content:space-between; gap:7px 12px; color:#9aaaba; font-size:.66rem; line-height:1.4; }
+.lyria-music-meta > :first-child { flex:1 1 340px; }
 .lyria-music-status { min-height:1.3em; margin:2px 0; color:var(--muted); font-size:.73rem; }
 .lyria-music-status.error { color:#ffaaa7; }
 .lyria-music-status.success { color:#cfc2ff; }
@@ -108,6 +127,22 @@ h2 { margin:0; font-size:clamp(1.35rem,2.5vw,2rem); letter-spacing:-.035em; }
 .lyria-music-output span { color:var(--muted); font-size:.67rem; }
 .lyria-music-output audio { width:100%; }
 .lyria-music-output a { color:#cfc2ff; font-size:.69rem; font-weight:800; letter-spacing:.06em; text-decoration:none; text-transform:uppercase; }
+.lyria-info-dialog { width:min(700px,calc(100vw - 28px)); max-height:88vh; padding:0; overflow:hidden; border:1px solid rgba(160,132,255,.58); border-radius:10px; color:var(--ink); background:#0b1825; box-shadow:0 24px 100px #000b; }
+.lyria-info-dialog::backdrop { background:rgba(0,0,0,.68); }
+.lyria-info-dialog-heading { position:sticky; top:0; display:flex; align-items:flex-start; justify-content:space-between; gap:18px; padding:17px 19px 14px; border-bottom:1px solid rgba(160,132,255,.3); background:#0b1825; }
+.lyria-info-dialog-heading h2 { margin:2px 0 0; color:#e5ddff; font-size:1.05rem; }
+.lyria-info-close { width:30px; height:30px; border:1px solid rgba(181,160,255,.45); border-radius:6px; color:#e5ddff; background:transparent; font-size:1.25rem; line-height:1; cursor:pointer; }
+.lyria-info-dialog-content { display:grid; gap:13px; max-height:66vh; padding:18px 19px 22px; overflow:auto; }
+.lyria-info-dialog-content section { padding:12px; border:1px solid rgba(160,132,255,.25); border-radius:8px; background:rgba(32,25,57,.38); }
+.lyria-info-dialog-content h3 { margin:0 0 5px; color:#dcd2ff; font-size:.77rem; }
+.lyria-info-dialog-content p { margin:0; color:#b5c3ce; font-size:.74rem; line-height:1.55; }
+.lyria-settings-dialog-content { display:grid; gap:15px; padding:18px 19px 22px; }
+.lyria-settings-dialog-content > p { margin:0; color:#b5c3ce; font-size:.74rem; line-height:1.55; }
+.lyria-settings-dialog-content .lyria-rate-form { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.lyria-settings-status { grid-column:1 / -1; min-height:1.3em; margin:0; color:var(--muted); font-size:.72rem; line-height:1.4; }
+.lyria-settings-status.error { color:#ffaaa7; }
+.lyria-settings-status.success { color:#cfc2ff; }
+@media (max-width:700px) { .lyria-rate-form,.lyria-settings-dialog-content .lyria-rate-form { grid-template-columns:1fr; } }
 .hindu-calendar-dataset { margin:0 0 18px; padding:18px; border:1px solid rgba(226,178,85,.45); border-radius:10px; background:linear-gradient(135deg,rgba(97,66,24,.25),rgba(11,28,42,.84)); }
 .hindu-calendar-dataset-heading { display:flex; align-items:center; justify-content:space-between; gap:14px; }
 .hindu-calendar-dataset-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
