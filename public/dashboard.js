@@ -56,13 +56,27 @@
   const youtubeAutomationStatus = $("#youtube-automation-status");
   const youtubeAutomationContent = $("#youtube-automation-content");
   const youtubeAutomationSearch = $("#youtube-automation-search");
+  const lyriaMusicForm = $("#lyria-music-form");
+  const lyriaMusicPrompt = $("#lyria-music-prompt");
+  const lyriaPromptCount = $("#lyria-prompt-count");
+  const lyriaMusicStatus = $("#lyria-music-status");
+  const lyriaGenerateButton = $("#lyria-generate-button");
+  const lyriaMusicOutput = $("#lyria-music-output");
+  const lyriaOutputAudio = $("#lyria-output-audio");
+  const lyriaOutputModel = $("#lyria-output-model");
+  const lyriaOutputDownload = $("#lyria-output-download");
   const hinduCalendarDatasetStatus = $("#hindu-calendar-dataset-status");
   const hinduCalendarDatasetSummary = $("#hindu-calendar-dataset-summary");
   const hinduCalendarDetailsButton = $("#hindu-calendar-details");
+  const hinduCalendarDeitiesButton = $("#hindu-calendar-deities");
   const hinduCalendarDialog = $("#hindu-calendar-dialog");
   const hinduCalendarDialogClose = $("#hindu-calendar-dialog-close");
   const hinduCalendarDialogStatus = $("#hindu-calendar-dialog-status");
   const hinduCalendarDialogContent = $("#hindu-calendar-dialog-content");
+  const hinduCalendarDeitiesDialog = $("#hindu-calendar-deities-dialog");
+  const hinduCalendarDeitiesDialogClose = $("#hindu-calendar-deities-dialog-close");
+  const hinduCalendarDeitiesDialogStatus = $("#hindu-calendar-deities-dialog-status");
+  const hinduCalendarDeitiesDialogContent = $("#hindu-calendar-deities-dialog-content");
   const dashboardTabs = document.querySelectorAll("[data-dashboard-tab]");
   const dashboardPanels = {
     overview: overviewPanel,
@@ -264,6 +278,48 @@
     }
   };
 
+  const setLyriaMusicStatus = (message, isError = false, isSuccess = false) => {
+    lyriaMusicStatus.textContent = message;
+    lyriaMusicStatus.classList.toggle("error", isError);
+    lyriaMusicStatus.classList.toggle("success", isSuccess);
+  };
+
+  const generateLyriaMusic = async () => {
+    const prompt = lyriaMusicPrompt.value.trim();
+    if (!prompt) {
+      setLyriaMusicStatus("Add a music prompt before generating.", true);
+      lyriaMusicPrompt.focus();
+      return;
+    }
+
+    lyriaGenerateButton.disabled = true;
+    lyriaMusicOutput.hidden = true;
+    lyriaOutputAudio.removeAttribute("src");
+    lyriaOutputDownload.removeAttribute("href");
+    setLyriaMusicStatus("Lyria 3.5 is composing your track. This can take a few minutes…");
+    try {
+      const response = await fetch("/api/lyria-music/generate", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ prompt })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) return window.location.assign("/login");
+      if (!response.ok || !payload.success) throw new Error(payload.message || "Could not generate music.");
+
+      lyriaOutputAudio.src = payload.music.outputUrl;
+      lyriaOutputDownload.href = payload.music.outputUrl;
+      lyriaOutputModel.textContent = `Generated with ${payload.music.model}`;
+      lyriaMusicOutput.hidden = false;
+      setLyriaMusicStatus(payload.message, false, true);
+    } catch (error) {
+      setLyriaMusicStatus(error.message || "Could not generate music.", true);
+    } finally {
+      lyriaGenerateButton.disabled = false;
+    }
+  };
+
   const hinduObservanceName = (item) => {
     if (typeof item === "string") return item;
     return item?.name || item?.title || item?.festival_name || item?.festival_key || item?.event_key || "Special observance";
@@ -278,15 +334,21 @@
       return;
     }
     const observances = Array.isArray(data.observances) ? data.observances : [];
+    const mantraVideos = Array.isArray(data.mantraVideos) ? data.mantraVideos : [];
     const month = data.hinduMonth?.amanta_hi || data.hinduMonth?.amanta || data.hinduMonth?.purnimanta_hi || data.hinduMonth?.purnimanta || "Unavailable";
     const facts = [["Date", formatCalendarDate(data.date)], ["Weekday", [data.weekdayHi, data.weekday].filter(Boolean).join(" · ") || "Unavailable"], ["Hindu month", month], ["Location", data.location?.city || "Vadodara"]];
     const observanceMarkup = observances.length
       ? observances.map((item) => `<span class="hindu-calendar-observance">${escapeHtml(hinduObservanceName(item))}</span>`).join("")
-      : "<span class=\"hindu-calendar-observance\">No listed observance — see weekday tradition and Panchang details</span>";
+      : "<span class=\"hindu-calendar-observance\">No listed observance today</span>";
+    const mantraMarkup = mantraVideos.length
+      ? `<section class="hindu-calendar-mantras"><h4>Mantras available for video creation</h4><div class="hindu-calendar-mantra-grid">${mantraVideos.map((mantra) => { const repetition = mantra.repetitionCount ? `${mantra.repetitionCount} repetitions` : "Repetition count in details"; const mala = mantra.malaCount ? `${mantra.malaCount} mala${mantra.malaCount === 1 ? "" : "s"}` : ""; return `<article><strong>${escapeHtml(mantra.mantraName || "Unnamed mantra")}</strong>${mantra.mantraNameHi ? `<p>${escapeHtml(mantra.mantraNameHi)}</p>` : ""}${mantra.mantraTextDevanagari ? `<span>${escapeHtml(mantra.mantraTextDevanagari)}</span>` : ""}${mantra.mantraTransliteration ? `<small>${escapeHtml(mantra.mantraTransliteration)}</small>` : ""}<div class="hindu-calendar-mantra-meta">${escapeHtml([mantra.associatedDeity, repetition, mala].filter(Boolean).join(" · "))}</div></article>`; }).join("")}</div></section>`
+      : "";
     hinduCalendarDatasetStatus.textContent = data.hasListedObservance
       ? `${observances.length} listed special day${observances.length === 1 ? "" : "s"} for today.`
-      : "No named observance is listed for today; the day’s Panchang and weekday tradition are available.";
-    hinduCalendarDatasetSummary.innerHTML = `<div class="hindu-calendar-day-facts">${facts.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}</div><div class="hindu-calendar-observances">${observanceMarkup}</div>`;
+      : mantraVideos.length
+        ? "No named observance is listed for today; a mantra is ready to use for a devotional video."
+        : "No named observance or mantra video is listed for today; the day’s Panchang and weekday tradition are available.";
+    hinduCalendarDatasetSummary.innerHTML = `<div class="hindu-calendar-day-facts">${facts.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}</div><div class="hindu-calendar-observances">${observanceMarkup}</div>${mantraMarkup}`;
   };
 
   const loadHinduCalendarDatasetToday = async () => {
@@ -322,6 +384,25 @@
       hinduCalendarDialogContent.innerHTML = `<pre>${escapeHtml(JSON.stringify(payload.details, null, 2))}</pre>`;
     } catch (error) {
       hinduCalendarDialogStatus.textContent = error.message || "Unable to load calendar details.";
+    }
+  };
+
+  const showHinduCalendarDeities = async () => {
+    hinduCalendarDeitiesDialogStatus.textContent = "Loading deities from the mantra dataset…";
+    hinduCalendarDeitiesDialogContent.innerHTML = "";
+    hinduCalendarDeitiesDialog.showModal();
+    try {
+      const response = await fetch("/api/dashboard/hindu-calendar/mantra-deities", { credentials: "include", cache: "no-store", headers: { Accept: "application/json" } });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) return window.location.assign("/login");
+      if (!response.ok || !payload.success) throw new Error(payload.message || "Unable to load included deities.");
+      const deities = Array.isArray(payload.deities) ? payload.deities : [];
+      hinduCalendarDeitiesDialogStatus.textContent = deities.length
+        ? `${deities.length} deities are represented across ${formatNumber(payload.totalMantraVideos)} mantra videos.`
+        : "No mantra deities are available in the imported dataset.";
+      hinduCalendarDeitiesDialogContent.innerHTML = deities.map((deity) => `<article><strong>${escapeHtml(deity.name)}</strong>${deity.nameHi ? `<span>${escapeHtml(deity.nameHi)}</span>` : ""}<small>${escapeHtml(`${formatNumber(deity.videoCount)} mantra video${deity.videoCount === 1 ? "" : "s"}`)}</small></article>`).join("");
+    } catch (error) {
+      hinduCalendarDeitiesDialogStatus.textContent = error.message || "Unable to load included deities.";
     }
   };
 
@@ -1023,9 +1104,14 @@
   dashboardTabs.forEach((button) => button.addEventListener("click", () => setDashboardTab(button.dataset.dashboardTab)));
   visitorLoggingToggle.addEventListener("change", updateVisitorLoggingSetting);
   youtubeAutomationSearch.addEventListener("click", searchYoutubeAutomation);
+  lyriaMusicPrompt.addEventListener("input", () => { lyriaPromptCount.textContent = `${lyriaMusicPrompt.value.length} / 2000`; });
+  lyriaMusicForm.addEventListener("submit", (event) => { event.preventDefault(); generateLyriaMusic(); });
   hinduCalendarDetailsButton.addEventListener("click", showHinduCalendarDetails);
+  hinduCalendarDeitiesButton.addEventListener("click", showHinduCalendarDeities);
   hinduCalendarDialogClose.addEventListener("click", () => hinduCalendarDialog.close());
   hinduCalendarDialog.addEventListener("click", (event) => { if (event.target === hinduCalendarDialog) hinduCalendarDialog.close(); });
+  hinduCalendarDeitiesDialogClose.addEventListener("click", () => hinduCalendarDeitiesDialog.close());
+  hinduCalendarDeitiesDialog.addEventListener("click", (event) => { if (event.target === hinduCalendarDeitiesDialog) hinduCalendarDeitiesDialog.close(); });
   gainModeAutomatic.addEventListener("change", setGainControlMode);
   gainModeManual.addEventListener("change", setGainControlMode);
   gainControlForm.addEventListener("submit", updateReadsbGain);

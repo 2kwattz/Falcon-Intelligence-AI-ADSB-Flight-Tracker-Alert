@@ -88,13 +88,43 @@ h2 { margin:0; font-size:clamp(1.35rem,2.5vw,2rem); letter-spacing:-.035em; }
 .youtube-details tr:last-child td { border-bottom:0; }
 .youtube-details pre { max-height:480px; margin:0; overflow:auto; padding:14px; color:#c9dae4; background:#06131f; font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
 .youtube-automation-search { margin-top:14px; }
+.lyria-music-studio { margin:18px 0; padding:18px; border:1px solid rgba(160,132,255,.48); border-radius:10px; background:linear-gradient(135deg,rgba(63,45,106,.34),rgba(11,28,42,.84)); }
+.lyria-music-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+.lyria-music-heading h3 { margin:2px 0 0; color:#ded4ff; font-size:1rem; }
+.lyria-music-heading > span { padding:6px 9px; border:1px solid rgba(181,160,255,.4); border-radius:999px; color:#cfc2ff; background:rgba(74,52,122,.35); font-size:.64rem; font-weight:800; letter-spacing:.05em; white-space:nowrap; }
+.lyria-music-intro { max-width:770px; margin:12px 0; color:var(--muted); font-size:.78rem; line-height:1.5; }
+.lyria-music-form { display:grid; gap:9px; }
+.lyria-music-form label { color:#b9c9d5; font-size:.68rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.lyria-music-form textarea { min-height:130px; border-color:#5b4b88; }
+.lyria-music-form textarea:focus { border-color:#aa95ff; box-shadow:0 0 0 3px rgba(170,149,255,.14); }
+.lyria-music-meta { display:flex; justify-content:space-between; gap:12px; color:#9aaaba; font-size:.66rem; line-height:1.4; }
+.lyria-music-status { min-height:1.3em; margin:2px 0; color:var(--muted); font-size:.73rem; }
+.lyria-music-status.error { color:#ffaaa7; }
+.lyria-music-status.success { color:#cfc2ff; }
+.lyria-generate-button { justify-self:start; }
+.lyria-generate-button:disabled { cursor:not-allowed; opacity:.55; }
+.lyria-music-output { display:grid; gap:8px; margin-top:15px; padding:13px; border:1px solid rgba(160,132,255,.38); border-radius:8px; background:rgba(17,26,49,.54); }
+.lyria-music-output strong { color:#ded4ff; font-size:.82rem; }
+.lyria-music-output span { color:var(--muted); font-size:.67rem; }
+.lyria-music-output audio { width:100%; }
+.lyria-music-output a { color:#cfc2ff; font-size:.69rem; font-weight:800; letter-spacing:.06em; text-decoration:none; text-transform:uppercase; }
 .hindu-calendar-dataset { margin:0 0 18px; padding:18px; border:1px solid rgba(226,178,85,.45); border-radius:10px; background:linear-gradient(135deg,rgba(97,66,24,.25),rgba(11,28,42,.84)); }
 .hindu-calendar-dataset-heading { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.hindu-calendar-dataset-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
 .hindu-calendar-dataset-heading h3 { margin:2px 0 0; color:#f7e2ad; font-size:1rem; }
 .hindu-calendar-dataset-status { margin:12px 0 0; color:var(--muted); font-size:.78rem; }
 .hindu-calendar-dataset-summary { display:grid; gap:10px; margin-top:12px; }
 .hindu-calendar-observances { display:flex; flex-wrap:wrap; gap:8px; }
 .hindu-calendar-observance { padding:7px 10px; border:1px solid rgba(226,178,85,.42); border-radius:999px; color:#ffedbd; background:rgba(65,45,16,.42); font-size:.73rem; }
+.hindu-calendar-mantras { margin-top:4px; }
+.hindu-calendar-mantras h4 { margin:0 0 9px; color:#f7e2ad; font-size:.78rem; letter-spacing:.04em; }
+.hindu-calendar-mantra-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:9px; }
+.hindu-calendar-mantra-grid article { display:grid; gap:6px; padding:12px; border:1px solid rgba(226,178,85,.35); border-radius:8px; background:rgba(48,34,13,.35); }
+.hindu-calendar-mantra-grid strong { color:#ffedbd; font-size:.78rem; }
+.hindu-calendar-mantra-grid p { margin:0; color:#c8d7df; font-size:.7rem; line-height:1.45; }
+.hindu-calendar-mantra-grid span { color:#d8b967; font-size:.78rem; font-weight:700; }
+.hindu-calendar-mantra-grid small { color:#d6e4ea; font-size:.69rem; }
+.hindu-calendar-mantra-meta { color:#93e1cd; font-size:.65rem; letter-spacing:.03em; }
 .hindu-calendar-day-facts { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; }
 .hindu-calendar-day-facts div { padding:10px; border:1px solid rgba(73,124,140,.48); border-radius:7px; background:rgba(8,23,35,.48); }
 .hindu-calendar-day-facts span { display:block; color:#9ab4c4; font-size:.61rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
@@ -104,6 +134,11 @@ h2 { margin:0; font-size:clamp(1.35rem,2.5vw,2rem); letter-spacing:-.035em; }
 .hindu-calendar-dialog-status { color:var(--muted); font-size:.78rem; }
 .hindu-calendar-dialog-content { max-height:48vh; overflow:auto; }
 .hindu-calendar-dialog-content pre { margin:0; padding:14px; overflow:auto; border:1px solid rgba(73,124,140,.42); border-radius:8px; color:#c9dae4; background:#06131f; font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+.hindu-calendar-deities-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; }
+.hindu-calendar-deities-grid article { display:grid; gap:5px; padding:13px; border:1px solid rgba(226,178,85,.35); border-radius:8px; background:rgba(48,34,13,.35); }
+.hindu-calendar-deities-grid strong { color:#ffedbd; font-size:.82rem; }
+.hindu-calendar-deities-grid span { color:#d8b967; font-size:.76rem; }
+.hindu-calendar-deities-grid small { color:#93e1cd; font-size:.66rem; }
 .summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:13px; }
 .summary-card,.health-card,.station-card,.feed-card,.phone-card { min-width:0; border:1px solid rgba(78,119,136,.72); border-radius:10px; background:linear-gradient(145deg,rgba(20,37,56,.9),rgba(11,25,38,.92)); }
 .summary-card { min-height:139px; padding:20px; }

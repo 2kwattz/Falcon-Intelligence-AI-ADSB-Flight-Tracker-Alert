@@ -111,6 +111,7 @@ The following integrations are optional and only needed for their corresponding 
 | Twilio calls | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_CALLER_ID`, `TWILIO_CALL_TIMEOUT_SECONDS`; city call recipients use `BANGALORE_ALERT_PHONE_1`–`_4` and `DELHI_ALERT_PHONE_1`–`_4` (with optional `BANGALORE_AIRSPACE_NUMBER` and `DELHI_AIRSPACE_NUMBER` caller IDs) |
 | Razorpay payments | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` |
 | Gemini assistant | `GEMINI_API_KEY`; optional `GEMINI_MODEL` (defaults to `gemini-3.8-flash`) |
+| Dashboard Lyria Music Studio | `LYRIA_API_KEY` (falls back to `GEMINI_API_KEY`); optional `LYRIA_MODEL` (defaults to `lyria-3.5`) |
 | ADSBHub live feed | `ADSBHUB_HOST`, `ADSBHUB_PORT`, `ADSBHUB_NO_DATA_WARNING_MS` |
 | ADSB.lol re-api dashboard probe | `ADSBLOL_RE_API_URL`, `ADSBLOL_RE_API_CIRCLE`, `ADSBLOL_RE_API_TIMEOUT_MS` |
 | Local ADS-B receiver dashboard | `READSB_STATS_JSON_PATH`, `READSB_RECEIVER_JSON_PATH`, `READSB_STATS_URL`, `READSB_RECEIVER_URL`, `READSB_LOG_PATH`, `READSB_LOG_LINES`, `READSB_HEALTHY_MESSAGE_RATE`, `READSB_MAX_BAD_MESSAGE_RATE`, `READSB_FRESH_MESSAGE_SECONDS` |
@@ -131,6 +132,15 @@ Do not commit `.env` files or API credentials.
 The authenticated `POST /ai/askllm` endpoint uses Gemini. `POST /api/askllm` remains available as a compatibility alias. Send a JSON body with a string `query`; the response includes the reply in `message` and identifies the model in `model`.
 
 The default is `gemini-3.8-flash` with low thinking effort, an 8,000-character input limit, and a 512-token output limit. These application limits help conserve the Gemini free-tier quota; the actual quota is applied by Google to the API project, not to an individual API key.
+
+### Lyria Music Studio
+
+Dashboard → Extras includes a separate Google Lyria 3.5 music workspace. Its
+API key stays on the server: set `LYRIA_API_KEY` (or reuse `GEMINI_API_KEY` if
+that key has Lyria access). It accepts a music prompt, limits generation to four
+requests per 15 minutes per client IP, and keeps each generated audio output in
+server memory for one hour. The music feature is independent of the Falcon Video
+Generator.
 
 ### Receiver software: readsb, tar1090, and graphs1090
 

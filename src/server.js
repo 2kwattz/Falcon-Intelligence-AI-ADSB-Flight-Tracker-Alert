@@ -59,6 +59,7 @@ const apiRoutes = require("../routes/apiRoutes.js");
 const hinduCalendarRoutes = require("../routes/hinduCalendarRoutes.js");
 const exploreRoutes = require("../routes/exploreRoutes.js");
 const aiVideoGenerationRoutes = require("../routes/aiVideoGenerationRoutes.js");
+const lyriaMusicRoutes = require("../routes/lyriaMusicRoutes.js");
 const privateStatsRoutes = require("../routes/privateStatsRoutes.js");
 
 require("../db/conn"); // MySQL Connection
@@ -221,6 +222,7 @@ async function startServer() {
         app.use("/api/hindu-calendar", hinduCalendarRoutes); // Compatibility alias for Hindu festival data
         app.use("/", privateStatsRoutes); // JWT-protected dashboard stats
         app.use("/", aiVideoGenerationRoutes); // Falcon Video Generator page and image uploads
+        app.use("/", lyriaMusicRoutes); // Standalone Google Lyria music studio
         app.use("/live-map", liveMapRoutes); // Independent ADSBHub TCP map pipeline
         app.use("/", exploreRoutes); // Aircraft callsign search page
         app.use("/", watchlistRoutes); // Landing-page watchlist requests

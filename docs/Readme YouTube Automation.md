@@ -66,11 +66,20 @@ Extras tab fast. Selecting **View details** requests the complete curated and
 calculated record for that date. The large original provider payload remains
 excluded from ordinary dashboard responses.
 
+When a date has no listed observance, the compact response includes its assigned
+mantra-video card. The card shows the English and Hindi mantra names, Devanagari
+chant text, transliteration, associated deity, and repetition/mala count so an
+operator can choose it for a devotional video. These are source dataset fields,
+not AI-generated translations. Full chanting, timing, sourcing, and production
+instructions remain in the full-details record, keeping the normal dashboard
+load small.
+
 All three dataset endpoints are protected by the Mongo dashboard session:
 
 | Request | Purpose |
 | --- | --- |
 | `GET /api/dashboard/hindu-calendar/today` | Small summary of the current Asia/Kolkata calendar day. |
+| `GET /api/dashboard/hindu-calendar/mantra-deities` | Deities represented by imported mantra-video records and their video counts. |
 | `GET /api/dashboard/hindu-calendar/:date` | Full stored day details for a valid `YYYY-MM-DD` date. |
 | `GET /api/dashboard/hindu-calendar/:date/original-json` | Original provider JSON and preservation metadata for that date. |
 
@@ -88,8 +97,15 @@ node scripts/importHinduCalendarDataset.js
 
 The importer validates each date, writes in batches of 100, and upserts by
 `calendarDate`, so it is safe to run again after replacing the source file. It
-records the source SHA-256 checksum, dataset metadata, import time, and record
-count in the `hindu_calendar_dataset_imports` collection.
+stores compact `mantraVideos` cards and removes the retired fallback-topic and
+AI-translation fields during every refresh. It records the source SHA-256
+checksum, dataset metadata, import time, and record count in the
+`hindu_calendar_dataset_imports` collection.
+
+The **Included deities** popup in Dashboard → Extras reads the imported
+`mantraVideos` records and groups them by deity. It shows the English and Hindi
+deity names plus the number of available mantra-video entries, so it updates
+automatically after each dataset import.
 
 ## What is retrieved and stored
 

@@ -11,6 +11,8 @@ const hinduCalendarDatasetDaySchema = new mongoose.Schema({
     location: { type: mongoose.Schema.Types.Mixed, default: {} },
     hinduMonth: { type: mongoose.Schema.Types.Mixed, default: {} },
     observances: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    // Compact mantra-video cards for non-observance days; full production data stays in details.
+    mantraVideos: { type: [mongoose.Schema.Types.Mixed], default: [] },
     hasListedObservance: { type: Boolean, default: false },
     primaryObservanceId: { type: String, default: null },
     // All curated/calculated fields except the original provider response.

@@ -31,6 +31,23 @@ async function main() {
                 throw new Error(`Invalid calendar date at dataset entry ${start}`);
             }
 
+            const mantraVideos = Array.isArray(details.mantra_videos)
+                ? details.mantra_videos.map((mantra) => ({
+                    id: mantra.id || "",
+                    mantraName: mantra.mantra_name || "Unnamed mantra",
+                    mantraNameHi: mantra.mantra_name_hi || "",
+                    mantraTextDevanagari: mantra.mantra_text_devanagari || "",
+                    mantraTransliteration: mantra.mantra_transliteration || "",
+                    associatedDeity: mantra.associated_deity || "",
+                    associatedDeityHi: mantra.associated_deity_hi || "",
+                    videoType: mantra.video_type || "mantra_chanting",
+                    repetitionCount: Number.isFinite(mantra.repetition_count) ? mantra.repetition_count : null,
+                    malaCount: Number.isFinite(mantra.mala_count) ? mantra.mala_count : null,
+                    beadsPerMala: Number.isFinite(mantra.beads_per_mala) ? mantra.beads_per_mala : null,
+                    isDateSpecificObservance: Boolean(mantra.is_date_specific_observance)
+                }))
+                : [];
+
             return {
                 updateOne: {
                     filter: { calendarDate: details.date },
@@ -45,6 +62,7 @@ async function main() {
                             location: details.location || {},
                             hinduMonth: details.hindu_month || {},
                             observances: Array.isArray(details.observances) ? details.observances : [],
+                            mantraVideos,
                             hasListedObservance: Boolean(details.has_listed_observance),
                             primaryObservanceId: details.primary_observance_id || null,
                             details,
@@ -53,6 +71,8 @@ async function main() {
                             datasetVersion,
                             sourceChecksum: checksum
                         },
+                        // Retire fields created by the previous topic-idea dataset shape.
+                        $unset: { fallbackIdeas: "", fallbackIdeasEnglish: "" },
                         $setOnInsert: { calendarDate: details.date }
                     },
                     upsert: true
@@ -61,6 +81,13 @@ async function main() {
         });
         await HinduCalendarDatasetDay.bulkWrite(operations, { ordered: false });
     }
+
+    // The previous dataset stored fallback-topic cards. Remove those retired
+    // fields from existing documents as well as from freshly upserted records.
+    await HinduCalendarDatasetDay.collection.updateMany(
+        {},
+        { $unset: { fallbackIdeas: "", fallbackIdeasEnglish: "" } }
+    );
 
     await mongoose.connection.db.collection("hindu_calendar_dataset_imports").updateOne(
         { source: path.basename(datasetPath) },

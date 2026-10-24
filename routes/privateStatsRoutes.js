@@ -1300,6 +1300,7 @@ const dashboardCalendarDatasetSummary = (record) => ({
     location: record.location,
     hinduMonth: record.hinduMonth,
     observances: record.observances || [],
+    mantraVideos: record.mantraVideos || [],
     hasListedObservance: Boolean(record.hasListedObservance),
     primaryObservanceId: record.primaryObservanceId,
     datasetVersion: record.datasetVersion
@@ -1309,13 +1310,42 @@ async function sendHinduCalendarDatasetToday(req, res) {
     const date = dateInTimeZone(DEFAULT_TIME_ZONE);
     try {
         const record = await HinduCalendarDatasetDay.findOne({ calendarDate: date })
-            .select("calendarDate weekday weekdayHi timezone location hinduMonth observances hasListedObservance primaryObservanceId datasetVersion")
+            .select("calendarDate weekday weekdayHi timezone location hinduMonth observances mantraVideos hasListedObservance primaryObservanceId datasetVersion")
             .lean();
         res.set("Cache-Control", "no-store");
         return res.status(200).json({ success: true, date, data: record ? dashboardCalendarDatasetSummary(record) : null });
     } catch (error) {
         console.error("Hindu calendar dataset today lookup failed:", error.message);
         return res.status(503).json({ success: false, message: "Unable to read the Hindu calendar dataset" });
+    }
+}
+
+async function sendHinduCalendarMantraDeities(req, res) {
+    try {
+        const deities = await HinduCalendarDatasetDay.aggregate([
+            { $unwind: "$mantraVideos" },
+            { $match: { "mantraVideos.associatedDeity": { $type: "string", $ne: "" } } },
+            {
+                $group: {
+                    _id: {
+                        name: "$mantraVideos.associatedDeity",
+                        nameHi: "$mantraVideos.associatedDeityHi"
+                    },
+                    videoCount: { $sum: 1 }
+                }
+            },
+            { $project: { _id: 0, name: "$_id.name", nameHi: "$_id.nameHi", videoCount: 1 } },
+            { $sort: { name: 1 } }
+        ]);
+        res.set("Cache-Control", "no-store");
+        return res.status(200).json({
+            success: true,
+            deities,
+            totalMantraVideos: deities.reduce((total, deity) => total + deity.videoCount, 0)
+        });
+    } catch (error) {
+        console.error("Hindu calendar mantra deity lookup failed:", error.message);
+        return res.status(503).json({ success: false, message: "Unable to read the mantra deity list" });
     }
 }
 
@@ -1363,6 +1393,7 @@ router.get("/api/private-stats", mongodbAuthMiddleware, sendDashboardStats);
 router.get("/api/dashboard/youtube-automation/today", mongodbAuthMiddleware, sendYoutubeAutomationToday);
 router.post("/api/dashboard/youtube-automation/today", mongodbAuthMiddleware, searchYoutubeAutomationToday);
 router.get("/api/dashboard/hindu-calendar/today", mongodbAuthMiddleware, sendHinduCalendarDatasetToday);
+router.get("/api/dashboard/hindu-calendar/mantra-deities", mongodbAuthMiddleware, sendHinduCalendarMantraDeities);
 router.get("/api/dashboard/hindu-calendar/:date", mongodbAuthMiddleware, sendHinduCalendarDatasetDetails);
 router.get("/api/dashboard/hindu-calendar/:date/original-json", mongodbAuthMiddleware, sendHinduCalendarDatasetOriginalJson);
 router.get("/api/dashboard/graphs1090/:fileName", mongodbAuthMiddleware, sendGraphs1090Image);

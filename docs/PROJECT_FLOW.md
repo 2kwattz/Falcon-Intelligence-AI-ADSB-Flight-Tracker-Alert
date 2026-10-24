@@ -291,9 +291,10 @@ sudo permission for that helper.
 | Feature | Flow |
 | --- | --- |
 | AI assistant | Legacy-authenticated, rate-limited `/ai/askllm`; cleans input, limits it to 8,000 characters, blocks simple injection patterns, then calls Gemini. |
-| Hindu calendar | The provider service fetches/normalizes current occasion data and schedules a daily Asia/Kolkata refresh. A separate imported 2026–2027 dataset provides the dashboard Extras daily summary and full details without a provider call. |
+| Hindu calendar | The provider service fetches/normalizes current occasion data and schedules a daily Asia/Kolkata refresh. A separate imported 2026–2027 dataset provides the dashboard Extras daily summary and full details without a provider call; on dates without an observance, it shows the dataset’s mantra name, chant text, transliteration, deity, and repetition count for a devotional video. |
 | Payments | Razorpay key/order/payment verification routes live in `routes/apiRoutes.js`; secret keys remain on server. |
 | Video generation | Mongo-authenticated upload/job/output routes coordinate with configured ComfyUI/Wan-style tooling. |
+| Lyria Music Studio | Mongo-authenticated Dashboard → Extras workspace calls Google Lyria 3.5 with a server-only API key, retains each audio result in memory for one hour, and limits music generation to four requests per 15 minutes per IP. It is separate from video generation. |
 | Communities/chatrooms | Legacy-authenticated MySQL features; community image uploads use Multer. |
 | Visitor logs | Eligible anonymous public-page visits go to bounded Redis data; assets, APIs, protected routes, and signed-in visitors are excluded. |
 

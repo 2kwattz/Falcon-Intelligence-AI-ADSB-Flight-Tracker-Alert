@@ -255,7 +255,10 @@
       <section class="hindu-calendar-dataset" aria-labelledby="hindu-calendar-dataset-title">
         <div class="hindu-calendar-dataset-heading">
           <div><p class="eyebrow">Hindu calendar dataset</p><h3 id="hindu-calendar-dataset-title">What is special today?</h3></div>
-          <button class="button secondary" id="hindu-calendar-details" type="button" hidden>View details</button>
+          <div class="hindu-calendar-dataset-actions">
+            <button class="button secondary" id="hindu-calendar-deities" type="button">Included deities</button>
+            <button class="button secondary" id="hindu-calendar-details" type="button" hidden>View details</button>
+          </div>
         </div>
         <p class="hindu-calendar-dataset-status" id="hindu-calendar-dataset-status" aria-live="polite">Loading today’s calendar data…</p>
         <div class="hindu-calendar-dataset-summary" id="hindu-calendar-dataset-summary"></div>
@@ -265,6 +268,25 @@
         <div class="youtube-automation-content" id="youtube-automation-content"></div>
         <button class="button youtube-automation-search" id="youtube-automation-search" type="button" hidden>Search today's festival/event</button>
       </div>
+      <section class="lyria-music-studio" aria-labelledby="lyria-music-title">
+        <div class="lyria-music-heading">
+          <div><p class="eyebrow">Standalone audio workspace</p><h3 id="lyria-music-title">Lyria Music Studio</h3></div>
+          <span>Google Lyria 3.5</span>
+        </div>
+        <p class="lyria-music-intro">Generate original music separately from the Falcon Video Generator. Describe the genre, instruments, tempo, mood, and whether you want vocals or an instrumental.</p>
+        <form class="lyria-music-form" id="lyria-music-form" novalidate>
+          <label for="lyria-music-prompt">Music prompt</label>
+          <textarea id="lyria-music-prompt" rows="6" maxlength="2000" placeholder="Instrumental devotional ambience, slow tanpura drone, gentle bansuri, soft tabla at 72 BPM, calm and reverent, no vocals." required></textarea>
+          <div class="lyria-music-meta"><span>Do not request a specific artist’s voice. Generated audio includes a SynthID watermark.</span><span id="lyria-prompt-count">0 / 2000</span></div>
+          <p class="lyria-music-status" id="lyria-music-status" role="status" aria-live="polite">Describe the track you want to create.</p>
+          <button class="button lyria-generate-button" id="lyria-generate-button" type="submit">Generate music</button>
+        </form>
+        <div class="lyria-music-output" id="lyria-music-output" hidden aria-live="polite">
+          <strong>Your Lyria track</strong><span id="lyria-output-model"></span>
+          <audio id="lyria-output-audio" controls></audio>
+          <a id="lyria-output-download" download="lyria-3.5-track.mp3">Download audio</a>
+        </div>
+      </section>
       <div class="extras-grid">
         <a class="extras-card" href="/profile"><strong>My profile</strong><span>Update your profile photo and view account information.</span></a>
         <a class="extras-card" href="/falcon-video-generator"><strong>Video generator</strong><span>Create a video with the Falcon AI workspace.</span></a>
@@ -277,6 +299,11 @@
     <div class="dialog-heading"><div><p class="eyebrow">Hindu calendar dataset</p><h2 id="hindu-calendar-dialog-title">Day details</h2></div><button class="icon-button" id="hindu-calendar-dialog-close" type="button" aria-label="Close day details">×</button></div>
     <p class="hindu-calendar-dialog-status" id="hindu-calendar-dialog-status" aria-live="polite"></p>
     <div class="hindu-calendar-dialog-content" id="hindu-calendar-dialog-content"></div>
+  </dialog>
+  <dialog class="hindu-calendar-dialog" id="hindu-calendar-deities-dialog" aria-labelledby="hindu-calendar-deities-dialog-title">
+    <div class="dialog-heading"><div><p class="eyebrow">Mantra video catalogue</p><h2 id="hindu-calendar-deities-dialog-title">Included deities</h2></div><button class="icon-button" id="hindu-calendar-deities-dialog-close" type="button" aria-label="Close included deities">×</button></div>
+    <p class="hindu-calendar-dialog-status" id="hindu-calendar-deities-dialog-status" aria-live="polite">Loading deities…</p>
+    <div class="hindu-calendar-deities-grid" id="hindu-calendar-deities-dialog-content"></div>
   </dialog>
 
   <footer class="site-footer shell">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
