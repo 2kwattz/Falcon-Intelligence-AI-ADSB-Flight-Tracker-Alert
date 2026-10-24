@@ -62,7 +62,10 @@ The server serves the pages and JSON endpoints from the same origin. The fronten
 - npm
 - MySQL, for account and application data
 - Redis, for application cache and tracked-aircraft archive data
-- An ADS-B data source, such as a local `readsb` instance, for live ingestion
+- An SDR receiver for local ADS-B / Mode-S reception
+- `readsb`, to decode the SDR feed and provide local aircraft data
+- Nginx or another reverse proxy for production deployment
+- A static public IP address for a stable production endpoint and receiver/feed integrations
 
 ### Install and run
 
@@ -234,11 +237,11 @@ When sharing one receiver with more than one network, use credentials issued for
 
 Remote city alerts use the ADSBHub TCP feed and are controlled from **Dashboard → Flight alerts**. A city must be enabled there before the service reads its nearby-aircraft feed, records a match, sends an email, or starts a call. Vadodara is intentionally separate: it remains on the local SDR/readsb path and is not governed by the remote-city controls.
 
-| City | Default tracking state | Alert source | Call-recipient environment variables | Email delivery |
+| City | Default tracking state | Alert source | Call recipients | Email delivery |
 | --- | --- | --- | --- | --- |
 | Bangalore | Disabled | ADSBHub TCP | `BANGALORE_ALERT_PHONE_1` through `_4`; optional `BANGALORE_AIRSPACE_NUMBER` caller ID | Gmail SMTP |
 | Delhi | Disabled | ADSBHub TCP | `DELHI_ALERT_PHONE_1` through `_4`; optional `DELHI_AIRSPACE_NUMBER` caller ID | Gmail SMTP |
-| Hyderabad | Enabled | ADSBHub TCP | `LOKESH_BHAI_PHONE`; optional `HYDERABAD_AIRSPACE_NUMBER` caller ID | Gmail SMTP |
+| Hyderabad | Enabled | ADSBHub TCP | Configured Hyderabad call recipients; an optional city-specific caller ID may be set in the deployment environment. | Gmail SMTP |
 | Vadodara | Local SDR path | Local readsb/SDR | Existing local-alert configuration | Gmail SMTP |
 
 To activate Delhi call and email alerts:
