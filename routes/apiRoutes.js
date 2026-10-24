@@ -4,8 +4,6 @@ const crypto = require("crypto");
 const Razorpay = require("razorpay");
 
 const redisClient = require("../redis/redisClient"); // Caching
-const authMiddleware = require("../middlewares/authMiddleware"); // Auth Middleware
-const aiRateLimiting = require("../middlewares/aiRateLimiting");
 const { getLiveAircraft, getConnectionStatus } = require("../feedPartners/adsbHubTcpConn");
 const { STATION_ID, STATION_NAME, getLocalSdrAircraft } = require("../services/localSdrAircraftFeed");
 const {
@@ -26,8 +24,6 @@ const {
     getCityAlertSettings,
     onCityAlertSettingsChange
 } = require("../services/cityAlertSettings");
-
-const cleanXSS = require("../utils/xssCleaner");
 
 // API HOSTNAMES
 
@@ -1013,66 +1009,8 @@ router.post("/verify-payment", function(req, res) {
     });
 });
 
-router.post("/askllm",aiRateLimiting, authMiddleware,async function(req,res){
-
-    try{
-        console.log("[*] Request Sent to QWEN2.5 7B Model");
-        let query = req.body.query;
-
-        query = query.toLowerCase().trim();
-
-        if(!query){
-            return res.status(400).json({
-                status: false,
-                message: "Invalid Query"
-            })
-        }
-
-        if(isPromptInjection(query)){
-            return res.status(400).json({
-                status:false,
-                message: "Prompt Injection was detected and blocked",
-                ipAddress: req.ip
-
-            })}
-
-        const response = await askQwen2(query);
-
-        if(!response?.response || typeof response?.response !== "string" ){
-            return res.status(500).json({
-                    status:false,
-                    message: "Ai Service returned invalid response"
-                })
-            }
-
-        if(response?.response){
-            return res.status(200).json({
-                status:true,
-                message:response.response,
-                model: response.model,
-                createdAt: response.created_at,
-                loadDuration: response.load_duration,
-                totalDuration: response.totalDuration,
-                promptEvalDuration: response.prompt_eval_duration,
-                eval_duration: response.eval_duration
-
-            })
-        }
-        
-        else{
-            return res.status(500).json({
-                status:false,
-                message:"Internal Server Error"
-            })
-        }
-    }
-    catch(error){
-         console.log("[*] Error sending request to QWEN2.5 7B Model", error);
-           return res.status(500).json({
-                status:false,
-                message:"Internal Server Error"
-            })
-    }
-})
+// Preserve the old /api/askllm path while sharing the Gemini-backed handler
+// exposed at /ai/askllm.
+router.use(require("./aiRoutes"));
 
 module.exports = router;

@@ -698,6 +698,16 @@ const vadodaraAlertAircrafts = {
             },
         ],
 
+         "UAVs": [
+            {
+                "Registration": "IN1032",
+                "AircraftType": "Schiebel Camcopter S-100 (UAV)",
+                "TypeCode": "S100",
+                "AircraftOperator": "Indian Navy",
+                "HexCode": "80195A"
+            },
+        ],
+
 
 
         "Mystery Box": [

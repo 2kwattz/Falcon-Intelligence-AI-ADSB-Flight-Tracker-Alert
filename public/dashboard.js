@@ -53,6 +53,9 @@
   const visitorLogsSummary = $("#visitor-log-summary");
   const visitorLogsNote = $("#visitor-log-note");
   const visitorLoggingToggle = $("#visitor-log-enabled");
+  const youtubeAutomationStatus = $("#youtube-automation-status");
+  const youtubeAutomationContent = $("#youtube-automation-content");
+  const youtubeAutomationSearch = $("#youtube-automation-search");
   const dashboardTabs = document.querySelectorAll("[data-dashboard-tab]");
   const dashboardPanels = {
     overview: overviewPanel,
@@ -68,6 +71,7 @@
   let latestGraphs1090 = null;
   let visitorLogsLoaded = false;
   let visitorLogsLoading = false;
+  let youtubeAutomationLoading = false;
   let cityAircraftCatalogues = {};
   let masterDatasetAircraft = [];
 
@@ -132,6 +136,123 @@
     const date = new Date(value);
     if (!value || Number.isNaN(date.getTime())) return "No recent data";
     return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(date);
+  };
+
+  const formatCalendarDate = (value) => {
+    const dateValue = String(value || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) return "Today";
+    const [year, month, day] = dateValue.split("-").map(Number);
+    return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" })
+      .format(new Date(Date.UTC(year, month - 1, day)));
+  };
+
+  const occasionTitle = (occasion) => occasion?.name || occasion?.title || occasion?.festival_name || occasion?.festival_key || occasion?.event_key || "Untitled observance";
+
+  const periodLabel = (period) => period?.start && period?.end ? `${period.start} – ${period.end}` : "Timing unavailable";
+
+  const panchangCard = (label, value, detail = "") => `<article class="youtube-panchang-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "Unavailable")}</strong>${detail ? `<small>${escapeHtml(detail)}</small>` : ""}</article>`;
+
+  const renderYoutubeAutomation = (payload) => {
+    const data = payload?.data;
+    youtubeAutomationSearch.hidden = Boolean(payload?.called);
+
+    if (!payload?.called || !data) {
+      youtubeAutomationStatus.textContent = `No festival or event has been searched for ${formatCalendarDate(payload?.date)} yet.`;
+      youtubeAutomationContent.innerHTML = "";
+      return;
+    }
+
+    const occasions = Array.isArray(data.occasions) ? data.occasions : [];
+    const calendar = data.calendar || {};
+    const activeFlags = Object.entries(calendar.special_day_flags || {})
+      .filter(([, active]) => active === true)
+      .map(([flag]) => flag.replace(/^is_/, "").replaceAll("_", " "));
+    const panchang = [
+      panchangCard("Day", calendar.vara?.name),
+      panchangCard("Tithi", calendar.tithi?.full_name || calendar.tithi?.name, periodLabel(calendar.tithi?.period)),
+      panchangCard("Nakshatra", calendar.nakshatra?.full_name || calendar.nakshatra?.name, periodLabel(calendar.nakshatra?.period)),
+      panchangCard("Yoga", calendar.yoga?.full_name || calendar.yoga?.name, periodLabel(calendar.yoga?.period)),
+      panchangCard("Karana", calendar.karana?.full_name || calendar.karana?.name, periodLabel(calendar.karana?.period)),
+      panchangCard("Hindu month", calendar.hindu_calendar?.amanta || calendar.hindu_calendar?.purnimanta, calendar.hindu_calendar?.ritu || "")
+    ].join("");
+    const muhurat = calendar.muhurat || {};
+    const timingEntries = [
+      ["Brahma muhurta", muhurat.auspicious?.brahma_muhurta],
+      ["Abhijit", muhurat.auspicious?.abhijit],
+      ["Rahu kaal", muhurat.inauspicious?.rahu_kaal],
+      ["Yamagandam", muhurat.inauspicious?.yamagandam],
+      ["Gulika kaal", muhurat.inauspicious?.gulika_kaal]
+    ].filter(([, time]) => time?.start_time && time?.end_time)
+      .map(([label, time]) => `<li><strong>${escapeHtml(label)}</strong><span>${escapeHtml(`${time.start_time} – ${time.end_time}`)}</span></li>`).join("");
+    const horaRows = Array.isArray(calendar.hora) ? calendar.hora.map((hora) => `<tr><td>${escapeHtml(hora.index_no)}</td><td>${escapeHtml(hora.planet_num)}</td><td>${escapeHtml(`${hora.start_time} – ${hora.end_time}`)}</td><td>${hora.is_day ? "Day" : "Night"}</td></tr>`).join("") : "";
+    const choghadiyaRows = Array.isArray(calendar.choghadiya) ? calendar.choghadiya.map((item) => `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.period)}</td><td>${escapeHtml(`${item.start_time} – ${item.end_time}`)}</td><td>${item.is_auspicious ? "Auspicious" : "Inauspicious"}</td></tr>`).join("") : "";
+    youtubeAutomationStatus.textContent = `Today's Hindu calendar is ready from ${data.provider || "TathaAstu"}.`;
+    const cards = occasions.length
+      ? occasions.map((occasion) => `<article class="youtube-festival-card"><strong>${escapeHtml(occasionTitle(occasion))}</strong><span>${escapeHtml(occasion.type || occasion.category || "Festival / event")}</span></article>`).join("")
+      : "<p class=\"youtube-festival-meta\">The provider returned no named festivals or events for today.</p>";
+    youtubeAutomationContent.innerHTML = `
+      <p class="youtube-festival-meta">${escapeHtml(formatCalendarDate(data.date))} · ${formatNumber(occasions.length)} occasion${occasions.length === 1 ? "" : "s"}${activeFlags.length ? ` · ${escapeHtml(activeFlags.join(", "))}` : ""}</p>
+      <div class="youtube-festival-list">${cards}</div>
+      <section class="youtube-data-section"><h3>Panchang</h3><div class="youtube-panchang-grid">${panchang}</div></section>
+      ${timingEntries ? `<section class="youtube-data-section"><h3>Muhurat timings</h3><ul class="youtube-timing-list">${timingEntries}</ul></section>` : ""}
+      ${horaRows ? `<details class="youtube-details"><summary>Hora (${calendar.hora.length})</summary><div class="youtube-table-wrap"><table><thead><tr><th>#</th><th>Planet</th><th>Time</th><th>Period</th></tr></thead><tbody>${horaRows}</tbody></table></div></details>` : ""}
+      ${choghadiyaRows ? `<details class="youtube-details"><summary>Choghadiya (${calendar.choghadiya.length})</summary><div class="youtube-table-wrap"><table><thead><tr><th>Name</th><th>Period</th><th>Time</th><th>Result</th></tr></thead><tbody>${choghadiyaRows}</tbody></table></div></details>` : ""}
+      <details class="youtube-details"><summary>Complete raw TathaAstu API response</summary><pre>${escapeHtml(JSON.stringify(calendar, null, 2))}</pre></details>`;
+  };
+
+  const loadYoutubeAutomation = async () => {
+    if (youtubeAutomationLoading) return;
+    youtubeAutomationLoading = true;
+    youtubeAutomationStatus.textContent = "Checking today’s Hindu calendar record…";
+    youtubeAutomationSearch.hidden = true;
+
+    try {
+      const response = await fetch("/api/dashboard/youtube-automation/today", {
+        credentials: "include",
+        cache: "no-store",
+        headers: { Accept: "application/json" }
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        window.location.assign("/login");
+        return;
+      }
+      if (!response.ok || !payload.success) throw new Error(payload.message || "Unable to check today's festival or event.");
+      renderYoutubeAutomation(payload);
+    } catch (error) {
+      youtubeAutomationStatus.textContent = error.message || "Unable to check today's festival or event.";
+      youtubeAutomationContent.innerHTML = "";
+      youtubeAutomationSearch.hidden = false;
+    } finally {
+      youtubeAutomationLoading = false;
+    }
+  };
+
+  const searchYoutubeAutomation = async () => {
+    youtubeAutomationSearch.disabled = true;
+    youtubeAutomationStatus.textContent = "Searching today’s festival and event data…";
+
+    try {
+      const response = await fetch("/api/dashboard/youtube-automation/today", {
+        method: "POST",
+        credentials: "include",
+        headers: { Accept: "application/json" }
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        window.location.assign("/login");
+        return;
+      }
+      if (!response.ok || !payload.success) throw new Error(payload.message || "Unable to search today's festival or event.");
+      renderYoutubeAutomation(payload);
+      setStatus("Today's festival and event data is ready for YouTube automation.");
+    } catch (error) {
+      youtubeAutomationStatus.textContent = error.message || "Unable to search today's festival or event.";
+      youtubeAutomationSearch.hidden = false;
+      setStatus(error.message || "Unable to search today's festival or event.", true);
+    } finally {
+      youtubeAutomationSearch.disabled = false;
+    }
   };
 
   const stateClass = (state, connected) => {
@@ -771,6 +892,7 @@
 
     if (activeDashboardTab === "sdr-health" && latestGraphs1090) renderGraphs1090(latestGraphs1090);
     if (activeDashboardTab === "visitor-logs") loadVisitorLogs();
+    if (activeDashboardTab === "extras") loadYoutubeAutomation();
   };
 
   const updateVisitorLoggingSetting = async () => {
@@ -817,11 +939,16 @@
       loadVisitorLogs(true);
       return;
     }
+    if (activeDashboardTab === "extras") {
+      loadYoutubeAutomation();
+      return;
+    }
     loadDashboard();
   });
 
   dashboardTabs.forEach((button) => button.addEventListener("click", () => setDashboardTab(button.dataset.dashboardTab)));
   visitorLoggingToggle.addEventListener("change", updateVisitorLoggingSetting);
+  youtubeAutomationSearch.addEventListener("click", searchYoutubeAutomation);
   gainModeAutomatic.addEventListener("change", setGainControlMode);
   gainModeManual.addEventListener("change", setGainControlMode);
   gainControlForm.addEventListener("submit", updateReadsbGain);

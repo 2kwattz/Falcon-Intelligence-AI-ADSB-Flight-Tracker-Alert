@@ -58,6 +58,36 @@ h2 { margin:0; font-size:clamp(1.35rem,2.5vw,2rem); letter-spacing:-.035em; }
 .extras-card:hover { border-color:rgba(88,223,188,.7); background:rgba(24,61,69,.48); transform:translateY(-2px); }
 .extras-card strong { color:#c7f7eb; font-size:.9rem; }
 .extras-card span { color:var(--muted); font-size:.76rem; line-height:1.5; }
+.youtube-automation { margin:0 0 18px; padding:18px; border:1px solid rgba(88,223,188,.4); border-radius:10px; background:linear-gradient(135deg,rgba(26,83,75,.3),rgba(11,28,42,.84)); }
+.youtube-automation-status { margin:0; color:var(--muted); font-size:.78rem; line-height:1.5; }
+.youtube-automation-content { display:grid; gap:10px; margin-top:12px; }
+.youtube-festival-meta { margin:0; color:#bdece1; font-size:.75rem; }
+.youtube-festival-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; }
+.youtube-festival-card { padding:13px; border:1px solid rgba(77,138,135,.56); border-radius:8px; background:rgba(7,24,35,.56); }
+.youtube-festival-card strong,.youtube-festival-card span { display:block; }
+.youtube-festival-card strong { color:#e5fff8; font-size:.84rem; }
+.youtube-festival-card span { margin-top:5px; color:#9ab4c4; font-size:.66rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
+.youtube-data-section { margin-top:16px; }
+.youtube-data-section h3 { margin:0 0 9px; color:#c7f7eb; font-size:.8rem; letter-spacing:.04em; }
+.youtube-panchang-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(185px,1fr)); gap:9px; }
+.youtube-panchang-card { display:grid; gap:5px; min-width:0; padding:11px; border:1px solid rgba(73,124,140,.48); border-radius:7px; background:rgba(8,23,35,.48); }
+.youtube-panchang-card span { color:#9ab4c4; font-size:.61rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.youtube-panchang-card strong { overflow-wrap:anywhere; color:#e5fff8; font-size:.78rem; }
+.youtube-panchang-card small { color:var(--muted); font-size:.66rem; line-height:1.4; }
+.youtube-timing-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:8px; margin:0; padding:0; list-style:none; }
+.youtube-timing-list li { display:flex; justify-content:space-between; gap:10px; padding:9px 10px; border:1px solid rgba(73,124,140,.48); border-radius:7px; background:rgba(8,23,35,.48); font-size:.71rem; }
+.youtube-timing-list strong { color:#dcebf3; }
+.youtube-timing-list span { color:var(--muted); white-space:nowrap; }
+.youtube-details { margin-top:12px; overflow:hidden; border:1px solid rgba(73,124,140,.5); border-radius:8px; background:rgba(8,23,35,.44); }
+.youtube-details summary { padding:12px; color:#c7f7eb; font-size:.76rem; font-weight:800; cursor:pointer; }
+.youtube-details[open] summary { border-bottom:1px solid rgba(73,124,140,.42); }
+.youtube-table-wrap { overflow-x:auto; }
+.youtube-details table { width:100%; border-collapse:collapse; font-size:.7rem; }
+.youtube-details th,.youtube-details td { padding:9px 12px; border-bottom:1px solid rgba(73,124,140,.32); text-align:left; white-space:nowrap; }
+.youtube-details th { color:#9ab4c4; font-size:.61rem; letter-spacing:.07em; text-transform:uppercase; }
+.youtube-details tr:last-child td { border-bottom:0; }
+.youtube-details pre { max-height:480px; margin:0; overflow:auto; padding:14px; color:#c9dae4; background:#06131f; font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+.youtube-automation-search { margin-top:14px; }
 .summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:13px; }
 .summary-card,.health-card,.station-card,.feed-card,.phone-card { min-width:0; border:1px solid rgba(78,119,136,.72); border-radius:10px; background:linear-gradient(145deg,rgba(20,37,56,.9),rgba(11,25,38,.92)); }
 .summary-card { min-height:139px; padding:20px; }

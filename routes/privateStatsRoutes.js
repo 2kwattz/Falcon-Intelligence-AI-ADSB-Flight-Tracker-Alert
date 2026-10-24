@@ -8,6 +8,17 @@ const express = require("express");
 const mongoose = require("mongoose");
 
 const mongodbAuthMiddleware = require("../middlewares/mongodbAuthMiddleware");
+const HinduCalendarDailyRecord = require("../models/HinduCalendarDailyRecord");
+const {
+    DEFAULT_TIME_ZONE,
+    dateInTimeZone,
+    extractOccasions
+} = require("../services/hinduCalendarService");
+const {
+    contextKey,
+    getOrSyncCalendarDay,
+    scheduledContext
+} = require("../services/hinduCalendarDailySync");
 const redisClient = require("../redis/redisClient");
 const {
     getVisitorLogSnapshot,
@@ -1213,10 +1224,77 @@ async function sendGraphs1090Image(req, res) {
     }
 }
 
+function dashboardCalendarPayload(record) {
+    return {
+        date: record.calendarDate,
+        provider: record.provider,
+        occasions: extractOccasions(record.calendar),
+        calendar: record.calendar,
+        providerSyncedAt: record.providerSyncedAt,
+        expiresAt: record.expiresAt
+    };
+}
+
+async function sendYoutubeAutomationToday(req, res) {
+    if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({ success: false, message: "Hindu calendar storage is unavailable" });
+    }
+
+    try {
+        const context = scheduledContext();
+        const date = dateInTimeZone(context.tz || DEFAULT_TIME_ZONE);
+        const record = await HinduCalendarDailyRecord.findOne({
+            calendarDate: date,
+            contextKey: contextKey(context),
+            expiresAt: { $gt: new Date() }
+        }).lean();
+
+        res.set("Cache-Control", "no-store");
+        return res.json({
+            success: true,
+            called: Boolean(record),
+            date,
+            data: record ? dashboardCalendarPayload(record) : null
+        });
+    } catch (error) {
+        console.error("YouTube automation calendar status failed:", error.message);
+        return res.status(503).json({ success: false, message: "Unable to read today's Hindu calendar record" });
+    }
+}
+
+async function searchYoutubeAutomationToday(req, res) {
+    try {
+        const record = await getOrSyncCalendarDay({ context: scheduledContext() });
+        res.set("Cache-Control", "no-store");
+        return res.json({
+            success: true,
+            called: true,
+            data: {
+                date: record.date,
+                provider: record.provider,
+                occasions: record.occasions || [],
+                calendar: record.calendar,
+                providerSyncedAt: record.providerSyncedAt,
+                expiresAt: record.expiresAt
+            }
+        });
+    } catch (error) {
+        console.error("YouTube automation calendar search failed:", error.message);
+        return res.status(error.status || 502).json({
+            success: false,
+            message: error.code === "HINDU_CALENDAR_STORAGE_UNAVAILABLE"
+                ? "Hindu calendar storage is unavailable"
+                : "Unable to search today's festival or event"
+        });
+    }
+}
+
 // Login is now the only access check. The old private-stats password/session
 // endpoints are intentionally removed.
 router.get("/api/dashboard/stats", mongodbAuthMiddleware, sendDashboardStats);
 router.get("/api/private-stats", mongodbAuthMiddleware, sendDashboardStats);
+router.get("/api/dashboard/youtube-automation/today", mongodbAuthMiddleware, sendYoutubeAutomationToday);
+router.post("/api/dashboard/youtube-automation/today", mongodbAuthMiddleware, searchYoutubeAutomationToday);
 router.get("/api/dashboard/graphs1090/:fileName", mongodbAuthMiddleware, sendGraphs1090Image);
 router.get("/api/dashboard/visitor-logs", mongodbAuthMiddleware, sendVisitorLogs);
 router.put("/api/dashboard/visitor-logs/settings", mongodbAuthMiddleware, updateVisitorLoggingSettings);

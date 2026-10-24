@@ -23,6 +23,7 @@ const authMiddleware = require("../middlewares/authMiddleware");
 const mongodbAuthMiddleware = require("../middlewares/mongodbAuthMiddleware");
 const connectDB = require("../db/mongodbConn.js")
 const { hydrateCityAlertSettings } = require("../services/cityAlertSettings");
+const { startHinduCalendarDailySync } = require("../services/hinduCalendarDailySync");
 
 const { ADSB_FLIGHT_JSON_URL } = require("../utils/globals.js");
 
@@ -55,6 +56,7 @@ const trackedAircraftRoutes = require("../routes/trackedAircraftRoutes.js");
 const watchlistRoutes = require("../routes/watchlistRoutes.js");
 const liveMapRoutes = require("../routes/liveMapRoutes.js");
 const apiRoutes = require("../routes/apiRoutes.js");
+const hinduCalendarRoutes = require("../routes/hinduCalendarRoutes.js");
 const exploreRoutes = require("../routes/exploreRoutes.js");
 const aiVideoGenerationRoutes = require("../routes/aiVideoGenerationRoutes.js");
 const privateStatsRoutes = require("../routes/privateStatsRoutes.js");
@@ -183,6 +185,8 @@ async function startServer() {
             } catch (error) {
                 console.error("Unable to load saved city alert settings:", error.message);
             }
+
+            await startHinduCalendarDailySync();
         });
 
         // Main landing page for localhost, a LAN IP, and deployed domains.
@@ -213,6 +217,8 @@ async function startServer() {
         app.use("/admin", adminRoutes) // Admin Router
         app.use("/adsb", adsbRoutes) // Adsb Router
         app.use("/api",apiRoutes) // ADSBLOL, AIRCRAFTS.LIVE & AIRNAVRADAR REST Endpoints
+        app.use("/api/hindu-festivals", hinduCalendarRoutes); // Daily Hindu festivals, vrats, and observances
+        app.use("/api/hindu-calendar", hinduCalendarRoutes); // Compatibility alias for Hindu festival data
         app.use("/", privateStatsRoutes); // JWT-protected dashboard stats
         app.use("/", aiVideoGenerationRoutes); // Falcon Video Generator page and image uploads
         app.use("/live-map", liveMapRoutes); // Independent ADSBHub TCP map pipeline

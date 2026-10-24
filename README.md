@@ -110,6 +110,8 @@ The following integrations are optional and only needed for their corresponding 
 | Gmail SMTP mail delivery for every flight alert | `GMAIL_SMTP`, `GMAIL_SMTP_PASSWORD` |
 | Twilio calls | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_CALLER_ID`, `TWILIO_CALL_TIMEOUT_SECONDS`; city call recipients use `BANGALORE_ALERT_PHONE_1`–`_4` and `DELHI_ALERT_PHONE_1`–`_4` (with optional `BANGALORE_AIRSPACE_NUMBER` and `DELHI_AIRSPACE_NUMBER` caller IDs) |
 | Razorpay payments | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` |
+| Hindu calendar occasions | `TATHAASTU_API_KEY`; optional `HINDU_CALENDAR_LOCATION_ID` (default `1`, New Delhi) or `HINDU_CALENDAR_LAT`, `HINDU_CALENDAR_LON`, `HINDU_CALENDAR_TIME_ZONE`, `HINDU_CALENDAR_REGION`, `HINDU_CALENDAR_LANG`, `HINDU_CALENDAR_CONTENT` |
+| Gemini assistant | `GEMINI_API_KEY`; optional `GEMINI_MODEL` (defaults to `gemini-3.8-flash`) |
 | ADSBHub live feed | `ADSBHUB_HOST`, `ADSBHUB_PORT`, `ADSBHUB_NO_DATA_WARNING_MS` |
 | ADSB.lol re-api dashboard probe | `ADSBLOL_RE_API_URL`, `ADSBLOL_RE_API_CIRCLE`, `ADSBLOL_RE_API_TIMEOUT_MS` |
 | Local ADS-B receiver dashboard | `READSB_STATS_JSON_PATH`, `READSB_RECEIVER_JSON_PATH`, `READSB_STATS_URL`, `READSB_RECEIVER_URL`, `READSB_LOG_PATH`, `READSB_LOG_LINES`, `READSB_HEALTHY_MESSAGE_RATE`, `READSB_MAX_BAD_MESSAGE_RATE`, `READSB_FRESH_MESSAGE_SECONDS` |
@@ -124,6 +126,31 @@ The following integrations are optional and only needed for their corresponding 
 | Suspicious-location login OTP email | `GMAIL_SMTP`, `GMAIL_SMTP_PASSWORD`, and a strong `LOGIN_OTP_SECRET` |
 
 Do not commit `.env` files or API credentials.
+
+### Gemini assistant
+
+The authenticated `POST /ai/askllm` endpoint uses Gemini. `POST /api/askllm` remains available as a compatibility alias. Send a JSON body with a string `query`; the response includes the reply in `message` and identifies the model in `model`.
+
+The default is `gemini-3.8-flash` with low thinking effort, an 8,000-character input limit, and a 512-token output limit. These application limits help conserve the Gemini free-tier quota; the actual quota is applied by Google to the API project, not to an individual API key.
+
+### Hindu calendar API
+
+The server exposes `GET /api/hindu-festivals/today` and `GET /api/hindu-festivals/:date` through the TathaAstu Hindu calendar API. `GET /api/hindu-calendar/daily` remains as a compatibility alias. Create a free TathaAstu account and set `TATHAASTU_API_KEY` in the server environment; do not put this key in browser JavaScript.
+
+```text
+# Today's occasions using the Asia/Kolkata date and the provider's default location (New Delhi)
+GET /api/hindu-festivals/today
+
+# Festivals/vrats for a particular date, Gujarat tradition, and Hindi labels
+GET /api/hindu-festivals/2026-11-08?region=IN-GJ&lang=hi
+
+# Compute dates for a particular place rather than a default city
+GET /api/hindu-festivals/2026-11-08?lat=22.3072&lon=73.1812&tz=Asia/Kolkata
+```
+
+The response includes a normalized `occasions` array plus the complete provider calendar response in `calendar`. This retains festivals, vrats, observances, Panchang facts, and other special-day data returned by the provider. Requests with the same daily parameters are cached in memory for 24 hours, so page refreshes do not consume additional provider quota.
+
+After MongoDB connects, API requests and the background service use one record per date and calendar context in MongoDB’s `hinducalendardailyrecords` collection. An unexpired record is returned without another provider request; otherwise the provider response is stored. It retains both the `occasions` array and the complete daily calendar response, does not use Redis, and is deleted automatically two days after retrieval through a MongoDB TTL index. The background service calls the provider at **11:00 AM Asia/Kolkata** and catches up once if the process starts after 11:00 AM with no record for today.
 
 ### Receiver software: readsb, tar1090, and graphs1090
 
