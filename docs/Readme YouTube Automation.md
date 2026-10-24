@@ -24,6 +24,26 @@ GET /api/hindu-festivals/2026-11-08?region=IN-GJ&lang=hi
 GET /api/hindu-festivals/2026-11-08?lat=22.3072&lon=73.1812&tz=Asia/Kolkata
 ```
 
+The response contains a normalized `occasions` array and the complete provider
+calendar response in `calendar`. This includes festivals, vrats, observances,
+Panchang facts, and other special-day fields returned by the provider. Requests
+with identical daily parameters are held in the service's short in-memory cache
+for 24 hours, so repeated page/API requests do not consume extra provider quota.
+
+## Dashboard automation API
+
+The Mongo/JWT-protected dashboard uses a small automation API in addition to the
+public calendar endpoints:
+
+| Request | Purpose |
+| --- | --- |
+| `GET /api/dashboard/youtube-automation/today` | Read today's stored calendar record and whether it already exists. |
+| `POST /api/dashboard/youtube-automation/today` | Find or synchronize today's record now, then return the normalized result. |
+
+The dashboard routes require the Mongo dashboard session (`mongoToken` or a
+valid Bearer token). They are intended for the YouTube automation workflow;
+they do not expose the provider key.
+
 ## What is retrieved and stored
 
 The service calls the provider’s detailed daily calendar endpoint, not a public-holiday-only API. The result contains:
