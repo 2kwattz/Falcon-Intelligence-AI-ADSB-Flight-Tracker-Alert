@@ -270,7 +270,8 @@ dashboard browser → GET /auth/mongo/me → GET /api/dashboard/stats
 It can show signed-in identity, local readsb health and gain, server
 memory/disk/CPU/uptime, Redis/Mongo health, ADSBHub/ADSB.lol feed state,
 Graphs1090 output, city alerts, editable city catalogues, Master Dataset,
-anonymous visitor logs, and Hindu-calendar automation state.
+anonymous visitor logs, Hindu-calendar automation state, and the imported
+calendar dataset's fast "What is special today?" view.
 
 | Operator action | Endpoint family | Where it goes |
 | --- | --- | --- |
@@ -290,7 +291,7 @@ sudo permission for that helper.
 | Feature | Flow |
 | --- | --- |
 | AI assistant | Legacy-authenticated, rate-limited `/ai/askllm`; cleans input, limits it to 8,000 characters, blocks simple injection patterns, then calls Gemini. |
-| Hindu calendar | Fetches/normalizes occasion data, stores daily records in MongoDB, and schedules a daily Asia/Kolkata refresh. Public APIs use `/api/hindu-festivals` and `/api/hindu-calendar`. |
+| Hindu calendar | The provider service fetches/normalizes current occasion data and schedules a daily Asia/Kolkata refresh. A separate imported 2026–2027 dataset provides the dashboard Extras daily summary and full details without a provider call. |
 | Payments | Razorpay key/order/payment verification routes live in `routes/apiRoutes.js`; secret keys remain on server. |
 | Video generation | Mongo-authenticated upload/job/output routes coordinate with configured ComfyUI/Wan-style tooling. |
 | Communities/chatrooms | Legacy-authenticated MySQL features; community image uploads use Multer. |
@@ -305,7 +306,7 @@ sudo permission for that helper.
 | General Redis | Rate limits, cooldowns, visitor logs, normal cache. | Temporary/TTL-based. |
 | Archive Redis DB | `tracked-aircraft:<hex>` records. | One latest local record per aircraft, five-day TTL. |
 | MySQL | Legacy users, communities, chatroom/application data. | Persistent legacy store. |
-| MongoDB | Dashboard users, city settings, calendar records. | Persistent dashboard/config store. |
+| MongoDB | Dashboard users, city settings, temporary provider calendar records, and persistent imported calendar-day records. | Persistent dashboard/config store; the imported dataset is indexed by date and has no TTL. |
 | Filesystem | Public files, catalogues, receiver files, uploads, graphs. | Depends on host disk and backups. |
 
 Redis is cache storage, not permanent flight history. Clearing it or reaching a

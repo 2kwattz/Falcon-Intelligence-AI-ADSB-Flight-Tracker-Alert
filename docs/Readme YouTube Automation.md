@@ -4,7 +4,7 @@
 
 ## Purpose
 
-The application retrieves the Hindu calendar for each day, retains a durable record in MongoDB, and makes the day’s Hindu festivals, vrats, observances, and special Panchang-day information available through a dedicated API.
+The application has two related calendar data paths. The provider-backed service retrieves a current daily calendar and retains a short-lived MongoDB record. The dataset-backed dashboard feature reads the bundled 2026–2027 Vadodara calendar dataset from MongoDB for fast, predictable daily detail and YouTube planning.
 
 The feature uses TathaAstu as the upstream Hindu calendar provider. The provider key remains server-side and is never delivered to browser code.
 
@@ -43,6 +43,53 @@ public calendar endpoints:
 The dashboard routes require the Mongo dashboard session (`mongoToken` or a
 valid Bearer token). They are intended for the YouTube automation workflow;
 they do not expose the provider key.
+
+## Dataset-backed dashboard calendar
+
+The **Dashboard → Extras** tab contains **What is special today?**. It uses the
+imported calendar dataset rather than calling the external provider during a
+normal dashboard load.
+
+```text
+extraDatasets/hindu_calendar_2026_2027.json
+        │ one-time/idempotent importer
+        ▼
+MongoDB: hindu_calendar_dataset_days
+        │ indexed lookup by Asia/Kolkata date
+        ▼
+Dashboard summary → View details
+```
+
+The initial dashboard request returns only a compact summary: date, weekday,
+location, Hindu month, listed observances, and dataset version. This keeps the
+Extras tab fast. Selecting **View details** requests the complete curated and
+calculated record for that date. The large original provider payload remains
+excluded from ordinary dashboard responses.
+
+All three dataset endpoints are protected by the Mongo dashboard session:
+
+| Request | Purpose |
+| --- | --- |
+| `GET /api/dashboard/hindu-calendar/today` | Small summary of the current Asia/Kolkata calendar day. |
+| `GET /api/dashboard/hindu-calendar/:date` | Full stored day details for a valid `YYYY-MM-DD` date. |
+| `GET /api/dashboard/hindu-calendar/:date/original-json` | Original provider JSON and preservation metadata for that date. |
+
+The dataset covers 730 civil dates from 2026-01-01 through 2027-12-31 for
+Vadodara, Gujarat, India. A date outside that coverage returns no record; it
+does not silently call the external provider.
+
+### Importing or refreshing the dataset
+
+Run the importer from the repository root after setting `MONGO_URI`:
+
+```bash
+node scripts/importHinduCalendarDataset.js
+```
+
+The importer validates each date, writes in batches of 100, and upserts by
+`calendarDate`, so it is safe to run again after replacing the source file. It
+records the source SHA-256 checksum, dataset metadata, import time, and record
+count in the `hindu_calendar_dataset_imports` collection.
 
 ## What is retrieved and stored
 
@@ -90,6 +137,13 @@ calendar context. If one exists, it is returned without calling TathaAstu. If
 not, the provider is called once and its response is upserted. MongoDB deletes
 each record automatically two days after it was retrieved through a TTL index.
 
+The imported reference dataset is separate. It is stored in
+`hindu_calendar_dataset_days` through `models/HinduCalendarDatasetDay.js`, uses
+a unique `calendarDate` index plus year/month and observance indexes, and has no
+TTL. The stored display document excludes the original provider response; that
+response and its preservation metadata are select-false fields returned only by
+the explicit original-JSON dashboard endpoint.
+
 ## Configuration
 
 Add the required provider key to the server environment:
@@ -125,6 +179,10 @@ Set either `HINDU_CALENDAR_LOCATION_ID` or both coordinate values. Do not commit
 | `services/hinduCalendarService.js` | Secure provider client, response normalization, and short in-memory request cache. |
 | `services/hinduCalendarDailySync.js` | 11:00 AM daily scheduler, catch-up behavior, and MongoDB upsert. |
 | `models/HinduCalendarDailyRecord.js` | MongoDB schema for the retained daily records. |
+| `models/HinduCalendarDatasetDay.js` | Indexed persistent schema for the imported 2026–2027 reference dataset. |
+| `scripts/importHinduCalendarDataset.js` | Idempotent batched JSON-to-MongoDB dataset importer. |
+| `routes/privateStatsRoutes.js` | Protected dataset summary, detail, and original-JSON dashboard endpoints. |
+| `public/dashboard.html`, `public/dashboard.js`, `public/dashboard.css` | Extras-tab summary and full-details dialog. |
 | `src/server.js` | Starts the scheduler after MongoDB connects and mounts the API routes. |
 
 ## Falcon Intelligence isolation

@@ -56,6 +56,13 @@
   const youtubeAutomationStatus = $("#youtube-automation-status");
   const youtubeAutomationContent = $("#youtube-automation-content");
   const youtubeAutomationSearch = $("#youtube-automation-search");
+  const hinduCalendarDatasetStatus = $("#hindu-calendar-dataset-status");
+  const hinduCalendarDatasetSummary = $("#hindu-calendar-dataset-summary");
+  const hinduCalendarDetailsButton = $("#hindu-calendar-details");
+  const hinduCalendarDialog = $("#hindu-calendar-dialog");
+  const hinduCalendarDialogClose = $("#hindu-calendar-dialog-close");
+  const hinduCalendarDialogStatus = $("#hindu-calendar-dialog-status");
+  const hinduCalendarDialogContent = $("#hindu-calendar-dialog-content");
   const dashboardTabs = document.querySelectorAll("[data-dashboard-tab]");
   const dashboardPanels = {
     overview: overviewPanel,
@@ -72,6 +79,8 @@
   let visitorLogsLoaded = false;
   let visitorLogsLoading = false;
   let youtubeAutomationLoading = false;
+  let hinduCalendarDatasetLoading = false;
+  let hinduCalendarToday = null;
   let cityAircraftCatalogues = {};
   let masterDatasetAircraft = [];
 
@@ -252,6 +261,67 @@
       setStatus(error.message || "Unable to search today's festival or event.", true);
     } finally {
       youtubeAutomationSearch.disabled = false;
+    }
+  };
+
+  const hinduObservanceName = (item) => {
+    if (typeof item === "string") return item;
+    return item?.name || item?.title || item?.festival_name || item?.festival_key || item?.event_key || "Special observance";
+  };
+
+  const renderHinduCalendarDatasetToday = (data) => {
+    hinduCalendarToday = data;
+    hinduCalendarDetailsButton.hidden = !data;
+    if (!data) {
+      hinduCalendarDatasetStatus.textContent = "No dataset record is available for today.";
+      hinduCalendarDatasetSummary.innerHTML = "";
+      return;
+    }
+    const observances = Array.isArray(data.observances) ? data.observances : [];
+    const month = data.hinduMonth?.amanta_hi || data.hinduMonth?.amanta || data.hinduMonth?.purnimanta_hi || data.hinduMonth?.purnimanta || "Unavailable";
+    const facts = [["Date", formatCalendarDate(data.date)], ["Weekday", [data.weekdayHi, data.weekday].filter(Boolean).join(" · ") || "Unavailable"], ["Hindu month", month], ["Location", data.location?.city || "Vadodara"]];
+    const observanceMarkup = observances.length
+      ? observances.map((item) => `<span class="hindu-calendar-observance">${escapeHtml(hinduObservanceName(item))}</span>`).join("")
+      : "<span class=\"hindu-calendar-observance\">No listed observance — see weekday tradition and Panchang details</span>";
+    hinduCalendarDatasetStatus.textContent = data.hasListedObservance
+      ? `${observances.length} listed special day${observances.length === 1 ? "" : "s"} for today.`
+      : "No named observance is listed for today; the day’s Panchang and weekday tradition are available.";
+    hinduCalendarDatasetSummary.innerHTML = `<div class="hindu-calendar-day-facts">${facts.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}</div><div class="hindu-calendar-observances">${observanceMarkup}</div>`;
+  };
+
+  const loadHinduCalendarDatasetToday = async () => {
+    if (hinduCalendarDatasetLoading) return;
+    hinduCalendarDatasetLoading = true;
+    hinduCalendarDatasetStatus.textContent = "Loading today’s calendar data…";
+    try {
+      const response = await fetch("/api/dashboard/hindu-calendar/today", { credentials: "include", cache: "no-store", headers: { Accept: "application/json" } });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401) return window.location.assign("/login");
+      if (!response.ok || !payload.success) throw new Error(payload.message || "Unable to load today’s calendar data.");
+      renderHinduCalendarDatasetToday(payload.data);
+    } catch (error) {
+      hinduCalendarToday = null;
+      hinduCalendarDetailsButton.hidden = true;
+      hinduCalendarDatasetSummary.innerHTML = "";
+      hinduCalendarDatasetStatus.textContent = error.message || "Unable to load today’s calendar data.";
+    } finally {
+      hinduCalendarDatasetLoading = false;
+    }
+  };
+
+  const showHinduCalendarDetails = async () => {
+    if (!hinduCalendarToday?.date) return;
+    hinduCalendarDialogStatus.textContent = "Loading all details…";
+    hinduCalendarDialogContent.innerHTML = "";
+    hinduCalendarDialog.showModal();
+    try {
+      const response = await fetch(`/api/dashboard/hindu-calendar/${encodeURIComponent(hinduCalendarToday.date)}`, { credentials: "include", cache: "no-store", headers: { Accept: "application/json" } });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success) throw new Error(payload.message || "Unable to load calendar details.");
+      hinduCalendarDialogStatus.textContent = `${formatCalendarDate(payload.date)} · all stored day information`;
+      hinduCalendarDialogContent.innerHTML = `<pre>${escapeHtml(JSON.stringify(payload.details, null, 2))}</pre>`;
+    } catch (error) {
+      hinduCalendarDialogStatus.textContent = error.message || "Unable to load calendar details.";
     }
   };
 
@@ -892,7 +962,10 @@
 
     if (activeDashboardTab === "sdr-health" && latestGraphs1090) renderGraphs1090(latestGraphs1090);
     if (activeDashboardTab === "visitor-logs") loadVisitorLogs();
-    if (activeDashboardTab === "extras") loadYoutubeAutomation();
+    if (activeDashboardTab === "extras") {
+      loadYoutubeAutomation();
+      loadHinduCalendarDatasetToday();
+    }
   };
 
   const updateVisitorLoggingSetting = async () => {
@@ -941,6 +1014,7 @@
     }
     if (activeDashboardTab === "extras") {
       loadYoutubeAutomation();
+      loadHinduCalendarDatasetToday();
       return;
     }
     loadDashboard();
@@ -949,6 +1023,9 @@
   dashboardTabs.forEach((button) => button.addEventListener("click", () => setDashboardTab(button.dataset.dashboardTab)));
   visitorLoggingToggle.addEventListener("change", updateVisitorLoggingSetting);
   youtubeAutomationSearch.addEventListener("click", searchYoutubeAutomation);
+  hinduCalendarDetailsButton.addEventListener("click", showHinduCalendarDetails);
+  hinduCalendarDialogClose.addEventListener("click", () => hinduCalendarDialog.close());
+  hinduCalendarDialog.addEventListener("click", (event) => { if (event.target === hinduCalendarDialog) hinduCalendarDialog.close(); });
   gainModeAutomatic.addEventListener("change", setGainControlMode);
   gainModeManual.addEventListener("change", setGainControlMode);
   gainControlForm.addEventListener("submit", updateReadsbGain);

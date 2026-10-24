@@ -252,6 +252,14 @@
         <div><p class="eyebrow">Extras</p><h2>Youtube Automation</h2></div>
         <p>Use today’s saved festival or event to begin your YouTube automation workflow.</p>
       </div>
+      <section class="hindu-calendar-dataset" aria-labelledby="hindu-calendar-dataset-title">
+        <div class="hindu-calendar-dataset-heading">
+          <div><p class="eyebrow">Hindu calendar dataset</p><h3 id="hindu-calendar-dataset-title">What is special today?</h3></div>
+          <button class="button secondary" id="hindu-calendar-details" type="button" hidden>View details</button>
+        </div>
+        <p class="hindu-calendar-dataset-status" id="hindu-calendar-dataset-status" aria-live="polite">Loading today’s calendar data…</p>
+        <div class="hindu-calendar-dataset-summary" id="hindu-calendar-dataset-summary"></div>
+      </section>
       <div class="youtube-automation" aria-live="polite">
         <p class="youtube-automation-status" id="youtube-automation-status">Checking today’s Hindu calendar record…</p>
         <div class="youtube-automation-content" id="youtube-automation-content"></div>
@@ -265,6 +273,11 @@
       </div>
     </section>
   </main>
+  <dialog class="hindu-calendar-dialog" id="hindu-calendar-dialog" aria-labelledby="hindu-calendar-dialog-title">
+    <div class="dialog-heading"><div><p class="eyebrow">Hindu calendar dataset</p><h2 id="hindu-calendar-dialog-title">Day details</h2></div><button class="icon-button" id="hindu-calendar-dialog-close" type="button" aria-label="Close day details">×</button></div>
+    <p class="hindu-calendar-dialog-status" id="hindu-calendar-dialog-status" aria-live="polite"></p>
+    <div class="hindu-calendar-dialog-content" id="hindu-calendar-dialog-content"></div>
+  </dialog>
 
   <footer class="site-footer shell">&copy; Falcon Intelligence by @2kwattz | Roshan Bhatia</footer>
   <script src="/nav-auth.js" defer></script>

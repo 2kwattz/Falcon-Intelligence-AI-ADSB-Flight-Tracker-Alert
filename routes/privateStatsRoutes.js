@@ -9,6 +9,7 @@ const mongoose = require("mongoose");
 
 const mongodbAuthMiddleware = require("../middlewares/mongodbAuthMiddleware");
 const HinduCalendarDailyRecord = require("../models/HinduCalendarDailyRecord");
+const HinduCalendarDatasetDay = require("../models/HinduCalendarDatasetDay");
 const {
     DEFAULT_TIME_ZONE,
     dateInTimeZone,
@@ -1289,12 +1290,81 @@ async function searchYoutubeAutomationToday(req, res) {
     }
 }
 
+const CALENDAR_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+const dashboardCalendarDatasetSummary = (record) => ({
+    date: record.calendarDate,
+    weekday: record.weekday,
+    weekdayHi: record.weekdayHi,
+    timezone: record.timezone,
+    location: record.location,
+    hinduMonth: record.hinduMonth,
+    observances: record.observances || [],
+    hasListedObservance: Boolean(record.hasListedObservance),
+    primaryObservanceId: record.primaryObservanceId,
+    datasetVersion: record.datasetVersion
+});
+
+async function sendHinduCalendarDatasetToday(req, res) {
+    const date = dateInTimeZone(DEFAULT_TIME_ZONE);
+    try {
+        const record = await HinduCalendarDatasetDay.findOne({ calendarDate: date })
+            .select("calendarDate weekday weekdayHi timezone location hinduMonth observances hasListedObservance primaryObservanceId datasetVersion")
+            .lean();
+        res.set("Cache-Control", "no-store");
+        return res.status(200).json({ success: true, date, data: record ? dashboardCalendarDatasetSummary(record) : null });
+    } catch (error) {
+        console.error("Hindu calendar dataset today lookup failed:", error.message);
+        return res.status(503).json({ success: false, message: "Unable to read the Hindu calendar dataset" });
+    }
+}
+
+async function sendHinduCalendarDatasetDetails(req, res) {
+    const date = String(req.params.date || "");
+    if (!CALENDAR_DATE_PATTERN.test(date)) return res.status(400).json({ success: false, message: "Use a date in YYYY-MM-DD format" });
+    try {
+        const record = await HinduCalendarDatasetDay.findOne({ calendarDate: date })
+            .select("calendarDate details datasetVersion")
+            .lean();
+        if (!record) return res.status(404).json({ success: false, message: "No Hindu calendar data is available for that date" });
+        res.set("Cache-Control", "no-store");
+        return res.status(200).json({ success: true, date, details: record.details, datasetVersion: record.datasetVersion });
+    } catch (error) {
+        console.error("Hindu calendar dataset detail lookup failed:", error.message);
+        return res.status(503).json({ success: false, message: "Unable to read Hindu calendar details" });
+    }
+}
+
+async function sendHinduCalendarDatasetOriginalJson(req, res) {
+    const date = String(req.params.date || "");
+    if (!CALENDAR_DATE_PATTERN.test(date)) return res.status(400).json({ success: false, message: "Use a date in YYYY-MM-DD format" });
+    try {
+        const record = await HinduCalendarDatasetDay.findOne({ calendarDate: date })
+            .select("calendarDate +originalDailyCalendarResponse +originalResponsePreservation")
+            .lean();
+        if (!record) return res.status(404).json({ success: false, message: "No Hindu calendar data is available for that date" });
+        res.set("Cache-Control", "no-store");
+        return res.status(200).json({
+            success: true,
+            date,
+            originalDailyCalendarResponse: record.originalDailyCalendarResponse,
+            originalResponsePreservation: record.originalResponsePreservation
+        });
+    } catch (error) {
+        console.error("Hindu calendar original JSON lookup failed:", error.message);
+        return res.status(503).json({ success: false, message: "Unable to read the original Hindu calendar JSON" });
+    }
+}
+
 // Login is now the only access check. The old private-stats password/session
 // endpoints are intentionally removed.
 router.get("/api/dashboard/stats", mongodbAuthMiddleware, sendDashboardStats);
 router.get("/api/private-stats", mongodbAuthMiddleware, sendDashboardStats);
 router.get("/api/dashboard/youtube-automation/today", mongodbAuthMiddleware, sendYoutubeAutomationToday);
 router.post("/api/dashboard/youtube-automation/today", mongodbAuthMiddleware, searchYoutubeAutomationToday);
+router.get("/api/dashboard/hindu-calendar/today", mongodbAuthMiddleware, sendHinduCalendarDatasetToday);
+router.get("/api/dashboard/hindu-calendar/:date", mongodbAuthMiddleware, sendHinduCalendarDatasetDetails);
+router.get("/api/dashboard/hindu-calendar/:date/original-json", mongodbAuthMiddleware, sendHinduCalendarDatasetOriginalJson);
 router.get("/api/dashboard/graphs1090/:fileName", mongodbAuthMiddleware, sendGraphs1090Image);
 router.get("/api/dashboard/visitor-logs", mongodbAuthMiddleware, sendVisitorLogs);
 router.put("/api/dashboard/visitor-logs/settings", mongodbAuthMiddleware, updateVisitorLoggingSettings);

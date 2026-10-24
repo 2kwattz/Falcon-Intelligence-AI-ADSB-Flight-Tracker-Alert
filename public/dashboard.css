@@ -88,6 +88,22 @@ h2 { margin:0; font-size:clamp(1.35rem,2.5vw,2rem); letter-spacing:-.035em; }
 .youtube-details tr:last-child td { border-bottom:0; }
 .youtube-details pre { max-height:480px; margin:0; overflow:auto; padding:14px; color:#c9dae4; background:#06131f; font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
 .youtube-automation-search { margin-top:14px; }
+.hindu-calendar-dataset { margin:0 0 18px; padding:18px; border:1px solid rgba(226,178,85,.45); border-radius:10px; background:linear-gradient(135deg,rgba(97,66,24,.25),rgba(11,28,42,.84)); }
+.hindu-calendar-dataset-heading { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.hindu-calendar-dataset-heading h3 { margin:2px 0 0; color:#f7e2ad; font-size:1rem; }
+.hindu-calendar-dataset-status { margin:12px 0 0; color:var(--muted); font-size:.78rem; }
+.hindu-calendar-dataset-summary { display:grid; gap:10px; margin-top:12px; }
+.hindu-calendar-observances { display:flex; flex-wrap:wrap; gap:8px; }
+.hindu-calendar-observance { padding:7px 10px; border:1px solid rgba(226,178,85,.42); border-radius:999px; color:#ffedbd; background:rgba(65,45,16,.42); font-size:.73rem; }
+.hindu-calendar-day-facts { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; }
+.hindu-calendar-day-facts div { padding:10px; border:1px solid rgba(73,124,140,.48); border-radius:7px; background:rgba(8,23,35,.48); }
+.hindu-calendar-day-facts span { display:block; color:#9ab4c4; font-size:.61rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.hindu-calendar-day-facts strong { display:block; margin-top:5px; overflow-wrap:anywhere; color:#e5fff8; font-size:.78rem; }
+.hindu-calendar-dialog { width:min(960px,calc(100vw - 28px)); max-height:88vh; border:1px solid rgba(226,178,85,.52); border-radius:10px; color:var(--ink); background:#0b1825; }
+.hindu-calendar-dialog::backdrop { background:rgba(0,0,0,.68); }
+.hindu-calendar-dialog-status { color:var(--muted); font-size:.78rem; }
+.hindu-calendar-dialog-content { max-height:48vh; overflow:auto; }
+.hindu-calendar-dialog-content pre { margin:0; padding:14px; overflow:auto; border:1px solid rgba(73,124,140,.42); border-radius:8px; color:#c9dae4; background:#06131f; font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
 .summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:13px; }
 .summary-card,.health-card,.station-card,.feed-card,.phone-card { min-width:0; border:1px solid rgba(78,119,136,.72); border-radius:10px; background:linear-gradient(145deg,rgba(20,37,56,.9),rgba(11,25,38,.92)); }
 .summary-card { min-height:139px; padding:20px; }
